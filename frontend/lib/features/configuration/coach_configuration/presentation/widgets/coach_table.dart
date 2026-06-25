@@ -169,7 +169,6 @@ class _CoachTableState extends State<CoachTable> {
                       Utils.gridColumn(label: 'ID'),
                       Utils.gridColumn(label: 'Make'),
                       Utils.gridColumn(label: 'Type'),
-                      Utils.gridColumn(label: 'Capacity'),
                       Utils.gridColumn(label: 'Modules'),
                       Utils.gridColumn(label: 'Status'),
                       Utils.gridColumn(label: 'Created'),
@@ -218,7 +217,6 @@ class TableDataSource extends DataGridSource {
         DataGridCell<String>(
             columnName: 'Type',
             value: coachItem.typeOfCoach?.toString() ?? emptyText),
-        DataGridCell<String>(columnName: 'Capacity', value: emptyText),
         DataGridCell<String>(
             columnName: 'Modules',
             value: coachItem.noOfMasterModule?.toString() ?? emptyText),
@@ -247,11 +245,12 @@ class TableDataSource extends DataGridSource {
       color: _selectedRows.contains(row) ? Colors.grey.shade200 : null,
       cells: row.getCells().map((cell) {
         if (cell.columnName == 'Status') {
-          bool isActive = cell.value.toLowerCase() ==
+          final statusText = cell.value.replaceAll(' ', '').toLowerCase();
+          bool isActive = statusText ==
               DeviceStatus.active.name.toLowerCase();
-          bool isUnderMaintenance = cell.value.toLowerCase() ==
+          bool isUnderMaintenance = statusText ==
               DeviceStatus.underMaintenance.name.toLowerCase();
-          bool isRetired = cell.value.toLowerCase() ==
+          bool isRetired = statusText ==
               DeviceStatus.retired.name.toLowerCase();
           Color textColor = Colors.black;
 

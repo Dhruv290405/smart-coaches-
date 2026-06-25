@@ -106,7 +106,14 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         }
       }
 
-      for (var pLog in pneumaticLogs) {
+      final relevantPneumaticLogs = pneumaticLogs.where((pLog) {
+        final fault = pLog.brakeFault?.toString().toLowerCase() ?? "";
+        if (fault.isEmpty || fault == "null" || fault == "none") return true;
+        if (fault.contains('brake release')) return false;
+        return true;
+      }).toList();
+
+      for (var pLog in relevantPneumaticLogs) {
         final fault = pLog.brakeFault?.toString().toLowerCase() ?? "";
         final status = pLog.brakeStatus?.toString().toLowerCase() ?? "";
         if (fault.isNotEmpty && fault != "null" && fault != "none") {
@@ -127,7 +134,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
           moderate: moderate,
           normalState: normal,
           recentAlerts: acpLogs.take(5).toList(),
-          recentPneumaticAlerts: pneumaticLogs.take(5).toList(),
+          recentPneumaticAlerts: relevantPneumaticLogs.take(5).toList(),
           acpDeployed: acpDeployed,
         ),
       );

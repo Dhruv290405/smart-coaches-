@@ -7,6 +7,8 @@ import '../../../../core/utils/app_dimensions.dart';
 import '../../../../core/utils/app_strings.dart';
 import '../../../../core/utils/app_text_styles.dart';
 import '../../../../core/utils/color_constants.dart';
+import '../../../../core/repositories/chart_repository.dart';
+import '../../../../core/widgets/chart_data_helper.dart';
 import '../../../../core/widgets/period_filter.dart';
 
 class AcpChartView extends StatefulWidget {
@@ -54,32 +56,32 @@ class _AcpChartViewState extends State<AcpChartView> {
   int get total => filteredCoaches.length;
 
   // Dynamic Time Series data based on period
-  List<FlSpot> get timeSeriesData {
-    final count = filteredCoaches.where((c) => c.isRecent).length;
-    
-    if (selectedPeriod == 'Live') {
-      return [
-        const FlSpot(0, 0),
-        const FlSpot(1, 1),
-        const FlSpot(2, 0),
-        const FlSpot(3, 2),
-        const FlSpot(4, 1),
-        const FlSpot(5, 3),
-        const FlSpot(6, 2),
-        FlSpot(7, count.toDouble()),
-      ];
-    } else {
-      int days = selectedPeriod == '7 Days' ? 7 : 30;
-      List<FlSpot> spots = [];
-      for (int i = 0; i <= days; i++) {
-        double val = (i % 5 == 0) ? 4.0 : (i % 3 == 0) ? 2.0 : 1.0;
-        if (i == days) val = count.toDouble(); 
-        spots.add(FlSpot(i.toDouble(), val));
-      }
-      return spots;
+  List<FlSpot> _spots = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadChartData();
+  }
+
+  Future<void> _loadChartData() async {
+    try {
+      final raw = await ChartRepository.getAcpData();
+      _spots = ChartDataHelper.fromTimestampValues(raw);
+    } catch (e) {
+      // ignore errors for now, keep empty list
+    } finally {
+      setState(() {
+        _loading = false;
+      });
     }
   }
 
+  List<FlSpot> get timeSeriesData => _spots;
+
+
+  // Keep existing custom range picker unchanged
   Future<void> _pickCustomRange() async {
     final range = await showDateRangePicker(
       context: context,

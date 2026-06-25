@@ -19,7 +19,7 @@ class BCPressureCard extends StatelessWidget {
   static String _formatTimestamp(String raw) {
     if (raw.isEmpty) return 'N/A';
     try {
-      return DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.parse(raw).toUtc());
+      return DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.parse(raw).toLocal());
     } catch (_) {
       return raw;
     }

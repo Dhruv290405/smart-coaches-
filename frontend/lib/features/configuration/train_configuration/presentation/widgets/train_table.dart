@@ -88,12 +88,22 @@ class _TrainTableState extends State<TrainTable> {
           _filterTrain, SearchParams(trainListToFilter, _searchText));
     }
 
-    // Collect all unique keys from all items' rawJson in the order they appear
+    // Whitelist of user-facing columns; internal IDs are excluded
+    const _visibleColumns = {
+      'train_number', 'train_name',
+      'origination_region_name', 'region_name',
+      'departure_station_name', 'destination_station_name',
+      'line', 'train_operator', 'engine_number',
+      'no_of_coaches', 'coach_display_id', 'entity_type', 'position',
+      'created_at', 'updated_at', 'created_by', 'updated_by',
+    };
+
+    // Collect whitelisted keys preserving first-seen order
     final List<String> orderedKeys = [];
     for (var item in filteredItems) {
       if (item.rawJson != null) {
         for (var key in item.rawJson!.keys) {
-          if (!orderedKeys.contains(key)) {
+          if (_visibleColumns.contains(key) && !orderedKeys.contains(key)) {
             orderedKeys.add(key);
           }
         }
@@ -230,7 +240,7 @@ class TableDataSource extends DataGridSource {
     required this.onTapDelete,
     required this.onTapView,
   }) {
-    String emptyText = '----';
+    const String emptyText = '-';
     _rows = items.map((trainItem) {
       return DataGridRow(
           cells: columnNames.map((key) {

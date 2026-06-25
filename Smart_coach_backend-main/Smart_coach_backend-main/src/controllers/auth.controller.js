@@ -2,6 +2,7 @@ const { validationResult } = require('express-validator');
 const userModel = require('../models/user.model');
 const { successResponse, errorResponse } = require('../utils/response');
 const roleModel = require('../models/role.model.js');
+const smsService = require('../utils/smsService');
 
 
 const authController = {
@@ -225,6 +226,29 @@ const authController = {
       const { password_hash, ...userData } = user;
 
       return successResponse(res, 'Profile updated successfully', userData);
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async sendOtp(req, res, next) {
+    try {
+      const { mobile_number } = req.body;
+      if (!mobile_number) return errorResponse(res, 'Mobile number is required', 400);
+      const result = await smsService.sendOtp(mobile_number);
+      return successResponse(res, result.message);
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async verifyOtp(req, res, next) {
+    try {
+      const { mobile_number, otp } = req.body;
+      if (!mobile_number || !otp) return errorResponse(res, 'Mobile number and OTP are required', 400);
+      const result = smsService.verifyOtp(mobile_number, otp);
+      if (!result.success) return errorResponse(res, result.message, 400);
+      return successResponse(res, result.message);
     } catch (error) {
       next(error);
     }

@@ -168,7 +168,7 @@ class _SensorDeviceTableState extends State<SensorDeviceTable> {
                       Utils.gridColumn(label: 'Tech Coach No'),
                       Utils.gridColumn(label: 'Comm Coach No'),
                       Utils.gridColumn(label: 'Sensor ID'),
-                      Utils.gridColumn(label: 'Device ID'),
+                      Utils.gridColumn(label: 'Device Name'),
                       Utils.gridColumn(label: 'Train No'),
                       Utils.gridColumn(label: 'Location'),
                       Utils.gridColumn(label: 'Status'),
@@ -219,8 +219,12 @@ class TableDataSource extends DataGridSource {
             columnName: 'Sensor ID',
             value: coachItem.sensorTypeName ?? emptyText),
         DataGridCell<String>(
-            columnName: 'Device ID',
-            value: coachItem.deviceId ?? emptyText),
+            columnName: 'Device Name',
+            value: coachItem.shortName?.isNotEmpty == true
+                ? coachItem.shortName!
+                : coachItem.fullName?.isNotEmpty == true
+                    ? coachItem.fullName!
+                    : coachItem.deviceId ?? emptyText),
         DataGridCell<String>(
             columnName: 'Train No',
             value: coachItem.trainNo ?? emptyText),
@@ -249,20 +253,15 @@ class TableDataSource extends DataGridSource {
       color: _selectedRows.contains(row) ? Colors.grey.shade200 : null,
       cells: row.getCells().map((cell) {
         if (cell.columnName == 'Status') {
-          bool isActive = cell.value.toLowerCase() ==
-              DeviceStatus.active.name.toLowerCase();
-          bool isUnderMaintenance = cell.value.toLowerCase() ==
-              DeviceStatus.underMaintenance.name.toLowerCase();
-          bool isRetired = cell.value.toLowerCase() ==
-              DeviceStatus.retired.name.toLowerCase();
+          final statusText = cell.value.toLowerCase();
+          bool isActive = statusText == 'active' || statusText == 'online';
+          bool isInactive = statusText == 'inactive' || statusText == 'offline';
           Color textColor = Colors.black;
 
           if (isActive) {
             textColor = Colors.green;
-          } else if (isUnderMaintenance) {
-            textColor = Color(0xFFC0AF6A);
-          } else if (isRetired) {
-            textColor = Colors.red.shade900;
+          } else if (isInactive) {
+            textColor = Colors.red;
           }
 
           return Center(

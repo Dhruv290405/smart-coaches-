@@ -41,6 +41,22 @@ const fsdsController = {
             console.error("FSDS Controller Error:", error.message);
             res.status(500).json({ success: false, error: error.message });
         }
+    },
+
+    getData: async (req, res) => {
+        try {
+            const { limit, offset, locName, trainNo } = req.query;
+            const logs = await FsdsModel.getLogs({
+                limit: parseInt(limit) || 100,
+                offset: parseInt(offset) || 0,
+                locName,
+                trainNo,
+            });
+            return res.json({ success: true, data: logs });
+        } catch (error) {
+            console.error("FSDS Get Data Error:", error.message);
+            res.status(500).json({ success: false, error: error.message });
+        }
     }
 };
 

@@ -5,7 +5,6 @@ import '../../../../../core/utils/app_dimensions.dart';
 import '../../../../../core/utils/app_text_styles.dart';
 import '../../../../../core/utils/color_constants.dart';
 import '../../data/models/hot_axle_model.dart';
-import '../../../../core/utils/device_id_mapper.dart';
 import '../hot_axle_history_screen.dart';
 
 class HotAxleModal extends StatelessWidget {
@@ -97,8 +96,11 @@ class HotAxleModal extends StatelessWidget {
                       const SizedBox(height: 24),
 
                       // General Info
-                      _buildInfoSection('Metadata', [
-                        _buildDetailRow('Technical No', DeviceIdMapper.resolve(coach.deviceId), showTopBorder: false),
+                      _buildInfoSection('Coach Info', [
+                        _buildDetailRow('Coach Number', coach.coachNumber, showTopBorder: false),
+                        if (coach.trainNo.isNotEmpty)
+                          _buildDetailRow('Train Number', coach.trainNo),
+                        _buildDetailRow('Device ID', coach.deviceId),
                         _buildDetailRow('Coach Type', coach.coachType),
                         _buildDetailRow('Railway', coach.owningRly),
                         _buildDetailRow('Battery', '${coach.batteryPercentage}%'),

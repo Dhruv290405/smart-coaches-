@@ -11,6 +11,7 @@ import 'package:smart_coach_new/core/widgets/custom_drop_down.dart';
 import 'package:smart_coach_new/core/widgets/custom_multi_select_field.dart';
 import 'package:smart_coach_new/core/widgets/custom_switch.dart';
 import 'package:smart_coach_new/core/widgets/custom_text_field.dart';
+import 'package:smart_coach_new/core/widgets/field_label_text_view.dart';
 import 'package:smart_coach_new/core/widgets/positive_integer_input_formatter.dart';
 import 'package:smart_coach_new/features/configuration/coach_configuration/domain/entities/coach_entity.dart';
 import 'package:smart_coach_new/features/configuration/master_module_configuration/data/models/master_module_configuration_request.dart';
@@ -53,6 +54,8 @@ class _ConfigureMasterModuleState extends State<ConfigureMasterModule> {
       TextEditingController();
   final TextEditingController batteryCapacityController =
       TextEditingController();
+  final TextEditingController placementLocationController =
+      TextEditingController();
 
   int? selectedCoachId;
   String? selectedLocation;
@@ -61,6 +64,7 @@ class _ConfigureMasterModuleState extends State<ConfigureMasterModule> {
   String? selectedProviderSecondary;
   String? selectedSimStatus;
   String? selectedBatteryType;
+  bool powerSupplyAvailable = true;
 
   bool isDualProfileSupported = false;
   bool isLoraEnabled = false;
@@ -81,7 +85,96 @@ class _ConfigureMasterModuleState extends State<ConfigureMasterModule> {
     batteryRechargeDateController.dispose();
     batteryReplacementDateController.dispose();
     batteryCapacityController.dispose();
+    placementLocationController.dispose();
     super.dispose();
+  }
+
+  Widget _buildSearchableCoachDropdown(List<CoachEntity> coachList) {
+    final selectedCoach = coachList.where((c) => c.coachId == selectedCoachId).firstOrNull;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        FieldLabelTextView(labelText: 'Coach Number', isRequired: true),
+        SizedBox(height: 1.h),
+        GestureDetector(
+          onTap: () => _showCoachSearchDialog(coachList),
+          child: AbsorbPointer(
+            child: TextFormField(
+              readOnly: true,
+              decoration: InputDecoration(
+                hintText: selectedCoach?.coachUniqueId ?? 'Select Coach Number',
+                hintStyle: TextStyle(fontSize: 12.5.sp, color: Colors.black),
+                suffixIcon: Icon(Icons.arrow_drop_down),
+                contentPadding: EdgeInsets.symmetric(horizontal: 2.w, vertical: 1.5.h),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(2.5.w)),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(2.5.w),
+                  borderSide: BorderSide(color: Colors.grey.shade300, width: 0.4.w),
+                ),
+              ),
+              style: TextStyle(fontSize: 12.5.sp, color: Colors.black),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _showCoachSearchDialog(List<CoachEntity> coachList) async {
+    final searchController = TextEditingController();
+    List<CoachEntity> filteredList = List.from(coachList);
+
+    final result = await showDialog<dynamic>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => Dialog(
+          insetPadding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 6.h),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(3.w)),
+          child: Padding(
+            padding: EdgeInsets.all(3.w),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Search Coach...',
+                    prefixIcon: Icon(Icons.search),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(2.w)),
+                  ),
+                  onChanged: (value) {
+                    setDialogState(() {
+                      filteredList = coachList.where((c) =>
+                        c.coachUniqueId?.toLowerCase().contains(value.toLowerCase()) == true ||
+                        c.coachDisplayId?.toLowerCase().contains(value.toLowerCase()) == true
+                      ).toList();
+                    });
+                  },
+                ),
+                SizedBox(height: 1.h),
+                Flexible(
+                  child: ListView(
+                    shrinkWrap: true,
+                    children: filteredList.map((c) => ListTile(
+                      dense: true,
+                      title: Text('${c.coachUniqueId ?? ''} (${c.coachDisplayId ?? ''})'),
+                      subtitle: Text('${c.makeOfCoach ?? ''} - ${c.entityType ?? ''}'),
+                      selected: c.coachId == selectedCoachId,
+                      onTap: () => Navigator.pop(ctx, c.coachId),
+                    )).toList(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    if (result != null) {
+      setState(() => selectedCoachId = result);
+    }
+    searchController.dispose();
   }
 
   Future<void> _selectDate(TextEditingController controller) async {
@@ -131,6 +224,8 @@ class _ConfigureMasterModuleState extends State<ConfigureMasterModule> {
     batteryCapacityController.text = item.batteryCapacity?.toString() ?? '';
     selectedBatteryType = item.batteryType;
     isLoraEnabled = item.loraEnabled ?? false;
+    placementLocationController.text = '';
+    powerSupplyAvailable = true;
     setState(() {});
   }
 
@@ -195,20 +290,7 @@ class _ConfigureMasterModuleState extends State<ConfigureMasterModule> {
                   color: Colors.grey.shade300,
                   margin: EdgeInsets.symmetric(vertical: 1.5.h),
                 ),
-                CustomDropDown<CoachEntity>(
-                  label: 'Coach Number',
-                  hintText: 'Select Coach Number',
-                  value: selectedCoachId,
-                  items: state.coachList,
-                  getValue: (e) => e.coachId,
-                  displayText: (e) => e.coachUniqueId ?? '',
-                  isRequired: true,
-                  onChanged: (value) {
-                    setState(() {
-                      selectedCoachId = value;
-                    });
-                  },
-                ),
+                _buildSearchableCoachDropdown(state.coachList),
                 SizedBox(height: 2.h),
                 CustomTextField(
                   controller: moduleIdController,
@@ -287,6 +369,21 @@ class _ConfigureMasterModuleState extends State<ConfigureMasterModule> {
                       selectedPlacementType = value;
                     });
                   },
+                ),
+                if (selectedPlacementType == 'Other') ...[
+                  SizedBox(height: 2.h),
+                  CustomTextField(
+                    controller: placementLocationController,
+                    labelText: 'Specify Placement Location',
+                    hintText: 'Enter placement location',
+                    isRequired: true,
+                  ),
+                ],
+                SizedBox(height: 2.h),
+                CustomSwitch(
+                  text: 'Power Supply Available',
+                  value: powerSupplyAvailable,
+                  onChanged: (value) => setState(() => powerSupplyAvailable = value),
                 ),
                 SizedBox(height: 2.5.h),
                 Text(
@@ -450,8 +547,14 @@ class _ConfigureMasterModuleState extends State<ConfigureMasterModule> {
                     state.deviceList
                         .where((device) =>
                             selectedApplicableDevices.contains(device.deviceId))
-                        .map((device) =>
-                            ChipModel(device.deviceId, device.fullName))
+                        .map((device) => ChipModel(
+                              device.deviceId,
+                              (device.fullName != null && device.fullName!.isNotEmpty)
+                                  ? device.fullName!
+                                  : (device.shortName != null && device.shortName!.isNotEmpty)
+                                      ? device.shortName!
+                                      : device.deviceUniqueId ?? '---',
+                            ))
                         .toList(), (ChipModel item) {
                   selectedApplicableDevices.removeWhere((ee) {
                     return ee == item.id;
@@ -499,7 +602,6 @@ class _ConfigureMasterModuleState extends State<ConfigureMasterModule> {
                   controller: batteryCapacityController,
                   labelText: 'Battery Capacity',
                   hintText: 'Enter Battery Capacity',
-                  isRequired: true,
                   textInputType: TextInputType.number,
                   inputFormatters: [PositiveIntegerInputFormatter()],
                 ),
@@ -509,7 +611,6 @@ class _ConfigureMasterModuleState extends State<ConfigureMasterModule> {
                   hintText: 'Select Battery Type',
                   value: selectedBatteryType,
                   items: Constants.batteryTypeList,
-                  isRequired: true,
                   onChanged: (value) {
                     setState(() {
                       selectedBatteryType = value;
@@ -562,6 +663,10 @@ class _ConfigureMasterModuleState extends State<ConfigureMasterModule> {
   void _doProcess() {
     if (!_doValidate()) return;
 
+    final effectivePlacementType = selectedPlacementType == 'Other'
+        ? placementLocationController.text.trim()
+        : selectedPlacementType;
+
     final request = MasterModuleConfigurationRequest(
       coachId: selectedCoachId,
       moduleUniqueId: moduleIdController.text.trim(),
@@ -570,7 +675,7 @@ class _ConfigureMasterModuleState extends State<ConfigureMasterModule> {
       serielNumber: serialNumberController.text.trim(),
       installationDate: installationDateController.text.trim(),
       location: selectedLocation,
-      placementType: selectedPlacementType,
+      placementType: effectivePlacementType,
       simNo: simNumberController.text.trim(),
       rechargeDate: rechargeDateController.text.trim(),
       serviceProviderPrimary: selectedProviderPrimary,
@@ -581,7 +686,7 @@ class _ConfigureMasterModuleState extends State<ConfigureMasterModule> {
       dualProfileSupported: isDualProfileSupported,
       loraEnabled: isLoraEnabled,
       esimEnabled: isESimEnabled,
-      batteryCapacity: int.tryParse(batteryCapacityController.text.trim()) ?? 0,
+      batteryCapacity: int.tryParse(batteryCapacityController.text.trim()),
       batteryType: selectedBatteryType,
       batteryRechargeDate: batteryRechargeDateController.text.trim(),
       deviceIds: selectedApplicableDevices,
@@ -591,6 +696,7 @@ class _ConfigureMasterModuleState extends State<ConfigureMasterModule> {
       CreateEditMasterModuleConfiguration(
         request,
         moduleId: widget.selectedMasterModuleItem?.moduleId,
+        extraFields: {'power_supply_available': powerSupplyAvailable},
       ),
     );
   }
@@ -617,6 +723,9 @@ class _ConfigureMasterModuleState extends State<ConfigureMasterModule> {
     } else if (selectedPlacementType == null) {
       ToastMessageUtils.showMessage(context, 'Please select Placement Type');
       return false;
+    } else if (selectedPlacementType == 'Other' && placementLocationController.text.trim().isEmpty) {
+      ToastMessageUtils.showMessage(context, 'Please specify placement location');
+      return false;
     } else if (simNumberController.text.trim().isEmpty) {
       ToastMessageUtils.showMessage(context, 'Please enter SIM Number');
       return false;
@@ -634,14 +743,8 @@ class _ConfigureMasterModuleState extends State<ConfigureMasterModule> {
     } else if (rechargeDateController.text.trim().isEmpty) {
       ToastMessageUtils.showMessage(context, 'Please select Recharge Date');
       return false;
-    } else if (batteryCapacityController.text.trim().isEmpty) {
-      ToastMessageUtils.showMessage(context, 'Please enter battery capacity');
-      return false;
     } else if (selectedSimStatus == null) {
       ToastMessageUtils.showMessage(context, 'Please select SIM Status');
-      return false;
-    } else if (selectedBatteryType == null) {
-      ToastMessageUtils.showMessage(context, 'Please select battery type');
       return false;
     } else if (selectedApplicableDevices.isEmpty) {
       ToastMessageUtils.showMessage(

@@ -10,17 +10,12 @@ class HotAxleCoachCard extends StatelessWidget {
   final HotAxleCoachModel coach;
   final VoidCallback? onEyeIconTap;
 
-  const HotAxleCoachCard({
-    super.key,
-    required this.coach,
-    this.onEyeIconTap,
-  });
+  const HotAxleCoachCard({super.key, required this.coach, this.onEyeIconTap});
 
   static String _formatTimestamp(String raw) {
     if (raw.isEmpty) return 'N/A';
     try {
-      final utc = DateTime.parse(raw).toLocal();
-      return DateFormat('dd MMM yyyy, hh:mm a').format(utc);
+      return DateFormat('dd MMM HH:mm').format(DateTime.parse(raw).toLocal());
     } catch (_) {
       return raw;
     }
@@ -28,14 +23,10 @@ class HotAxleCoachCard extends StatelessWidget {
 
   static Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
-      case 'good':
-        return Colors.green;
-      case 'warning':
-        return const Color(0xFFBE8B22);
-      case 'critical':
-        return const Color(0xFFD32F2F);
-      default:
-        return ColorConstants.iconGrey;
+      case 'good': return Colors.green;
+      case 'warning': return const Color(0xFFBE8B22);
+      case 'critical': return const Color(0xFFD32F2F);
+      default: return ColorConstants.iconGrey;
     }
   }
 
@@ -49,9 +40,7 @@ class HotAxleCoachCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: isAlert ? statusColor.withValues(alpha: 0.05) : ColorConstants.cardBackground,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isAlert ? statusColor.withValues(alpha: 0.2) : ColorConstants.divider,
-        ),
+        border: Border.all(color: isAlert ? statusColor.withValues(alpha: 0.2) : ColorConstants.divider),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -60,29 +49,24 @@ class HotAxleCoachCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Expanded(
-                child: Text(
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  'Coach ${coach.coachNumber}',
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: ColorConstants.primary,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Coach: ${coach.coachNumber}', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: ColorConstants.primary)),
+                    if (coach.trainNo.isNotEmpty)
+                      Text('Train: ${coach.trainNo}', style: GoogleFonts.poppins(fontSize: 10, color: ColorConstants.textSecondary)),
+                    if (coach.deviceId != 'Unknown')
+                      Text('Device: ${coach.deviceId}', style: GoogleFonts.poppins(fontSize: 9, color: ColorConstants.textTertiary)),
+                  ],
                 ),
               ),
               GestureDetector(
                 onTap: onEyeIconTap,
-                child: SvgPicture.asset(
-                  AppIcons.eye,
-                  width: 18,
-                  height: 18,
-                  colorFilter: const ColorFilter.mode(ColorConstants.iconGrey, BlendMode.srcIn),
-                ),
+                child: SvgPicture.asset(AppIcons.eye, width: 18, height: 18, colorFilter: const ColorFilter.mode(ColorConstants.iconGrey, BlendMode.srcIn)),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -90,30 +74,26 @@ class HotAxleCoachCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Max Temp',
-                      style: GoogleFonts.poppins(fontSize: 10, color: ColorConstants.textSecondary),
-                    ),
-                    Text(
-                      '${coach.maxTemp.toStringAsFixed(1)}°C',
-                      style: GoogleFonts.poppins(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: isAlert ? statusColor : ColorConstants.textPrimary,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    Text('Max Temp', style: GoogleFonts.poppins(fontSize: 10, color: ColorConstants.textSecondary)),
+                    Text('${coach.maxTemp.toStringAsFixed(1)}°C', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w700, color: isAlert ? statusColor : ColorConstants.textPrimary)),
                   ],
                 ),
               ),
-              const SizedBox(width: 4),
               _buildStatusBadge(coach.status, statusColor),
             ],
           ),
-          const SizedBox(height: 12),
-          Text(
-            _formatTimestamp(coach.timestamp),
-            style: GoogleFonts.poppins(fontSize: 10, color: ColorConstants.textTertiary),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(_formatTimestamp(coach.timestamp), style: GoogleFonts.poppins(fontSize: 9, color: ColorConstants.textTertiary)),
+              if (coach.coachType != 'Unknown')
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(color: ColorConstants.primary.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(4)),
+                  child: Text(coach.coachType, style: GoogleFonts.poppins(fontSize: 8, color: ColorConstants.primary, fontWeight: FontWeight.w500)),
+                ),
+            ],
           ),
         ],
       ),
@@ -123,14 +103,8 @@ class HotAxleCoachCard extends StatelessWidget {
   Widget _buildStatusBadge(String status, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(
-        status.toUpperCase(),
-        style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w700, color: color),
-      ),
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
+      child: Text(status.toUpperCase(), style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w700, color: color)),
     );
   }
 }

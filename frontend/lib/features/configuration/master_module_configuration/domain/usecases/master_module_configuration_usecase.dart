@@ -17,14 +17,16 @@ class MasterModuleConfigurationUseCase {
       repository.fetchMasterModuleList();
 
   Future<String> createMasterModuleConfiguration(
-          MasterModuleConfigurationRequest masterModuleConfigurationRequest) =>
+          MasterModuleConfigurationRequest masterModuleConfigurationRequest,
+          {Map<String, dynamic>? extraFields}) =>
       repository
-          .createMasterModuleConfiguration(masterModuleConfigurationRequest);
+          .createMasterModuleConfiguration(masterModuleConfigurationRequest, extraFields: extraFields);
 
   Future<String> editMasterModuleConfiguration(int? moduleId,
-          MasterModuleConfigurationRequest masterModuleConfigurationRequest) =>
+          MasterModuleConfigurationRequest masterModuleConfigurationRequest,
+          {Map<String, dynamic>? extraFields}) =>
       repository.editMasterModuleConfiguration(
-          moduleId, masterModuleConfigurationRequest);
+          moduleId, masterModuleConfigurationRequest, extraFields: extraFields);
 
   Future<String> deleteMasterModuleConfiguration(int? moduleId) =>
       repository.deleteMasterModuleConfiguration(moduleId);

@@ -105,13 +105,7 @@ class _AcpAlertsViewState extends State<AcpAlertsView> {
     final isEmergency = log.acpStatus == '1';
     
     // Parse coach number: [Coach_Code] [Coach_Number] ACP [Device_ID]
-    String coachName = log.commCoachNo ?? 'Unknown';
-    if (log.rawAssetName != null && log.rawAssetName!.isNotEmpty) {
-      final parts = log.rawAssetName!.split(' ');
-      if (parts.length >= 2) {
-        coachName = parts[1];
-      }
-    }
+    String coachName = log.commCoachNo ?? log.techCoachNo ?? 'Unknown';
 
     final lastUpdatedStr = log.lastUpdated ?? '';
     String timeStr = 'Unknown';
@@ -168,10 +162,14 @@ class _AcpAlertsViewState extends State<AcpAlertsView> {
                   '$coachName  |  $timeStr',
                   style: GoogleFonts.poppins(fontSize: 11, color: isEmergency ? const Color(0xFFE53935) : const Color(0xFF388E3C)),
                 ),
-                // Text(
-                //   'Location: ${log.locName ?? 'N/A'}',
-                //   style: GoogleFonts.poppins(fontSize: 11, color: isEmergency ? const Color(0xFFE53935) : const Color(0xFF388E3C)),
-                // ),
+                Text(
+                  'Train: ${log.trainNo ?? 'N/A'} | Device: ${log.deviceId ?? 'N/A'}',
+                  style: GoogleFonts.poppins(fontSize: 10, color: ColorConstants.textSecondary),
+                ),
+                Text(
+                  'Location: ${log.trainLocation ?? 'N/A'}',
+                  style: GoogleFonts.poppins(fontSize: 10, color: ColorConstants.textSecondary),
+                ),
               ],
             ),
           ),

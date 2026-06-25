@@ -77,3 +77,18 @@ class SubmitRegister extends RegisterEvent {
   @override
   List<Object?> get props => [];
 }
+
+class SendOtp extends RegisterEvent {
+  final String mobileNumber;
+  const SendOtp(this.mobileNumber);
+  @override
+  List<Object?> get props => [mobileNumber];
+}
+
+class VerifyOtp extends RegisterEvent {
+  final String mobileNumber;
+  final String otp;
+  const VerifyOtp(this.mobileNumber, this.otp);
+  @override
+  List<Object?> get props => [mobileNumber, otp];
+}

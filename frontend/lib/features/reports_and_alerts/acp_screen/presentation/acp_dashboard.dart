@@ -148,6 +148,8 @@ class _AcpDashboardState extends State<AcpDashboard> {
       _filteredCoaches = _allCoaches.where((coach) {
         final matchesTrain = selectedTrainNumber == 'All Trains' || 
                            coach.trainNo == selectedTrainNumber;
+        final matchesCoachType = selectedCoachType == 'All Types' || 
+                               coach.coachNumber == selectedCoachType;
         final matchesCoach = selectedCoachNumber == 'All Coach Numbers' || 
                            coach.sensorId == selectedCoachNumber;
         final matchesStatus = selectedStatus == 'All' || 
@@ -155,7 +157,7 @@ class _AcpDashboardState extends State<AcpDashboard> {
                              (selectedStatus == 'OFF' && !coach.isChainPulled);
         final matchesRecent = !showRecentOnly || coach.isRecent;
         
-        return matchesTrain && matchesCoach && matchesStatus && matchesRecent;
+        return matchesTrain && matchesCoachType && matchesCoach && matchesStatus && matchesRecent;
       }).toList();
     });
   }
@@ -267,6 +269,8 @@ class _AcpDashboardState extends State<AcpDashboard> {
   }
 
   void _sendAlerts() {
+    final offlineCount = _filteredCoaches.where((c) => !c.isOn).length;
+    final offlineCoaches = _filteredCoaches.where((c) => !c.isOn).map((c) => c.coachNumber).join(', ');
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
@@ -276,14 +280,12 @@ class _AcpDashboardState extends State<AcpDashboard> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Alert will be sent to:', style: GoogleFonts.poppins(fontSize: 13, color: ColorConstants.textSecondary)),
-            const SizedBox(height: 12),
-            _alertRecipient(Icons.person, 'Train Guard - Ramesh Kumar'),
-            _alertRecipient(Icons.support_agent, 'Station Master - Ujjain'),
-            _alertRecipient(Icons.security, 'RPF Control Room'),
+            Text('Offline coaches will be alerted:', style: GoogleFonts.poppins(fontSize: 13, color: ColorConstants.textSecondary)),
             const SizedBox(height: 12),
             Text(
-              '4 coaches currently OFF: Coach 4, 7, 11, 20',
+              offlineCount > 0
+                  ? '$offlineCount coach(s) currently offline: $offlineCoaches'
+                  : 'All coaches are online',
               style: GoogleFonts.poppins(fontSize: 12, color: const Color(0xFFD32F2F), fontWeight: FontWeight.w500),
             ),
           ],
@@ -291,36 +293,8 @@ class _AcpDashboardState extends State<AcpDashboard> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Cancel', style: GoogleFonts.poppins(color: ColorConstants.textSecondary)),
+            child: Text('Close', style: GoogleFonts.poppins(color: ColorConstants.textSecondary)),
           ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: ColorConstants.primary),
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Alert sent to 3 recipients', style: GoogleFonts.poppins(fontSize: 13)),
-                  backgroundColor: Colors.green[700],
-                  behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                ),
-              );
-            },
-            child: Text('Send Now', style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w600)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _alertRecipient(IconData icon, String name) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: ColorConstants.primary),
-          const SizedBox(width: 8),
-          Text(name, style: GoogleFonts.poppins(fontSize: 13)),
         ],
       ),
     );

@@ -164,8 +164,6 @@ class _FullTankHistoryState extends State<FullTankHistory> {
               _infoChip('${_currentAsset.volumeLiters.toStringAsFixed(1)} L'),
               const SizedBox(width: 8),
               _infoChip('${_currentAsset.levelCm.toStringAsFixed(1)} cm'),
-              const SizedBox(width: 8),
-              _infoChip('Raw: ${_currentAsset.rawValue}'),
             ],
           ),
           const SizedBox(height: 8),
@@ -448,7 +446,7 @@ class _FullTankHistoryState extends State<FullTankHistory> {
           children: [
             _buildStatItem('Level (cm)', '${_currentAsset.levelCm.toStringAsFixed(1)} cm', ColorConstants.statusGood),
             const SizedBox(width: 12),
-            _buildStatItem('Raw Value', '${_currentAsset.rawValue}', ColorConstants.primary),
+            _buildStatItem('Volume', '${_currentAsset.volumeLiters.toStringAsFixed(1)} L', ColorConstants.primary),
           ],
         ),
       ],

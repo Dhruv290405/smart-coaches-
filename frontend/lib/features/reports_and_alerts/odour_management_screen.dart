@@ -11,6 +11,8 @@ import '../../core/utils/color_constants.dart';
 import '../../core/widgets/action_button.dart';
 import '../../core/widgets/filter_dropdown.dart';
 import '../../core/widgets/status_chip.dart';
+import 'odour_management/data/models/odour_model.dart';
+import 'odour_management/data/repository/odour_repository.dart';
 
 class OdourManagementScreen extends StatefulWidget {
   const OdourManagementScreen({super.key});
@@ -20,145 +22,20 @@ class OdourManagementScreen extends StatefulWidget {
 }
 
 class _OdourManagementScreenState extends State<OdourManagementScreen> {
-  String selectedTrainNumber = '12952';
-  String selectedCoachType = '3AC';
-  String selectedCoachNumber = 'B1';
+  final OdourRepository _repository = OdourRepository();
+  String selectedTrainNumber = 'All Trains';
+  String selectedCoachType = 'All Types';
+  String selectedCoachNumber = 'All Coaches';
   String selectedStatus = 'All';
-  String lastUpdated = '18:55:00';
+  String lastUpdated = '--:--:--';
   bool isRefreshing = false;
 
-  final List<Map<String, dynamic>> dummyTrains = [
-    {
-      "train_info": {
-        "train_number": "12952",
-        "train_name": "Rajdhani Express",
-        "route": "NDLS-BCT"
-      },
-      "coaches": [
-        {
-          "coach_number": "B1",
-          "coach_type": "3AC",
-          "total_devices": 4,
-          "last_synced": "2026-04-21T18:55:00Z",
-          "devices": [
-            {
-              "device_id": "OMD-B1-T1",
-              "toilet_position": "L-Side-Front",
-              "status": "Active",
-              "battery_level": 85,
-              "refill_level": 42,
-              "usage_count_since_clean": 18,
-              "cleanliness_indicator": "Needs Cleaning",
-              "last_cleaning_timestamp": "2026-04-21T12:30:00Z",
-              "malfunction_alerts": []
-            },
-            {
-              "device_id": "OMD-B1-T2",
-              "toilet_position": "R-Side-Front",
-              "status": "Active",
-              "battery_level": 92,
-              "refill_level": 75,
-              "usage_count_since_clean": 4,
-              "cleanliness_indicator": "Clean",
-              "last_cleaning_timestamp": "2026-04-21T17:45:00Z",
-              "malfunction_alerts": []
-            },
-            {
-              "device_id": "OMD-B1-T3",
-              "toilet_position": "L-Side-Rear",
-              "status": "Offline",
-              "battery_level": 0,
-              "refill_level": 10,
-              "usage_count_since_clean": 25,
-              "cleanliness_indicator": "Unknown",
-              "last_cleaning_timestamp": "2026-04-21T08:00:00Z",
-              "malfunction_alerts": ["Power Failure", "Critical Refill Low"]
-            },
-            {
-              "device_id": "OMD-B1-T4",
-              "toilet_position": "R-Side-Rear",
-              "status": "Active",
-              "battery_level": 78,
-              "refill_level": 60,
-              "usage_count_since_clean": 2,
-              "cleanliness_indicator": "Clean",
-              "last_cleaning_timestamp": "2026-04-21T18:10:00Z",
-              "malfunction_alerts": []
-            }
-          ]
-        },
-        {
-          "coach_number": "A1",
-          "coach_type": "2AC",
-          "total_devices": 2,
-          "last_synced": "2026-04-21T19:05:00Z",
-          "devices": [
-            {
-              "device_id": "OMD-A1-T1",
-              "toilet_position": "L-Side-Front",
-              "status": "Active",
-              "battery_level": 95,
-              "refill_level": 88,
-              "usage_count_since_clean": 3,
-              "cleanliness_indicator": "Clean",
-              "last_cleaning_timestamp": "2026-04-21T18:00:00Z",
-              "malfunction_alerts": []
-            },
-            {
-              "device_id": "OMD-A1-T2",
-              "toilet_position": "R-Side-Rear",
-              "status": "Active",
-              "battery_level": 88,
-              "refill_level": 12,
-              "usage_count_since_clean": 15,
-              "cleanliness_indicator": "Needs Cleaning",
-              "last_cleaning_timestamp": "2026-04-21T12:00:00Z",
-              "malfunction_alerts": ["Refill Low"]
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "train_info": {
-        "train_number": "12002",
-        "train_name": "Shatabdi Express",
-        "route": "NDLS-HBJ"
-      },
-      "coaches": [
-        {
-          "coach_number": "C1",
-          "coach_type": "CC",
-          "total_devices": 2,
-          "last_synced": "2026-04-21T18:40:00Z",
-          "devices": [
-            {
-              "device_id": "OMD-C1-T1",
-              "toilet_position": "L-Side-Front",
-              "status": "Active",
-              "battery_level": 70,
-              "refill_level": 55,
-              "usage_count_since_clean": 12,
-              "cleanliness_indicator": "Clean",
-              "last_cleaning_timestamp": "2026-04-21T16:00:00Z",
-              "malfunction_alerts": []
-            },
-            {
-              "device_id": "OMD-C1-T2",
-              "toilet_position": "R-Side-Rear",
-              "status": "Offline",
-              "battery_level": 10,
-              "refill_level": 5,
-              "usage_count_since_clean": 30,
-              "cleanliness_indicator": "Unknown",
-              "last_cleaning_timestamp": "2026-04-21T06:00:00Z",
-              "malfunction_alerts": ["Battery Critical"]
-            }
-          ]
-        }
-      ]
-    }
-  ];
+  List<OdourCoachModel> _allCoaches = [];
+  List<OdourCoachModel> _filteredCoaches = [];
+
+  List<String> get trainNumbers => ['All Trains', ..._allCoaches.map((c) => c.trainNumber).toSet()];
+  List<String> get coachTypes => ['All Types', ..._allCoaches.map((c) => c.coachType).toSet()];
+  List<String> get coachNumbers => ['All Coaches', ..._allCoaches.map((c) => c.coachNumber).toSet()];
 
   void _clearFilters() {
     setState(() {
@@ -167,59 +44,54 @@ class _OdourManagementScreenState extends State<OdourManagementScreen> {
       selectedCoachNumber = 'All Coaches';
       selectedStatus = 'All';
     });
+    _applyFilters();
+  }
+
+  void _applyFilters() {
+    setState(() {
+      _filteredCoaches = _allCoaches.where((c) {
+        if (selectedTrainNumber != 'All Trains' && c.trainNumber != selectedTrainNumber) return false;
+        if (selectedCoachType != 'All Types' && c.coachType != selectedCoachType) return false;
+        if (selectedCoachNumber != 'All Coaches' && c.coachNumber != selectedCoachNumber) return false;
+        if (selectedStatus != 'All') {
+          if (selectedStatus == 'Alert' && !c.hasActiveAlert) return false;
+          if (selectedStatus == 'Active' && c.hasActiveAlert) return false;
+        }
+        return true;
+      }).toList();
+    });
   }
 
   Future<void> _refreshData() async {
     setState(() => isRefreshing = true);
-    await Future.delayed(const Duration(seconds: 1));
-    if (mounted) {
-      setState(() {
-        lastUpdated = DateFormat('HH:mm:ss').format(DateTime.now());
-        isRefreshing = false;
-      });
+    try {
+      final data = await _repository.getOdourData();
+      if (mounted) {
+        setState(() {
+          _allCoaches = data;
+          lastUpdated = DateFormat('HH:mm:ss').format(DateTime.now());
+        });
+        _applyFilters();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => isRefreshing = false);
     }
+  }
+
+  void _sendAlerts() {
+    final critical = _allCoaches.where((c) => c.hasActiveAlert).length;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Sent alerts for $critical coaches with active alerts')),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    // Collect dropdown items dynamically
-    final trainNumbers = ['All Trains', ...dummyTrains.map((t) => t['train_info']['train_number'].toString())];
-    
-    List<String> coachTypes = ['All Types'];
-    List<String> coachNumbers = ['All Coaches'];
-    List<Map<String, dynamic>> filteredCoaches = [];
-
-    // Filter logic
-    for (var train in dummyTrains) {
-      if (selectedTrainNumber != 'All Trains' && train['train_info']['train_number'] != selectedTrainNumber) continue;
-      
-      for (var coach in train['coaches']) {
-        coachTypes.add(coach['coach_type']);
-        
-        if (selectedCoachType != 'All Types' && coach['coach_type'] != selectedCoachType) continue;
-        coachNumbers.add(coach['coach_number']);
-        
-        if (selectedCoachNumber != 'All Coaches' && coach['coach_number'] != selectedCoachNumber) continue;
-        
-        // Final eligibility based on device status within coach if status filter is active
-        final devices = coach['devices'] as List;
-        bool hasAtLeastOneMatchingDevice = true;
-        if (selectedStatus != 'All') {
-          hasAtLeastOneMatchingDevice = devices.any((d) {
-            if (selectedStatus == 'Clean') return d['cleanliness_indicator'] == 'Clean';
-            if (selectedStatus == 'Dirty') return d['cleanliness_indicator'] == 'Needs Cleaning';
-            if (selectedStatus == 'Offline') return d['status'] == 'Offline';
-            return true;
-          });
-        }
-        
-        if (hasAtLeastOneMatchingDevice) {
-          filteredCoaches.add({...coach, "train_no": train['train_info']['train_number']});
-        }
-      }
-    }
-    coachTypes = ['All Types', ...coachTypes.toSet()];
-    coachNumbers = ['All Coaches', ...coachNumbers.toSet()];
+    final filtered = _filteredCoaches;
 
     return Scaffold(
       backgroundColor: ColorConstants.scaffoldBackground,
@@ -252,13 +124,18 @@ class _OdourManagementScreenState extends State<OdourManagementScreen> {
         padding: const EdgeInsets.all(AppDimensions.paddingLarge),
         child: Column(
           children: [
-            _buildSectionCard(
-              child: _buildFiltersSection(trainNumbers, coachTypes, coachNumbers)
-            ),
+            _buildSectionCard(child: _buildFiltersSection()),
             const SizedBox(height: 8),
             _buildSectionCard(child: _buildQuickActionsSection()),
             const SizedBox(height: 8),
-            _buildCoachGrid(filteredCoaches),
+            if (filtered.isEmpty)
+              Container(
+                height: 200,
+                alignment: Alignment.center,
+                child: Text('No coaches found matching criteria', style: AppTextStyles.bodyMedium),
+              )
+            else
+              _buildCoachGrid(filtered),
           ],
         ),
       ),
@@ -277,7 +154,11 @@ class _OdourManagementScreenState extends State<OdourManagementScreen> {
     );
   }
 
-  Widget _buildFiltersSection(List<String> trains, List<String> types, List<String> numbers) {
+  Widget _buildFiltersSection() {
+    final trains = trainNumbers;
+    final types = coachTypes;
+    final numbers = coachNumbers;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -304,11 +185,11 @@ class _OdourManagementScreenState extends State<OdourManagementScreen> {
         const SizedBox(height: 8),
         Row(
           children: [
-            Expanded(child: FilterDropdown(label: AppStrings.trainNumber, value: selectedTrainNumber, items: trains, onChanged: (v) => setState(() => selectedTrainNumber = v!))),
+            Expanded(child: FilterDropdown(label: AppStrings.trainNumber, value: selectedTrainNumber, items: trains, onChanged: (v) => setState(() { selectedTrainNumber = v!; _applyFilters(); }))),
             const SizedBox(width: 8),
-            Expanded(child: FilterDropdown(label: 'Coach Type', value: selectedCoachType, items: types, onChanged: (v) => setState(() => selectedCoachType = v!))),
+            Expanded(child: FilterDropdown(label: 'Coach Type', value: selectedCoachType, items: types, onChanged: (v) => setState(() { selectedCoachType = v!; _applyFilters(); }))),
             const SizedBox(width: 8),
-            Expanded(child: FilterDropdown(label: AppStrings.coachNumber, value: selectedCoachNumber, items: numbers, onChanged: (v) => setState(() => selectedCoachNumber = v!))),
+            Expanded(child: FilterDropdown(label: AppStrings.coachNumber, value: selectedCoachNumber, items: numbers, onChanged: (v) => setState(() { selectedCoachNumber = v!; _applyFilters(); }))),
           ],
         ),
         const SizedBox(height: 12),
@@ -316,11 +197,11 @@ class _OdourManagementScreenState extends State<OdourManagementScreen> {
         const SizedBox(height: 4),
         Row(
           children: [
-            Expanded(child: StatusChip(label: AppStrings.all, isSelected: selectedStatus == 'All', onTap: () => setState(() => selectedStatus = 'All'))),
+            Expanded(child: StatusChip(label: AppStrings.all, isSelected: selectedStatus == 'All', onTap: () => setState(() { selectedStatus = 'All'; _applyFilters(); }))),
             const SizedBox(width: 8),
-            Expanded(child: StatusChip(label: AppStrings.on, isSelected: selectedStatus == 'ON', onTap: () => setState(() => selectedStatus = 'ON'))),
+            Expanded(child: StatusChip(label: 'Alert', isSelected: selectedStatus == 'Alert', onTap: () => setState(() { selectedStatus = 'Alert'; _applyFilters(); }))),
             const SizedBox(width: 8),
-            Expanded(child: StatusChip(label: AppStrings.off, isSelected: selectedStatus == 'OFF', onTap: () => setState(() => selectedStatus = 'OFF'))),
+            Expanded(child: StatusChip(label: 'Active', isSelected: selectedStatus == 'Active', onTap: () => setState(() { selectedStatus = 'Active'; _applyFilters(); }))),
           ],
         ),
       ],
@@ -339,7 +220,7 @@ class _OdourManagementScreenState extends State<OdourManagementScreen> {
               child: ActionButton(
                 label: AppStrings.sendAlerts,
                 svgIcon: AppIcons.alert,
-                onTap: () {},
+                onTap: _sendAlerts,
                 isPrimary: true,
                 isFullWidth: true,
               ),
@@ -379,14 +260,7 @@ class _OdourManagementScreenState extends State<OdourManagementScreen> {
     );
   }
 
-  Widget _buildCoachGrid(List<Map<String, dynamic>> coaches) {
-    if (coaches.isEmpty) {
-      return Container(
-        height: 200,
-        alignment: Alignment.center,
-        child: Text('No coaches found matching criteria', style: AppTextStyles.bodyMedium),
-      );
-    }
+  Widget _buildCoachGrid(List<OdourCoachModel> coaches) {
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -398,12 +272,13 @@ class _OdourManagementScreenState extends State<OdourManagementScreen> {
       ),
       itemCount: coaches.length,
       itemBuilder: (context, index) {
-        return OdourCoachCard(
-          coachData: coaches[index],
+        final coach = coaches[index];
+        return _OdourCoachCard(
+          coach: coach,
           onTap: () {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => OdourDeviceDetailScreen(coachData: coaches[index])),
+              MaterialPageRoute(builder: (_) => _OdourCoachDetailScreen(coach: coach)),
             );
           },
         );
@@ -412,16 +287,15 @@ class _OdourManagementScreenState extends State<OdourManagementScreen> {
   }
 }
 
-class OdourCoachCard extends StatelessWidget {
-  final Map<String, dynamic> coachData;
+class _OdourCoachCard extends StatelessWidget {
+  final OdourCoachModel coach;
   final VoidCallback onTap;
 
-  const OdourCoachCard({super.key, required this.coachData, required this.onTap});
+  const _OdourCoachCard({required this.coach, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final devices = coachData['devices'] as List;
-    final bool hasIssues = devices.any((d) => d['status'] == 'Offline' || (d['malfunction_alerts'] as List).isNotEmpty || d['cleanliness_indicator'] == 'Needs Cleaning');
+    final bool hasIssues = coach.hasActiveAlert;
 
     return GestureDetector(
       onTap: onTap,
@@ -442,7 +316,7 @@ class OdourCoachCard extends StatelessWidget {
               children: [
                 Flexible(
                   child: Text(
-                    'Coach ${coachData['coach_number']}',
+                    coach.coachNumber,
                     style: GoogleFonts.poppins(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
@@ -456,7 +330,7 @@ class OdourCoachCard extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              'Train: ${coachData['train_no']}',
+              'Train: ${coach.trainNumber}',
               style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w500),
             ),
             const SizedBox(height: 8),
@@ -464,7 +338,15 @@ class OdourCoachCard extends StatelessWidget {
               children: [
                 Icon(Icons.sensors, size: 12, color: Colors.grey[600]),
                 const SizedBox(width: 4),
-                Text('${devices.length} Devices', style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.black87)),
+                Text('${coach.toilets.length} Sensors', style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.black87)),
+                if (coach.alertCount > 0) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(8)),
+                    child: Text('${coach.alertCount}', style: GoogleFonts.poppins(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold)),
+                  ),
+                ],
               ],
             ),
           ],
@@ -474,14 +356,12 @@ class OdourCoachCard extends StatelessWidget {
   }
 }
 
-class OdourDeviceDetailScreen extends StatelessWidget {
-  final Map<String, dynamic> coachData;
-  const OdourDeviceDetailScreen({super.key, required this.coachData});
+class _OdourCoachDetailScreen extends StatelessWidget {
+  final OdourCoachModel coach;
+  const _OdourCoachDetailScreen({required this.coach});
 
   @override
   Widget build(BuildContext context) {
-    final devices = coachData['devices'] as List;
-
     return Scaffold(
       backgroundColor: ColorConstants.scaffoldBackground,
       appBar: AppBar(
@@ -494,44 +374,38 @@ class OdourDeviceDetailScreen extends StatelessWidget {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Coach ${coachData['coach_number']} Details', style: AppTextStyles.header2),
-            Text('Train: ${coachData['train_no']}', style: AppTextStyles.bodySmall),
+            Text('${coach.coachNumber} Details', style: AppTextStyles.header2),
+            Text('Train: ${coach.trainNumber}', style: AppTextStyles.bodySmall),
           ],
         ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
-          children: [
-            ...devices.map((d) => Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: OdourDeviceCard(device: d),
-            )),
-          ],
+          children: coach.toilets.map((t) => Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: _ToiletSensorCard(sensor: t),
+          )).toList(),
         ),
       ),
     );
   }
 }
 
-class OdourDeviceCard extends StatelessWidget {
-  final Map<String, dynamic> device;
-  const OdourDeviceCard({super.key, required this.device});
+class _ToiletSensorCard extends StatelessWidget {
+  final ToiletSensor sensor;
+  const _ToiletSensorCard({required this.sensor});
 
   @override
   Widget build(BuildContext context) {
-    final bool isOffline = device['status'] == 'Offline';
-    final bool needsCleaning = device['cleanliness_indicator'] == 'Needs Cleaning';
-    final bool hasAlerts = (device['malfunction_alerts'] as List).isNotEmpty;
-    
-    final Color cardColor = isOffline || needsCleaning || hasAlerts ? const Color(0xFFFFF0F0) : ColorConstants.cardBackground;
-    final Color themeColor = isOffline || needsCleaning || hasAlerts ? const Color(0xFFD32F2F) : ColorConstants.primary;
+    final bool isAlert = sensor.isBad;
+    final Color themeColor = isAlert ? const Color(0xFFD32F2F) : ColorConstants.primary;
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: cardColor,
+        color: isAlert ? const Color(0xFFFFF0F0) : ColorConstants.cardBackground,
         borderRadius: BorderRadius.circular(AppDimensions.radiusLarge),
         border: Border.all(color: themeColor.withOpacity(0.1), width: 1),
       ),
@@ -541,38 +415,23 @@ class OdourDeviceCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(device['device_id'], style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w700, color: themeColor)),
+              Text(sensor.id, style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w700, color: themeColor)),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(color: themeColor.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
-                child: Text(device['status'], style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.bold, color: themeColor)),
+                child: Text(sensor.status, style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.bold, color: themeColor)),
               ),
             ],
           ),
           const SizedBox(height: 4),
-          Text(device['toilet_position'], style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey[600], fontWeight: FontWeight.w600)),
+          Text(sensor.position, style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey[600], fontWeight: FontWeight.w600)),
           const Divider(height: 24),
           Row(
             children: [
-              _buildMetricItem(Icons.battery_charging_full, '${device['battery_level']}%', 'Battery', Colors.green),
-              _buildMetricItem(Icons.water_drop, '${device['refill_level']}%', 'Refill', Colors.blue),
-              _buildMetricItem(Icons.cleaning_services, '${device['usage_count_since_clean']}', 'Usages', Colors.orange),
+              _buildMetricItem(Icons.air, '${sensor.reading} ppm', 'Reading', themeColor),
+              _buildMetricItem(Icons.info_outline, sensor.levelLabel, 'Level', sensor.isBad ? Colors.red : Colors.green),
             ],
           ),
-          if (hasAlerts) ...[
-            const SizedBox(height: 16),
-            Text('Malfunction Alerts', style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFFD32F2F))),
-            const SizedBox(height: 4),
-            Wrap(
-              spacing: 8,
-              runSpacing: 4,
-              children: (device['malfunction_alerts'] as List).map((alert) => Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(color: const Color(0xFFD32F2F).withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
-                child: Text(alert, style: GoogleFonts.poppins(fontSize: 9, color: const Color(0xFFD32F2F), fontWeight: FontWeight.w600)),
-              )).toList(),
-            ),
-          ],
         ],
       ),
     );

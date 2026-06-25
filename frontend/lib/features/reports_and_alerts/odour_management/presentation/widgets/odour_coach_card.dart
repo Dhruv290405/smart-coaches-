@@ -7,118 +7,64 @@ import 'odour_modal.dart';
 
 class OdourCoachCard extends StatelessWidget {
   final OdourCoachModel coach;
-
   const OdourCoachCard({super.key, required this.coach});
 
   @override
   Widget build(BuildContext context) {
-    final bool isBad = coach.reading > 70;
+    final hasAlert = coach.hasActiveAlert;
 
     return InkWell(
-      onTap: () {
-        showDialog(
-          context: context,
-          builder: (context) => OdourModal(coach: coach),
-        );
-      },
+      onTap: () => showDialog(context: context, builder: (_) => OdourModal(coach: coach)),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: isBad ? const Color(0xFFFFF0F0) : ColorConstants.cardBackground,
+          color: hasAlert ? const Color(0xFFFFF0F0) : ColorConstants.cardBackground,
           borderRadius: BorderRadius.circular(AppDimensions.radiusLarge),
-          border: Border.all(
-            color: isBad ? Colors.red.withOpacity(0.1) : ColorConstants.divider.withOpacity(0.5),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.03),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
+          border: Border.all(color: hasAlert ? Colors.red.withValues(alpha: 0.2) : ColorConstants.divider.withValues(alpha: 0.5)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    'Coach ${coach.coachNumber}',
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: ColorConstants.primary,
-                    ),
-                  ),
-                ),
-                _buildStatusBadge(coach.status),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              coach.toiletPosition,
-              style: GoogleFonts.poppins(
-                fontSize: 10,
-                color: ColorConstants.textSecondary,
-                fontWeight: FontWeight.w500,
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Coach ${coach.coachNumber}', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w700, color: ColorConstants.primary)),
+                  Text('Train ${coach.trainNumber} | ${coach.coachType}', style: GoogleFonts.poppins(fontSize: 9, color: ColorConstants.textSecondary)),
+                ]),
               ),
-            ),
-            const Spacer(),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Odour Level',
-                  style: GoogleFonts.poppins(
-                    fontSize: 9,
-                    color: ColorConstants.textTertiary,
-                  ),
+              if (hasAlert)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(color: const Color(0xFFD32F2F).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
+                  child: Text('${coach.alertCount} Alert', style: GoogleFonts.poppins(fontSize: 9, fontWeight: FontWeight.w700, color: const Color(0xFFD32F2F))),
                 ),
-                Row(
-                  children: [
-                    Text(
-                      '${coach.reading}',
-                      style: GoogleFonts.poppins(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: isBad ? Colors.red : ColorConstants.primary,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      'ppm',
-                      style: GoogleFonts.poppins(
-                        fontSize: 10,
-                        color: ColorConstants.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+            ]),
+            const SizedBox(height: 10),
+            ...coach.toilets.map((t) => _toiletRow(t)),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildStatusBadge(String status) {
-    final bool isActive = status.toLowerCase() == 'active';
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: (isActive ? Colors.green : Colors.grey).withOpacity(0.1),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        status.toUpperCase(),
-        style: GoogleFonts.poppins(
-          fontSize: 8,
-          fontWeight: FontWeight.bold,
-          color: isActive ? Colors.green : Colors.grey,
-        ),
+  Widget _toiletRow(ToiletSensor t) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          Container(
+            width: 8, height: 8,
+            decoration: BoxDecoration(
+              color: t.isBad ? const Color(0xFFD32F2F) : (t.reading > 40 ? const Color(0xFFBE8B22) : Colors.green),
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(t.position.split('(').first.trim(), style: GoogleFonts.poppins(fontSize: 10, color: ColorConstants.textSecondary)),
+          ),
+          Text('${t.reading} ppm', style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w600, color: t.isBad ? const Color(0xFFD32F2F) : ColorConstants.textPrimary)),
+        ],
       ),
     );
   }

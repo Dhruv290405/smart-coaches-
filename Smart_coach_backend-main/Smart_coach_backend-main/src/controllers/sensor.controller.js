@@ -17,8 +17,17 @@ const sensorController = {
       if (search) filters.search = search;
 
       const sensors = await sensorModel.getAll(filters);
-
-      return successResponse(res, 'Sensors retrieved successfully', sensors);
+      // Enrich each sensor with human‑readable status and device name (if a single device linked)
+      const enriched = await Promise.all(sensors.map(async (s) => {
+        const status = s.is_active ? 'Online' : 'Offline';
+        let deviceName = null;
+        if (s.device_ids && s.device_ids.length === 1) {
+          const dev = await deviceModel.getById(s.device_ids[0]);
+          deviceName = dev ? dev.device_name || dev.device_id : null;
+        }
+        return { ...s, status, deviceName };
+      }));
+      return successResponse(res, 'Sensors retrieved successfully', enriched);
     } catch (error) {
       next(error);
     }

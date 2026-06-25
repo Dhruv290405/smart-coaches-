@@ -124,7 +124,13 @@ class MasterModuleEntity {
       updatedByName: model.updatedByName,
       coach: model.coach != null ? CoachEntity.fromModel(model.coach!) : null,
       train: model.train != null ? TrainEntity.fromModel(model.train!) : null,
-      deviceNames: devices?.map((e) => e.fullName ?? '').toList() ?? [],
+      deviceNames: devices?.map((e) =>
+        (e.fullName != null && e.fullName!.isNotEmpty)
+            ? e.fullName!
+            : (e.shortName != null && e.shortName!.isNotEmpty)
+                ? e.shortName!
+                : e.deviceUniqueId ?? ''
+      ).toList() ?? [],
       devices: devices,
     );
   }

@@ -17,7 +17,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
-app.use(cors());
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true, parameterLimit: 50000 }));
 
@@ -63,6 +63,7 @@ app.use("/smart_coach_api/api/odour-logs", require("./src/routes/odour.routes"))
 app.use("/smart_coach_api/api/fsds", require("./src/routes/fsds.routes"));
 app.use("/smart_coach_api/api/coach-config", require("./src/routes/coachConfig.routes.js"));
 app.use('/smart_coach_api/api/notifications', notificationRoutes);
+app.use('/smart_coach_api/api/diesel', require('./src/routes/diesel.routes'));
 // Test routes
 app.get('/test', (req, res) => {
   res.json({ status: 'Test route works!' });

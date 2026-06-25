@@ -16,4 +16,16 @@ class RegisterRemoteDataSourceImpl {
       return registerResponse;
     });
   }
+
+  Future<Map<String, dynamic>> sendOtp(String mobileNumber) async {
+    return safeRequest(() async {
+      return await restClient.sendOtp({'mobile_number': mobileNumber});
+    });
+  }
+
+  Future<Map<String, dynamic>> verifyOtp(String mobileNumber, String otp) async {
+    return safeRequest(() async {
+      return await restClient.verifyOtp({'mobile_number': mobileNumber, 'otp': otp});
+    });
+  }
 }

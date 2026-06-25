@@ -36,10 +36,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _organizationNameController = TextEditingController();
   final _panAadhaarController = TextEditingController();
   final _companyIdController = TextEditingController();
+  final _otpController = TextEditingController();
   final customTextFieldKey = GlobalKey<CustomTextFieldState>();
   String? selectedGender;
   bool isConfirmed = false;
   bool isAgreedToTerms = false;
+  bool _isOtpSent = false;
+  bool _isOtpVerified = false;
+  bool _isSendingOtp = false;
   late RegisterBloc registerBloc;
   @override
   void initState() {
@@ -69,7 +73,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           child: Center(
             child: Container(
               padding: EdgeInsets.symmetric(horizontal: 6.w),
-              child: BlocConsumer<RegisterBloc, RegisterState>(
+              child:               BlocConsumer<RegisterBloc, RegisterState>(
                 listener: (context, state) {
                   if (state.isSubmitting || state.isLoading) {
                     Loader.show();
@@ -82,8 +86,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       message: state.errorMessage,
                       errorList: state.errorList,
                     );
+                  } else if (state.isOtpSent &&
+                      !state.isOtpVerified &&
+                      _step == 4) {
+                    if (!_isOtpSent) {
+                      _isOtpSent = true;
+                      ToastMessageUtils.showMessage(
+                        context,
+                        'OTP sent to ${_mobileController.text}',
+                      );
+                    }
+                  } else if (state.isOtpVerified && _step == 4) {
+                    _isOtpVerified = true;
+                    setState(() {});
+                    ToastMessageUtils.showMessage(
+                      context,
+                      'OTP verified successfully',
+                    );
                   } else if (!state.isSubmitting &&
-                      _step == 3 &&
+                      (_step == 3 || _step == 4) &&
                       state.submissionSuccess) {
                     ToastMessageUtils.showMessage(
                       context,
@@ -161,7 +182,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                       Radius.circular(10),
                                     ),
                                     child: LinearProgressIndicator(
-                                      value: (_step) / 3,
+                                      value: (_step) / 4,
                                       backgroundColor: Color(0xFFE6E7EB),
                                       valueColor: AlwaysStoppedAnimation<Color>(
                                         ColorConstants.blueColorDark,
@@ -172,7 +193,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               ),
                               SizedBox(width: 1.w),
                               Text(
-                                "$_step/3",
+                                "$_step/4",
                                 style: TextStyle(
                                   fontSize: 11.sp,
                                   color: Color(0xFF7F868E),
@@ -233,7 +254,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 : Container(),
                             SizedBox(
                               child: CustomButton(
-                                text: _step < 3 ? "Next" : "Register",
+                                text: _step < 3 ? "Next" : (_step == 3 ? "Send OTP" : (_isOtpVerified ? "Register" : "Verify OTP")),
                                 sufixIcon: _step < 3
                                     ? Icons.arrow_forward_ios_sharp
                                     : null,
@@ -242,8 +263,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                     _doProcessForStep1(state);
                                   } else if (_step == 2) {
                                     _doProcessForStep2(state);
-                                  } else {
+                                  } else if (_step == 3) {
                                     _doProcessForStep3(state);
+                                  } else if (_step == 4 && _isOtpVerified) {
+                                    _doSubmitRegistration();
+                                  } else if (_step == 4 && !_isOtpVerified) {
+                                    _doVerifyOtp();
                                   }
                                 },
                               ),
@@ -268,8 +293,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return "Personal Details";
     } else if (_step == 2) {
       return "Work Details";
-    } else {
+    } else if (_step == 3) {
       return "Identity Verification";
+    } else {
+      return "OTP Verification";
     }
   }
 
@@ -312,9 +339,49 @@ class _RegisterScreenState extends State<RegisterScreen> {
             setState(() {});
           },
         );
+      case 4:
+        return _buildOtpStep();
       default:
         return Container();
     }
+  }
+
+  Widget _buildOtpStep() {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'An OTP has been sent to ${_mobileController.text}',
+            style: const TextStyle(fontSize: 14, color: Colors.black54),
+          ),
+          const SizedBox(height: 24),
+          const Text('Enter OTP', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          CustomTextField(
+            controller: _otpController,
+            hintText: 'Enter 6-digit OTP',
+            textInputType: TextInputType.number,
+            maxLength: 6,
+          ),
+          const SizedBox(height: 16),
+          if (_isOtpVerified)
+            const Row(children: [
+              Icon(Icons.check_circle, color: Colors.green, size: 20),
+              SizedBox(width: 8),
+              Text('OTP Verified', style: TextStyle(color: Colors.green, fontWeight: FontWeight.w600)),
+            ])
+          else if (!_isOtpSent)
+            const SizedBox()
+          else
+            Row(children: [
+              const Icon(Icons.info_outline, color: Colors.orange, size: 20),
+              const SizedBox(width: 8),
+              const Text('Enter the OTP and tap Verify', style: TextStyle(color: Colors.orange)),
+            ]),
+        ],
+      ),
+    );
   }
 
   bool _doValidateStep1(
@@ -457,7 +524,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
           state.registerRequest.panCardNo = '';
         }
       }
-      registerBloc.add(SubmitRegister());
+      setState(() { _step = 4; _isOtpSent = false; _isOtpVerified = false; _otpController.clear(); });
+      _sendOtp();
     }
+  }
+
+  void _sendOtp() async {
+    final mobile = _mobileController.text.trim();
+    registerBloc.add(SendOtp(mobile));
+  }
+
+  void _doVerifyOtp() async {
+    final otp = _otpController.text.trim();
+    if (otp.length != 6) {
+      ToastMessageUtils.showMessage(context, 'Please enter a valid 6-digit OTP');
+      return;
+    }
+    final mobile = _mobileController.text.trim();
+    registerBloc.add(VerifyOtp(mobile, otp));
+  }
+
+  void _doSubmitRegistration() {
+    registerBloc.add(SubmitRegister());
   }
 }

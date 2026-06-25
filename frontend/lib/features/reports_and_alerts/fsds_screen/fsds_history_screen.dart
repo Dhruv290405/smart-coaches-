@@ -7,7 +7,6 @@ import 'package:smart_coach_new/features/reports_and_alerts/acp_screen/data/mode
 import '../../../../core/di/inject.dart';
 import '../../../../core/utils/app_dimensions.dart';
 import '../../../../core/utils/app_icons.dart';
-import '../../../../core/utils/app_strings.dart';
 import '../../../../core/utils/app_text_styles.dart';
 import '../../../../core/utils/color_constants.dart';
 import '../../../../core/widgets/period_filter.dart';

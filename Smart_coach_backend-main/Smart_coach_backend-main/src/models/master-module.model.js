@@ -46,9 +46,9 @@ class MasterModuleModel extends BaseModel {
         installation_date, location, placement_type, sim_no, recharge_date,
         service_provider_primary, service_provider_secondary, activation_date, sim_status,
         battery_replacement_date, dual_profile_supported, lora_enabled, esim_enabled,
-        battery_capacity, battery_type, battery_recharge_date,
+        battery_capacity, battery_type, battery_recharge_date, power_supply_available,
         created_by, created_date
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           data.coach_id,
           data.module_unique_id,
@@ -71,6 +71,7 @@ class MasterModuleModel extends BaseModel {
           data.battery_capacity || null,
           data.battery_type || null,
           data.battery_recharge_date,
+          data.power_supply_available,
           data.created_by,
           data.created_date
         ]

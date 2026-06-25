@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../data/models/odour_model.dart';
 import 'odour_coach_card.dart';
 
@@ -15,19 +16,22 @@ class OdourCoachesView extends StatelessWidget {
       ));
     }
 
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 0.95,
-      ),
-      itemCount: coaches.length,
-      itemBuilder: (context, index) {
-        return OdourCoachCard(coach: coaches[index]);
-      },
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Coach-wise Toilet Monitoring', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 12),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final cardWidth = (constraints.maxWidth - 10) / 2;
+            return Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: coaches.map((c) => SizedBox(width: cardWidth, child: OdourCoachCard(coach: c))).toList(),
+            );
+          },
+        ),
+      ],
     );
   }
 }

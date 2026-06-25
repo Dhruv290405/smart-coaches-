@@ -8,12 +8,10 @@ import 'package:smart_coach_new/core/utils/color_constants.dart';
 import 'package:smart_coach_new/features/reports_and_alerts/fsds_screen/data/models/fsds_model.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
 import 'package:intl/intl.dart';
-import 'package:share_plus/share_plus.dart';
 
 class FsdsReportGenerator {
-  static Future<void> generate(BuildContext context, List<FsdsAssetModel> assets, {String title = 'FSDS Monitoring Report'}) async {
+  static Future<void> generate(BuildContext context, List<FsdsBypassModel> assets, {String title = 'FSDS Bypass Monitoring Report'}) async {
     final String? format = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -33,7 +31,6 @@ class FsdsReportGenerator {
     if (format == null) return;
     if (!context.mounted) return;
 
-    // Show loading
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -63,7 +60,7 @@ class FsdsReportGenerator {
         file = await _buildPdf(assets, title: title);
       }
       
-      if (context.mounted) Navigator.pop(context); // close loading
+      if (context.mounted) Navigator.pop(context);
 
       if (!context.mounted) return;
       _showSuccess(context, file.path);
@@ -77,7 +74,7 @@ class FsdsReportGenerator {
     }
   }
 
-  static Future<File> _buildExcel(List<FsdsAssetModel> assets, {String title = 'FSDS Monitoring Report'}) async {
+  static Future<File> _buildExcel(List<FsdsBypassModel> assets, {String title = 'FSDS Bypass Monitoring Report'}) async {
     final excel = Excel.createExcel();
     final summary = excel['Summary'];
     excel.setDefaultSheet('Summary');
@@ -85,7 +82,7 @@ class FsdsReportGenerator {
     _header(summary, 0, 0, title);
     _header(summary, 1, 0, 'Generated: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}');
 
-    final headers = ['Asset Name', 'Location', 'Smoke Level', 'Light Value', 'Timestamp', 'Status'];
+    final headers = ['Asset Name', 'Train No', 'Coach No', 'Device ID', 'Location', 'Status', 'Timestamp'];
     for (var i = 0; i < headers.length; i++) {
       _colHeader(summary, 3, i, headers[i]);
     }
@@ -94,11 +91,12 @@ class FsdsReportGenerator {
       final a = assets[r];
       final row = 4 + r;
       _cell(summary, row, 0, a.assetName);
-      _cell(summary, row, 1, a.locName);
-      _cell(summary, row, 2, '${a.smokeLevel}');
-      _cell(summary, row, 3, '${a.lightValue}');
-      _cell(summary, row, 4, a.timestamp);
-      _cell(summary, row, 5, a.isSmokeDetected ? 'ALERT' : 'NORMAL');
+      _cell(summary, row, 1, a.trainNo);
+      _cell(summary, row, 2, a.coachNo);
+      _cell(summary, row, 3, a.deviceId);
+      _cell(summary, row, 4, a.locName);
+      _cell(summary, row, 5, a.statusText);
+      _cell(summary, row, 6, a.timestamp);
     }
 
     final dir = await getApplicationDocumentsDirectory();
@@ -109,7 +107,7 @@ class FsdsReportGenerator {
     return file;
   }
 
-  static Future<File> _buildPdf(List<FsdsAssetModel> assets, {String title = 'FSDS Monitoring Report'}) async {
+  static Future<File> _buildPdf(List<FsdsBypassModel> assets, {String title = 'FSDS Bypass Monitoring Report'}) async {
     final pdf = pw.Document();
     pdf.addPage(
       pw.MultiPage(
@@ -118,8 +116,10 @@ class FsdsReportGenerator {
           pw.Header(level: 0, child: pw.Text(title)),
           pw.SizedBox(height: 20),
           pw.TableHelper.fromTextArray(
-            headers: ['Asset', 'Location', 'Smoke', 'Light', 'Status'],
-            data: assets.map((a) => [a.assetName, a.locName, '${a.smokeLevel}', '${a.lightValue}', a.isSmokeDetected ? 'ALERT' : 'NORMAL']).toList(),
+            headers: ['Asset', 'Train', 'Coach', 'Device', 'Location', 'Status'],
+            data: assets.map((a) => [
+              a.assetName, a.trainNo, a.coachNo, a.deviceId, a.locName, a.statusText
+            ]).toList(),
           ),
         ],
       ),

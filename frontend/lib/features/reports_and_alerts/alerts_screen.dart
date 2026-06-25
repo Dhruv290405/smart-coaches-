@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sizer/sizer.dart';
 import 'package:smart_coach_new/core/utils/color_constants.dart';
+import 'package:smart_coach_new/core/utils/device_id_mapper.dart';
 import 'package:smart_coach_new/features/dashboard/presentation/bloc/dashboard_bloc.dart';
 import 'package:smart_coach_new/features/dashboard/presentation/bloc/dashboard_event.dart';
 import 'package:smart_coach_new/features/dashboard/presentation/bloc/dashboard_state.dart';
@@ -87,7 +88,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
                       return _buildAlertCard(
                         context,
                         title: 'Train: ${alert.trainNo ?? "N/A"}',
-                        subtitle: 'Coach: ${alert.coachNo ?? "N/A"} (Device: ${alert.deviceId ?? "N/A"})',
+                        subtitle: 'Coach: ${alert.coachNo ?? "N/A"} (Device: ${DeviceIdMapper.resolve(alert.deviceId?.toString())})',
                         status: alert.brakeStatus?.toString().toUpperCase() ?? "N/A",
                         isCritical: isCritical,
                         icon: Icons.settings_input_component_outlined,

@@ -71,9 +71,9 @@ class _ConfigureCoachState extends State<ConfigureCoach> {
     coachDisplayIdController.text = item.coachDisplayId?.toString() ?? '';
     manufacturingYearController.text = item.manufacturingYear.toString();
     selectedEntityType = entityTypeList.contains(item.entityType) ? item.entityType : null;
-    selectedMakeOfId = item.makeOfCoachId;
-    selectedTypeOfId = item.typeOfCoachId;
-    selectedMasterModule = masterModuleList.contains(item.noOfMasterModule) ? item.noOfMasterModule : null;
+    selectedMakeOfId = int.tryParse(item.makeOfCoachId?.toString() ?? '');
+    selectedTypeOfId = int.tryParse(item.typeOfCoachId?.toString() ?? '');
+    selectedMasterModule = int.tryParse(item.noOfMasterModule?.toString() ?? '');
     selectedCoachStatus = item.coachStatus;
     setState(() {});
   }
@@ -155,6 +155,8 @@ class _ConfigureCoachState extends State<ConfigureCoach> {
                   labelText: '$selectedEntityType Technical No',
                   hintText: 'Enter $selectedEntityType Technical No',
                   isRequired: true,
+                  textInputType: TextInputType.text,
+                  textInputAction: TextInputAction.next,
                 ),
                 SizedBox(height: 2.h),
                 CustomTextField(
@@ -162,6 +164,8 @@ class _ConfigureCoachState extends State<ConfigureCoach> {
                   labelText: '$selectedEntityType Display ID',
                   hintText: 'Enter $selectedEntityType Display ID',
                   isRequired: true,
+                  textInputType: TextInputType.text,
+                  textInputAction: TextInputAction.next,
                 ),
 
                 SizedBox(height: 2.h),
@@ -202,6 +206,7 @@ class _ConfigureCoachState extends State<ConfigureCoach> {
                   isRequired: true,
                   inputFormatters: [PositiveIntegerInputFormatter()],
                   textInputType: TextInputType.number,
+                  textInputAction: TextInputAction.done,
                 ),
                 SizedBox(height: 2.h),
                 CustomDropDown<int>(

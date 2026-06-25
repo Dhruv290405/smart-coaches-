@@ -1,38 +1,36 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'package:smart_coach_new/core/network/api_client.dart';
 import 'package:smart_coach_new/core/network/api_constants.dart';
 import '../models/fsds_model.dart';
 
 class FsdsRepository {
-  Future<List<FsdsAssetModel>> getFsdsData() async {
+  final ApiClient apiClient;
+
+  FsdsRepository(this.apiClient);
+
+  Future<List<FsdsBypassModel>> getFsdsData({String? trainNo, String? locName, int limit = 100}) async {
     try {
-      await Future.delayed(const Duration(seconds: 1));
-      
-      return [
-        FsdsAssetModel(
-          assetId: "7598556",
-          assetName: "GS 255386 FSDS 100685",
-          timestamp: "2026-04-23T10:18:19.209Z",
-          lightValue: 1023,
-          smokeLevel: 45,
-          sensorId: "FSDS_TEST_001",
-          locName: "VASP FSDS Train 8",
-          locId: "be3c934f-28ed-4300-b278-aabfa8d1eca6",
-        ),
-      ];
+      final params = <String, dynamic>{
+        'limit': limit.toString(),
+        'offset': '0',
+      };
+      if (trainNo != null && trainNo.isNotEmpty) params['trainNo'] = trainNo;
+      if (locName != null && locName.isNotEmpty) params['locName'] = locName;
+
+      final response = await apiClient.get(
+        ApiConstants.fsdsGetDataApiEndpoint,
+        queryParams: params,
+      );
+
+      if (response['success'] == true && response['data'] is List) {
+        return (response['data'] as List).map((e) => FsdsBypassModel.fromJson(e)).toList();
+      }
+      return [];
     } catch (e) {
-      throw Exception('Failed to fetch FSDS data: $e');
+      return [];
     }
   }
 
   Future<void> sendFsdsData(Map<String, dynamic> payload) async {
-    final response = await http.post(
-      Uri.parse(ApiConstants.fsdsReceiveDataApiEndpoint),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode(payload),
-    );
-    if (response.statusCode != 200 && response.statusCode != 201) {
-      throw Exception('Failed to send FSDS data');
-    }
+    await apiClient.post(ApiConstants.fsdsReceiveDataApiEndpoint, payload);
   }
 }

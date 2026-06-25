@@ -181,7 +181,15 @@ const AcpModel = {
     // 6. Selected Train ke liye Coach Types (Dropdown 2)
     getCoachTypesByTrain: async (trainNo) => {
         try {
-            const query = `SELECT DISTINCT comm_coach_no FROM device_master WHERE train_no = ? ORDER BY comm_coach_no ASC`;
+            const query = `
+                SELECT DISTINCT 
+                    COALESCE(cm.coach_display_id, dm.comm_coach_no) AS comm_coach_no
+                FROM device_master dm
+                LEFT JOIN train_master tm ON dm.train_no = tm.train_number
+                LEFT JOIN coach_master cm ON tm.train_id = cm.train_id AND dm.tech_coach_no = cm.coach_unique_id
+                WHERE dm.train_no = ? 
+                ORDER BY comm_coach_no ASC
+            `;
             const [rows] = await pool.query(query, [trainNo]);
             return rows;
         } catch (error) {
@@ -205,14 +213,13 @@ const AcpModel = {
             const query = `
             SELECT 
                 dm.train_no, 
-                dm.comm_coach_no, 
+                COALESCE(cm.coach_display_id, dm.comm_coach_no) AS comm_coach_no,
                 dm.tech_coach_no, 
                 dm.device_id,
                 DATE_FORMAT(CONVERT_TZ(dls.last_heartbeat, '+00:00', '+05:30'), '%Y-%m-%d %H:%i:%s') AS last_heartbeat,
                 DATE_FORMAT(CONVERT_TZ(dls.last_trigger, '+00:00', '+05:30'), '%Y-%m-%d %H:%i:%s') AS last_trigger,
                 COALESCE(dls.today_count, 0) AS today_count,
                 COALESCE(dls.total_count, 0) AS total_count,
-                /* Location Fetch: Latest event ki location lao */
                 (SELECT train_location FROM acp_critical_events 
                  WHERE tech_coach_no = dm.tech_coach_no 
                  ORDER BY id DESC LIMIT 1) AS train_location,
@@ -222,8 +229,10 @@ const AcpModel = {
                 END AS status
             FROM device_master dm
             LEFT JOIN device_live_summary dls ON dm.tech_coach_no = dls.tech_coach_no
+            LEFT JOIN train_master tm ON dm.train_no = tm.train_number
+            LEFT JOIN coach_master cm ON tm.train_id = cm.train_id AND dm.tech_coach_no = cm.coach_unique_id
             WHERE dm.tech_coach_no != ?
-            ORDER BY dm.train_no ASC, dm.comm_coach_no ASC;
+            ORDER BY dm.train_no ASC, comm_coach_no ASC;
         `;
 
             const [rows] = await pool.query(query, [BLOCKED_COACH]);
@@ -287,14 +296,13 @@ const AcpModel = {
         const query = `
             SELECT 
                 dm.train_no, 
-                dm.comm_coach_no, 
+                COALESCE(cm.coach_display_id, dm.comm_coach_no) AS comm_coach_no, 
                 dm.tech_coach_no, 
                 dm.device_id,
                 DATE_FORMAT(CONVERT_TZ(dls.last_heartbeat, '+00:00', '+05:30'), '%Y-%m-%d %H:%i:%s') AS last_heartbeat,
                 DATE_FORMAT(CONVERT_TZ(dls.last_trigger, '+00:00', '+05:30'), '%Y-%m-%d %H:%i:%s') AS last_trigger,
                 COALESCE(dls.today_count, 0) AS today_count,
                 COALESCE(dls.total_count, 0) AS total_count,
-                /* Location Fetch: Latest event ki location lao */
                 (SELECT train_location FROM acp_critical_events 
                  WHERE tech_coach_no = dm.tech_coach_no 
                  ORDER BY id DESC LIMIT 1) AS train_location,
@@ -304,6 +312,8 @@ const AcpModel = {
                 END AS status
             FROM device_master dm
             LEFT JOIN device_live_summary dls ON dm.tech_coach_no = dls.tech_coach_no
+            LEFT JOIN train_master tm ON dm.train_no = tm.train_number
+            LEFT JOIN coach_master cm ON tm.train_id = cm.train_id AND dm.tech_coach_no = cm.coach_unique_id
             WHERE dm.train_no = ? 
             AND dm.tech_coach_no = ?;
         `;

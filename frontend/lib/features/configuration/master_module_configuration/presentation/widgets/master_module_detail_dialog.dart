@@ -192,7 +192,7 @@ class MasterModuleDetailDialog extends StatelessWidget {
           SizedBox(height: 0.3.h),
           isStatusView
               ? _buildStatusView(label: label, statusValue: value)
-              : Text(value ?? 'N/A',
+              : Text(value ?? '----',
                   style: TextStyle(fontSize: 12.5.sp, color: Colors.black)),
         ],
       ),

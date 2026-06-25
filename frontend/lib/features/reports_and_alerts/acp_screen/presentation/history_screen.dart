@@ -265,8 +265,8 @@ class _AcpHistoryScreenState extends State<AcpHistoryScreen> {
         ? DateFormat('dd/MM/yyyy HH:mm:ss').format(entry.eventDate)
         : 'N/A';
 
-    final todayCount = entry.todayPullsCount?.toString() ?? 'N/A';
-    final totalCount = entry.totalLifetimePulls?.toString() ?? 'N/A';
+    final todayCount = entry.todayPullsCount?.toString() ?? '0';
+    final totalCount = entry.totalLifetimePulls?.toString() ?? '0';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),

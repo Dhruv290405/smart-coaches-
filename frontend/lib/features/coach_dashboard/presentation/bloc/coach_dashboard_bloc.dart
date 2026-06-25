@@ -75,6 +75,17 @@ class CoachDashboardBloc extends Bloc<CoachDashboardEvent, CoachDashboardState> 
 
     emit(state.copyWith(errorMessage: null));
 
+    // First try to find the coach in the already-loaded coachList
+    final coach = state.coachList.where((c) {
+      final id = c.coachUniqueId?.toLowerCase() ?? '';
+      return id.contains(event.query.toLowerCase());
+    }).toList();
+
+    if (coach.isNotEmpty) {
+      add(SelectCoach(coach.first));
+      return;
+    }
+
     log('Manual search: sending query directly to API: ${event.query}');
     add(SelectCoach(CoachEntity(coachUniqueId: event.query)));
   }

@@ -28,36 +28,30 @@ class _OdourChartViewState extends State<OdourChartView> {
     if (selectedPeriod == '7 Days') startDate = now.subtract(const Duration(days: 7));
     else if (selectedPeriod == '30 Days') startDate = now.subtract(const Duration(days: 30));
     else if (selectedPeriod == 'Custom' && customRange != null) startDate = customRange!.start;
-    
     if (startDate == null) return widget.coaches;
     return widget.coaches.where((c) {
-      try {
-        final updateTime = DateTime.parse(c.timestamp);
-        return updateTime.isAfter(startDate!);
-      } catch (_) { return false; }
+      return c.toilets.any((t) => t.isRecent);
     }).toList();
   }
 
-  int get activeCount => filteredCoaches.where((c) => c.isActive).length;
-  int get inactiveCount => filteredCoaches.where((c) => !c.isActive).length;
-  int get total => filteredCoaches.length;
+  int get totalCoaches => filteredCoaches.length;
+  int get alertCoaches => filteredCoaches.where((c) => c.hasActiveAlert).length;
+  int get normalCoaches => totalCoaches - alertCoaches;
+  int get totalToilets => filteredCoaches.fold(0, (sum, c) => sum + c.toilets.length);
+  int get badToilets => filteredCoaches.fold(0, (sum, c) => sum + c.alertCount);
 
   List<FlSpot> get timeSeriesData {
-    final count = filteredCoaches.where((c) => c.isRecent).length;
     if (selectedPeriod == 'Live') {
       return [
-        const FlSpot(0, 0), const FlSpot(1, 1), const FlSpot(2, 0), const FlSpot(3, 2),
-        const FlSpot(4, 1), const FlSpot(5, 3), const FlSpot(6, 2), FlSpot(7, count.toDouble()),
+        const FlSpot(0, 1), const FlSpot(1, 2), const FlSpot(2, 1), const FlSpot(3, 3),
+        const FlSpot(4, 2), const FlSpot(5, 4), const FlSpot(6, 2), FlSpot(7, badToilets.toDouble()),
       ];
     } else {
       int days = selectedPeriod == '7 Days' ? 7 : 30;
-      List<FlSpot> spots = [];
-      for (int i = 0; i <= days; i++) {
-        double val = (i % 5 == 0) ? 4.0 : (i % 3 == 0) ? 2.0 : 1.0;
-        if (i == days) val = count.toDouble(); 
-        spots.add(FlSpot(i.toDouble(), val));
-      }
-      return spots;
+      return List.generate(days + 1, (i) {
+        double val = (i % 5 == 0) ? badToilets.toDouble() : (i % 3 == 0) ? 2.0 : 1.0;
+        return FlSpot(i.toDouble(), val);
+      });
     }
   }
 
@@ -82,7 +76,7 @@ class _OdourChartViewState extends State<OdourChartView> {
         const SizedBox(height: 16),
         Row(
           children: [
-            Expanded(child: Text('Odour Incident Timelines', style: AppTextStyles.header2)),
+            Expanded(child: Text('Odour Overview', style: AppTextStyles.header2)),
             _chartTypeToggle(AppStrings.timeSeries),
             const SizedBox(width: 8),
             _chartTypeToggle(AppStrings.pieChart),
@@ -92,6 +86,8 @@ class _OdourChartViewState extends State<OdourChartView> {
         selectedChartType == AppStrings.pieChart ? _buildPieChart() : _buildTimeSeriesChart(),
         const SizedBox(height: 16),
         _buildSummaryCard(),
+        const SizedBox(height: 16),
+        _buildCoachTable(),
       ],
     );
   }
@@ -121,20 +117,20 @@ class _OdourChartViewState extends State<OdourChartView> {
             alignment: Alignment.center,
             children: [
               PieChart(PieChartData(sectionsSpace: 3, centerSpaceRadius: 56, sections: [
-                PieChartSectionData(value: activeCount.toDouble(), color: const Color(0xFF34C700), radius: 60, showTitle: false),
-                PieChartSectionData(value: inactiveCount.toDouble(), color: const Color(0xFFFF3B30), radius: 60, showTitle: false),
+                PieChartSectionData(value: normalCoaches.toDouble(), color: Colors.green, radius: 60, showTitle: false),
+                PieChartSectionData(value: alertCoaches.toDouble(), color: const Color(0xFFD32F2F), radius: 60, showTitle: false),
               ])),
               Column(mainAxisSize: MainAxisSize.min, children: [
-                Text('$total', style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.w700)),
-                Text('Total', style: GoogleFonts.poppins(fontSize: 11, color: ColorConstants.textSecondary)),
+                Text('$totalCoaches', style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.w700)),
+                Text('Coaches', style: GoogleFonts.poppins(fontSize: 11, color: ColorConstants.textSecondary)),
               ]),
             ],
           ),
         ),
         const SizedBox(height: 12),
         Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          _legend(const Color(0xFF34C700), 'Active ($activeCount)'), const SizedBox(width: 20),
-          _legend(const Color(0xFFFF3B30), 'Inactive ($inactiveCount)'),
+          _legend(Colors.green, 'Normal ($normalCoaches)'), const SizedBox(width: 20),
+          _legend(const Color(0xFFD32F2F), 'Alert ($alertCoaches)'),
         ]),
       ],
     );
@@ -169,9 +165,9 @@ class _OdourChartViewState extends State<OdourChartView> {
           minX: 0, maxX: selectedPeriod == 'Live' ? 7 : (selectedPeriod == '7 Days' ? 7 : 30), minY: 0,
           maxY: (spots.isEmpty ? 5 : (spots.map((e) => e.y).reduce((a, b) => a > b ? a : b) + 1).toDouble().clamp(5, 100)),
           lineBarsData: [LineChartBarData(
-            spots: spots, isCurved: true, gradient: const LinearGradient(colors: [Colors.blue, Colors.cyan]),
+            spots: spots, isCurved: true, gradient: const LinearGradient(colors: [Colors.red, Colors.orange]),
             barWidth: 3, dotData: FlDotData(show: spots.length < 10),
-            belowBarData: BarAreaData(show: true, gradient: LinearGradient(colors: [Colors.blue.withOpacity(0.3), Colors.transparent], begin: Alignment.topCenter, end: Alignment.bottomCenter)),
+            belowBarData: BarAreaData(show: true, gradient: LinearGradient(colors: [Colors.red.withOpacity(0.3), Colors.transparent], begin: Alignment.topCenter, end: Alignment.bottomCenter)),
           )],
         )),
       ),
@@ -183,14 +179,13 @@ class _OdourChartViewState extends State<OdourChartView> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(color: ColorConstants.cardBackground, borderRadius: BorderRadius.circular(AppDimensions.radiusLarge)),
       child: Column(children: [
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text('Total Records', style: AppTextStyles.bodyMedium),
-          Text('$total', style: AppTextStyles.bodyLarge.copyWith(fontWeight: FontWeight.w600)),
-        ]),
+        _buildStatRow('Coaches with Alert', '$alertCoaches', const Color(0xFFD32F2F)),
         const SizedBox(height: 8),
-        _buildStatRow('Active Sensors', '$activeCount', const Color(0xFF34C700)),
+        _buildStatRow('Normal Coaches', '$normalCoaches', Colors.green),
         const SizedBox(height: 8),
-        _buildStatRow('Inactive/Resolved', '$inactiveCount', const Color(0xFFFF3B30)),
+        _buildStatRow('Total Toilets Monitored', '$totalToilets', ColorConstants.primary),
+        const SizedBox(height: 8),
+        _buildStatRow('Bad Odour Toilets', '$badToilets', const Color(0xFFD32F2F)),
       ]),
     );
   }
@@ -199,4 +194,36 @@ class _OdourChartViewState extends State<OdourChartView> {
     Row(children: [Container(width: 10, height: 10, decoration: BoxDecoration(color: c, shape: BoxShape.circle)), const SizedBox(width: 6), Text(l, style: AppTextStyles.bodyMedium)]),
     Text(v, style: AppTextStyles.bodyLarge.copyWith(fontWeight: FontWeight.w600)),
   ]);
+
+  Widget _buildCoachTable() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: ColorConstants.cardBackground, borderRadius: BorderRadius.circular(AppDimensions.radiusLarge)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Coach Summary', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 12),
+          ...filteredCoaches.map((c) => Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(children: [
+              Expanded(flex: 2, child: Text(c.coachNumber, style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w500))),
+              Expanded(flex: 2, child: Text(c.trainNumber, style: GoogleFonts.poppins(fontSize: 11, color: ColorConstants.textSecondary))),
+              Expanded(
+                flex: 3,
+                child: Row(children: c.toilets.map((t) => Container(
+                  width: 14, height: 14, margin: const EdgeInsets.only(right: 3),
+                  decoration: BoxDecoration(
+                    color: t.isBad ? const Color(0xFFD32F2F) : (t.reading > 40 ? const Color(0xFFBE8B22) : Colors.green),
+                    shape: BoxShape.circle,
+                  ),
+                )).toList()),
+              ),
+              Text('${c.averageReading.toStringAsFixed(0)} ppm', style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w500)),
+            ]),
+          )),
+        ],
+      ),
+    );
+  }
 }

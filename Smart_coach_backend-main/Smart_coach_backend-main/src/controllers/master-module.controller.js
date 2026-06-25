@@ -37,6 +37,7 @@ const masterModuleController = {
         battery_capacity,
         battery_type,
         battery_recharge_date,
+        power_supply_available = false,
         device_ids = []
       } = req.body;
 
@@ -62,6 +63,7 @@ const masterModuleController = {
         battery_capacity,
         battery_type,
         battery_recharge_date,
+        power_supply_available,
         created_by,
         created_date: toMySQLDatetime(),
       };
@@ -89,8 +91,8 @@ const masterModuleController = {
       const modulesMap = new Map();
 
       for (const row of rawRows) {
-        // Safe check to avoid key grouping errors if mapping is empty
-        const targetModuleKey = row.mapped_device_id || row.module_id;
+        // Always key by module_id so a module appears once even with multiple devices
+        const targetModuleKey = row.module_id;
 
         if (!modulesMap.has(targetModuleKey)) {
           modulesMap.set(targetModuleKey, {
@@ -116,6 +118,7 @@ const masterModuleController = {
             battery_capacity: row.battery_capacity,
             battery_type: row.battery_type,
             battery_recharge_date: row.battery_recharge_date,
+            power_supply_available: Boolean(row.power_supply_available),
             created_by: row.created_by,
             module_created_by_name: row.module_created_by_name,
             module_updated_by_name: row.module_updated_by_name,
@@ -146,7 +149,7 @@ const masterModuleController = {
 
         if (row.mapped_device_id) {
           modulesMap.get(targetModuleKey).devices.push({
-            device_id: row.mapped_device_id,
+            device_id: String(row.mapped_device_id),
             device_unique_id: row.device_unique_id,
             short_name: row.device_short_name,
             full_name: row.device_full_name
@@ -204,6 +207,7 @@ const masterModuleController = {
             dual_profile_supported: !!module.dual_profile_supported,
             lora_enabled: !!module.lora_enabled,
             esim_enabled: !!module.esim_enabled,
+            power_supply_available: !!module.power_supply_available,
           };
         })
       );
@@ -249,8 +253,12 @@ const masterModuleController = {
         esim_enabled = false,
         battery_capacity,
         battery_type,
+        power_supply_available = false,
         device_ids = []
       } = req.body;
+
+      // Convert string device IDs to integers
+      const parsedDeviceIds = device_ids.map(id => parseInt(id, 10)).filter(id => !isNaN(id));
 
       const updatedData = {
         coach_id,
@@ -272,11 +280,12 @@ const masterModuleController = {
         esim_enabled,
         battery_capacity,
         battery_type,
+        power_supply_available,
         updated_by: updatedBy,
         updated_date: new Date()
       };
 
-      await masterModuleModel.updateWithDevices(moduleId, updatedData, device_ids);
+      await masterModuleModel.updateWithDevices(moduleId, updatedData, parsedDeviceIds);
 
       return successResponse(res, 'Master module updated successfully.');
     } catch (error) {

@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:sizer/sizer.dart';
+import 'package:smart_coach_new/core/utils/export_utils.dart';
 import 'package:smart_coach_new/core/widgets/custom_button.dart';
 import 'package:smart_coach_new/core/widgets/custom_toggle_buttons.dart';
 import 'package:smart_coach_new/features/configuration/master_module_configuration/domain/entities/master_module_entity.dart';
+import 'package:smart_coach_new/features/configuration/master_module_configuration/presentation/bloc/master_module_configuration_bloc.dart';
 import 'package:smart_coach_new/features/configuration/master_module_configuration/presentation/widgets/configure_master_module.dart';
 import 'package:smart_coach_new/features/configuration/master_module_configuration/presentation/widgets/master_module_list.dart';
 
@@ -18,6 +22,26 @@ class _MasterModuleConfigurationScreenState
     extends State<MasterModuleConfigurationScreen> {
   int selectedTab = 0;
   MasterModuleEntity? selectedMasterModuleItem;
+
+  Future<void> _exportMasterModuleList() async {
+    final state = context.read<MasterModuleConfigurationBloc>().state;
+    final modules = state.masterModuleList;
+    if (modules.isEmpty) return;
+    final data = modules.map((m) => {
+      'ID': m.moduleId?.toString() ?? '',
+      'Technical No': m.moduleUniqueId ?? '',
+      'Display ID': m.moduleUniqueId ?? '',
+      'Status': m.simStatus ?? '',
+      'Created By': m.createdBy?.toString() ?? '',
+      'Created At': m.createdDate ?? '',
+      'Updated By': m.updatedBy?.toString() ?? '',
+      'Updated At': m.updatedDate ?? '',
+    }).toList();
+    final path = await ExportUtils.exportToCsv(data, 'Master_Module_List');
+    if (path.isNotEmpty) {
+      await Share.shareXFiles([XFile(path)]);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -127,7 +151,7 @@ class _MasterModuleConfigurationScreenState
                           horizontal: 3.w,
                         ),
                         radius: 8,
-                        onPressed: () {},
+                        onPressed: _exportMasterModuleList,
                       ),
                   ],
                 ),

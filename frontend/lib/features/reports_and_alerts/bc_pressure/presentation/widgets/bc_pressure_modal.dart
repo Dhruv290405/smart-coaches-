@@ -4,7 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../../../core/utils/app_dimensions.dart';
 import '../../../../../core/utils/app_text_styles.dart';
 import '../../../../../core/utils/color_constants.dart';
-import '../../../../core/utils/device_id_mapper.dart';
+import '../../../../../core/utils/device_id_mapper.dart';
 import '../../data/models/bc_pressure_model.dart';
 
 class BCPressureModal extends StatelessWidget {

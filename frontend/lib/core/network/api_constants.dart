@@ -27,7 +27,9 @@ class ApiConstants {
   static const String coachTypesApiEndpoint = '/coach-types';
   static const String sensorMakesApiEndpoint = '/sensors-make';
   static const String odourReceiveDataApiEndpoint = '/odour/logs/receive-data';
+  static const String odourCoachesApiEndpoint = '/odour-logs/coaches';
   static const String fsdsReceiveDataApiEndpoint = '/fsds/receive-data';
+  static const String fsdsGetDataApiEndpoint = '/fsds/get-data';
   static const String coachConfigApiEndpoint = '/coach-config';
   static const String hotAxleReceiveDataApiEndpoint = '/hotaxle/receive-data';
   static const String hotAxleGetDataApiEndpoint = '/hot-axle/get-data';
@@ -36,6 +38,9 @@ class ApiConstants {
   static const String bcPressureGetDataApiEndpoint = '/pressure/dashboard-status';
   static const String pressureReceiveDataApiEndpoint = '/pressure/receive-data';
   static const String wliReceiveDataApiEndpoint = '/wli/receive-data';
+  static const String wliCoachesApiEndpoint = '/wli/coaches';
+  static const String dieselReadingsApiEndpoint = '/diesel/readings';
+  static const String dieselHistoryApiEndpoint = '/diesel/history';
   static const String notificationsApiEndpoint = '/notifications';
   static const String markAllNotificationsReadApiEndpoint = '/notifications/mark-all-read';
   static const String notificationLimitDefault = '10';

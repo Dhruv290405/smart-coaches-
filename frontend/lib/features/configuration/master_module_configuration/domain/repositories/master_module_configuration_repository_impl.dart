@@ -61,16 +61,18 @@ class MasterModuleConfigurationRepositoryImpl
 
   @override
   Future<String> createMasterModuleConfiguration(
-      MasterModuleConfigurationRequest masterModuleConfigurationRequest) async {
+      MasterModuleConfigurationRequest masterModuleConfigurationRequest,
+      {Map<String, dynamic>? extraFields}) async {
     return await remoteDataSource
-        .createMasterModuleConfiguration(masterModuleConfigurationRequest);
+        .createMasterModuleConfiguration(masterModuleConfigurationRequest, extraFields: extraFields);
   }
 
   @override
   Future<String> editMasterModuleConfiguration(int? moduleId,
-      MasterModuleConfigurationRequest masterModuleConfigurationRequest) async {
+      MasterModuleConfigurationRequest masterModuleConfigurationRequest,
+      {Map<String, dynamic>? extraFields}) async {
     return await remoteDataSource.editMasterModuleConfiguration(
-        moduleId, masterModuleConfigurationRequest);
+        moduleId, masterModuleConfigurationRequest, extraFields: extraFields);
   }
 
   @override

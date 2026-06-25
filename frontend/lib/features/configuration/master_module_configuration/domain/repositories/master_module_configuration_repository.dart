@@ -9,13 +9,15 @@ abstract class MasterModuleConfigurationRepository {
   Future<List<MasterModuleEntity>> fetchMasterModuleList();
 
   Future<String> createMasterModuleConfiguration(
-    MasterModuleConfigurationRequest masterModuleConfigurationRequest,
-  );
+    MasterModuleConfigurationRequest masterModuleConfigurationRequest, {
+    Map<String, dynamic>? extraFields,
+  });
 
   Future<String> editMasterModuleConfiguration(
     int? moduleId,
-    MasterModuleConfigurationRequest masterModuleConfigurationRequest,
-  );
+    MasterModuleConfigurationRequest masterModuleConfigurationRequest, {
+    Map<String, dynamic>? extraFields,
+  });
 
   Future<String> deleteMasterModuleConfiguration(int? moduleId);
 

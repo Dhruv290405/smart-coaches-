@@ -47,6 +47,22 @@ const wliController = {
             console.error("WLI Controller Error:", error.message);
             res.status(500).json({ success: false, error: error.message });
         }
+    },
+
+    getDashboardStatus: async (req, res) => {
+        try {
+            const statusData = await WliModel.getLatestStatusForAllCoaches();
+
+            return res.status(200).json({
+                success: true,
+                totalCoaches: statusData.length,
+                data: statusData
+            });
+
+        } catch (error) {
+            console.error("WLI Dashboard Controller Error:", error.message);
+            res.status(500).json({ success: false, error: error.message });
+        }
     }
 };
 

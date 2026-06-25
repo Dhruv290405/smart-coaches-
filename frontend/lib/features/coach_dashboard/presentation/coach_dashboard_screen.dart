@@ -378,6 +378,7 @@ class _CoachDashboardScreenState extends State<CoachDashboardScreen> {
                   deviceId: deviceId,
                   coachType: '',
                   owningRly: '',
+                  trainNo: '',
                   timestamp: '',
                   a11Temp: 0, a12Temp: 0, a21Temp: 0, a22Temp: 0,
                   a31Temp: 0, a32Temp: 0, a41Temp: 0, a42Temp: 0,

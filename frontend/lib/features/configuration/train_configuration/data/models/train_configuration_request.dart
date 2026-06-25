@@ -4,6 +4,13 @@ import 'package:smart_coach_new/features/configuration/coach_configuration/data/
 part 'train_configuration_request.freezed.dart';
 part 'train_configuration_request.g.dart';
 
+int? _parseInt(dynamic value) {
+  if (value is int) return value;
+  if (value is double) return value.toInt();
+  if (value is String) return int.tryParse(value);
+  return null;
+}
+
 @freezed
 abstract class TrainConfigurationRequest with _$TrainConfigurationRequest {
   const factory TrainConfigurationRequest({

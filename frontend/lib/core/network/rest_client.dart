@@ -72,6 +72,12 @@ abstract class RestClient {
   @POST(ApiConstants.registerApiEndpoint)
   Future<RegisterResponse> register(@Body() Map<String, dynamic> body);
 
+  @POST('/auth/send-otp')
+  Future<Map<String, dynamic>> sendOtp(@Body() Map<String, dynamic> body);
+
+  @POST('/auth/verify-otp')
+  Future<Map<String, dynamic>> verifyOtp(@Body() Map<String, dynamic> body);
+
   @POST(ApiConstants.loginApiEndpoint)
   @Extra({'requiresAuth': false})
   Future<LoginResponse> login(@Body() Map<String, dynamic> body);
@@ -314,13 +320,13 @@ abstract class RestClient {
   Future<CreateSensorDeviceConfigurationResponse>
   createSensorDeviceConfiguration(@Body() Map<String, dynamic> body);
 
-  @PUT(ApiConstants.sensorConfigsApiEndpoint)
+  @PUT('${ApiConstants.sensorConfigsApiEndpoint}/{sensor_id}')
   Future<EditSensorDeviceConfigurationResponse> editSensorDeviceConfiguration(
       @Path("sensor_id") int? sensorId,
       @Body() Map<String, dynamic> body,
       );
 
-  @DELETE('/sensors/sensors-configs')
+  @DELETE('/sensors/sensors-configs/{sensor_id}')
   Future<DeleteSensorDeviceConfigurationResponse>
   deleteSensorDeviceConfiguration(@Path("sensor_id") int? sensorId);
 

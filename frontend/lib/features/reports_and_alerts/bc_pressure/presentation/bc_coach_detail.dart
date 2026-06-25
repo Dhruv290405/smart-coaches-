@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:smart_coach_new/features/reports_and_alerts/bc_pressure/data/datasource/bc_dummy_data.dart';
 import '../../../../core/utils/app_dimensions.dart';
 import '../../../../core/utils/app_icons.dart';
 import '../../../../core/utils/app_text_styles.dart';
@@ -34,26 +33,27 @@ class _BCCoachDetailState extends State<BCCoachDetail> {
     }
   }
 
-  List<BCHistoryEntry> get _history {
-    if (selectedPeriod == 'Custom' && customRange != null) {
-      return BCDummyData.getHistory(widget.coach.coachNumber, 'Custom', from: customRange!.start, to: customRange!.end);
+  List<BCPressureReading> get _historyReadings {
+    final abnormal = widget.coach.readings.where((r) {
+      final p = r.currentPressure;
+      return p > 5.2 || p < 4.5;
+    }).toList();
+    if (abnormal.isEmpty && widget.coach.readings.isNotEmpty) {
+      return [widget.coach.readings.first];
     }
-    return BCDummyData.getHistory(widget.coach.coachNumber, selectedPeriod);
+    return abnormal;
   }
 
-  Map<String, dynamic> get _liveData =>
-      BCDummyData.getChartData(widget.coach.coachNumber, livePeriod);
-
-  List<FlSpot> get _liveSpots => (_liveData['spots'] as List)
-      .map((s) => FlSpot((s[0] as num).toDouble(), (s[1] as num).toDouble()))
-      .toList();
+  List<FlSpot> get _liveSpots => List.generate(
+    widget.coach.readings.length.clamp(0, 50),
+    (i) => FlSpot(i.toDouble(), widget.coach.readings[i].currentPressure),
+  );
 
   Future<void> _pickCustomRange() async {
     final range = await showDateRangePicker(
       context: context,
       firstDate: DateTime(2026, 1, 1),
-      lastDate: DateTime(2026, 3, 12),
-      initialDateRange: DateTimeRange(start: DateTime(2026, 2, 10), end: DateTime(2026, 3, 12)),
+      lastDate: DateTime.now(),
       builder: (ctx, child) => Theme(
         data: Theme.of(ctx).copyWith(colorScheme: const ColorScheme.light(primary: ColorConstants.primary)),
         child: child!,
@@ -125,13 +125,13 @@ class _BCCoachDetailState extends State<BCCoachDetail> {
       Row(children: [
         SvgPicture.asset(AppIcons.train, width: 18, height: 18, colorFilter: const ColorFilter.mode(ColorConstants.primary, BlendMode.srcIn)),
         const SizedBox(width: 8),
-        Text(BCDummyData.trainName, style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: ColorConstants.textPrimary)),
+        Text('Train ${widget.coach.trainNumber}', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: ColorConstants.textPrimary)),
       ]),
       const SizedBox(height: 4),
       Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(color: ColorConstants.cardBackground, borderRadius: BorderRadius.circular(4)),
-        child: Text('Last Updated: ${BCDummyData.lastUpdated}', style: AppTextStyles.bodySmall),
+        child: Text('${widget.coach.getFormattedLastUpdated()}', style: AppTextStyles.bodySmall),
       ),
     ]),
   );
@@ -186,6 +186,10 @@ class _BCCoachDetailState extends State<BCCoachDetail> {
     final maxX   = spots.isNotEmpty ? spots.last.x : 4.0;
     final isCrit = widget.coach.status == 'Critical';
     final color  = isCrit ? Colors.red : Colors.green;
+    final xLabels = widget.coach.readings.map((r) {
+      final ts = r.timestamp;
+      return ts.length >= 16 ? ts.substring(11, 16) : ts;
+    }).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -217,9 +221,8 @@ class _BCCoachDetailState extends State<BCCoachDetail> {
               bottomTitles: AxisTitles(sideTitles: SideTitles(
                 showTitles: true, reservedSize: 30,
                 getTitlesWidget: (value, meta) {
-                  final labels = (_liveData['xLabels'] as List<String>);
                   final idx = value.toInt();
-                  if (idx >= 0 && idx < labels.length) return Padding(padding: const EdgeInsets.only(top: 8), child: Text(labels[idx], style: AppTextStyles.bodySmall.copyWith(fontSize: 8)));
+                  if (idx >= 0 && idx < xLabels.length) return Padding(padding: const EdgeInsets.only(top: 8), child: Text(xLabels[idx], style: AppTextStyles.bodySmall.copyWith(fontSize: 8)));
                   return const SizedBox.shrink();
                 },
               )),
@@ -260,34 +263,11 @@ class _BCCoachDetailState extends State<BCCoachDetail> {
   }
 
   Widget _buildHistory() {
-    final entries = _history;
+    final entries = _historyReadings;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('${widget.coach.coachNumber} (Pressure History)', style: AppTextStyles.header2),
-        const SizedBox(height: 16),
-        PeriodFilter(
-          selected: selectedPeriod,
-          periods: const ['7 Days', '30 Days', 'Custom'],
-          onChanged: (val) async {
-            if (val == 'Custom') {
-              await _pickCustomRange();
-            } else {
-              setState(() { selectedPeriod = val; customRange = null; });
-            }
-          },
-        ),
-        if (selectedPeriod == 'Custom' && customRange != null) ...[
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(color: ColorConstants.primary.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(8)),
-            child: Text(
-              '${_fmt(customRange!.start)}  →  ${_fmt(customRange!.end)}',
-              style: GoogleFonts.poppins(fontSize: 12, color: ColorConstants.primary, fontWeight: FontWeight.w500),
-            ),
-          ),
-        ],
+        Text('${widget.coach.coachNumber} (Pressure Readings)', style: AppTextStyles.header2),
         const SizedBox(height: 16),
         if (entries.isEmpty)
           Center(child: Padding(
@@ -295,17 +275,19 @@ class _BCCoachDetailState extends State<BCCoachDetail> {
             child: Column(children: [
               Icon(Icons.history, size: 44, color: ColorConstants.textTertiary),
               const SizedBox(height: 8),
-              Text('No history in this period', style: AppTextStyles.bodyMedium.copyWith(color: ColorConstants.textTertiary)),
+              Text('No readings available', style: AppTextStyles.bodyMedium.copyWith(color: ColorConstants.textTertiary)),
             ]),
           ))
         else
-          ...entries.map((e) => _buildHistoryCard(e)),
+          ...entries.map((e) => _buildReadingCard(e)),
       ],
     );
   }
 
-  Widget _buildHistoryCard(BCHistoryEntry e) {
-    final statusColor = _statusColor(e.status);
+  Widget _buildReadingCard(BCPressureReading e) {
+    final pressure = e.currentPressure;
+    final status = pressure > 5.2 || pressure < 4.5 ? 'Critical' : (pressure > 5.1 || pressure < 4.7 ? 'Warning' : 'Good');
+    final statusColor = _statusColor(status);
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -315,19 +297,17 @@ class _BCCoachDetailState extends State<BCCoachDetail> {
         border: Border.all(color: ColorConstants.divider),
       ),
       child: Column(children: [
-        _hRow('Sensor ID', e.sensorId),
+        _hRow('Pressure', '${e.currentPressure} Kg/cm²', color: statusColor),
         const Divider(color: ColorConstants.divider),
-        _hRow('Pressure', '${e.pressure} Kg/cm²', color: statusColor),
+        _hRow('Status', status, color: statusColor),
         const Divider(color: ColorConstants.divider),
-        _hRow('Status', e.status, color: statusColor),
+        _hRow('Brake Applied', e.brakeAppliedTime),
         const Divider(color: ColorConstants.divider),
-        _hRow('Brake Applied', e.brakeApplied),
+        _hRow('Brake Released', e.brakeReleasedTime),
         const Divider(color: ColorConstants.divider),
-        _hRow('Brake Released', e.brakeReleased),
+        _hRow('Response Time', '${e.brakeResponseTime}s'),
         const Divider(color: ColorConstants.divider),
-        _hRow('Response Time', e.brakeResponseTime),
-        const Divider(color: ColorConstants.divider),
-        _hRow('Location', e.location),
+        _hRow('Timestamp', e.timestamp),
       ]),
     );
   }

@@ -200,17 +200,19 @@ class CoachModel extends BaseModel {
           c.no_of_master_module,
           c.created_by,
           c.coach_status,
-          c.entity_type,
+          COALESCE(c.entity_type, '') AS entity_type,
           c.manufacturing_year,
           cu.first_name AS created_by_name,
           c.created_date,
           c.updated_by,
           uu.first_name AS updated_by_name,
           c.updated_date,
-          cm.name AS make_of_coach_name,
+          COALESCE(cm.name, '') AS make_of_coach_name,
           cm.id AS make_of_coach_id,
-          ct.code AS type_of_coach_code,
-          ct.id AS type_of_coach_id
+          COALESCE(ct.code, '') AS type_of_coach_code,
+          ct.id AS type_of_coach_id,
+          (SELECT GROUP_CONCAT(mm.module_unique_id SEPARATOR ', ') FROM master_module mm WHERE mm.coach_id = c.coach_id) AS master_module_ids,
+          (SELECT GROUP_CONCAT(mm.location SEPARATOR ', ') FROM master_module mm WHERE mm.coach_id = c.coach_id) AS master_module_locations
         FROM coach_master c
         LEFT JOIN coach_make cm ON c.make_of_coach = cm.id
         LEFT JOIN coach_type ct ON c.type_of_coach = ct.id

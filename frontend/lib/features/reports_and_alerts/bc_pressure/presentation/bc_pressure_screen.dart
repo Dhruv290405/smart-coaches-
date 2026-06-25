@@ -62,7 +62,7 @@ class _BCPressureScreenState extends State<BCPressureScreen> {
   }
 
   void _startAutoRefresh() {
-    _refreshTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
       if (mounted) _refreshData(isBackgroundRefresh: true);
     });
   }
@@ -198,9 +198,11 @@ class _BCPressureScreenState extends State<BCPressureScreen> {
   }
 
   void _sendAlerts() {
-    final criticalCoaches = _allCoaches.where((c) => c.status == 'Critical').map((c) => c.coachNumber).join(', ');
-    final warningCoaches  = _allCoaches.where((c) => c.status == 'Warning').map((c) => c.coachNumber).join(', ');
-
+    final critical = _allCoaches.where((c) => c.status == 'Critical').toList();
+    if (critical.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No critical BC pressure issues detected'), behavior: SnackBarBehavior.floating));
+      return;
+    }
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
@@ -210,38 +212,25 @@ class _BCPressureScreenState extends State<BCPressureScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Alert will be sent to:', style: GoogleFonts.poppins(fontSize: 13, color: ColorConstants.textSecondary)),
-            const SizedBox(height: 10),
-            _alertRow(Icons.person,       'Train Guard'),
-            _alertRow(Icons.support_agent,'Station Master'),
-            _alertRow(Icons.security,     'RPF Control Room'),
-            _alertRow(Icons.engineering,  'Maintenance Team'),
+            Text('${critical.length} coach(es) have critical BC pressure:', style: GoogleFonts.poppins(fontSize: 13, color: ColorConstants.textSecondary)),
             const SizedBox(height: 12),
-            if (criticalCoaches.isNotEmpty)
-              _statusInfo('Critical: $criticalCoaches', const Color(0xFFD32F2F)),
-            if (warningCoaches.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              _statusInfo('Warning: $warningCoaches', const Color(0xFFBE8B22)),
-            ],
+            ...critical.map((c) => Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(children: [
+                const Icon(Icons.warning, size: 16, color: ColorConstants.statusCritical),
+                const SizedBox(width: 8),
+                Expanded(child: Text('${c.coachNumber} — ${c.deviceId} (${c.trainNumber})', style: GoogleFonts.poppins(fontSize: 12))),
+              ]),
+            )),
           ],
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Cancel', style: GoogleFonts.poppins(color: ColorConstants.textSecondary)),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel', style: GoogleFonts.poppins(color: ColorConstants.textSecondary))),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: ColorConstants.primary),
             onPressed: () {
               Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Alert sent to 4 recipients', style: GoogleFonts.poppins(fontSize: 13)),
-                  backgroundColor: Colors.green[700],
-                  behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                ),
-              );
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Alert sent to control room', style: GoogleFonts.poppins(fontSize: 13)), backgroundColor: Colors.green[700], behavior: SnackBarBehavior.floating));
             },
             child: Text('Send Now', style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w600)),
           ),
@@ -249,21 +238,6 @@ class _BCPressureScreenState extends State<BCPressureScreen> {
       ),
     );
   }
-
-  Widget _alertRow(IconData icon, String name) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 3),
-    child: Row(children: [
-      Icon(icon, size: 16, color: ColorConstants.primary),
-      const SizedBox(width: 8),
-      Text(name, style: GoogleFonts.poppins(fontSize: 13)),
-    ]),
-  );
-
-  Widget _statusInfo(String text, Color color) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-    decoration: BoxDecoration(color: color.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(8)),
-    child: Text(text, style: GoogleFonts.poppins(fontSize: 12, color: color, fontWeight: FontWeight.w500)),
-  );
 
   @override
   Widget build(BuildContext context) {
@@ -313,7 +287,7 @@ class _BCPressureScreenState extends State<BCPressureScreen> {
                       if (selectedViewType == 'BC Pressure')
                         _card(child: _buildGrid())
                       else if (selectedViewType == 'Chart View')
-                        _card(child: const BCChartView())
+                        _card(child: BCChartView(coaches: _filteredCoaches))
                       else if (selectedViewType == 'Alerts')
                         _card(child: BCAlertsView(alerts: _liveAlerts)),
                     ],

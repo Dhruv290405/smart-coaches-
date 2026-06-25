@@ -45,6 +45,22 @@ const odourController = {
             console.error("Odour Controller Error:", error.message);
             res.status(500).json({ success: false, error: error.message });
         }
+    },
+
+    getDashboardStatus: async (req, res) => {
+        try {
+            const statusData = await OdourModel.getLatestStatusForAllCoaches();
+
+            return res.status(200).json({
+                success: true,
+                totalCoaches: statusData.length,
+                data: statusData
+            });
+
+        } catch (error) {
+            console.error("Odour Dashboard Controller Error:", error.message);
+            res.status(500).json({ success: false, error: error.message });
+        }
     }
 };
 

@@ -39,6 +39,8 @@ CoachItem _$CoachItemFromJson(Map<String, dynamic> json) => CoachItem(
   coachStatus: json['coach_status'] as String?,
   createdAt: json['created_date'] as String?,
   updatedAt: json['updated_date'] as String?,
+  masterModuleIds: json['master_module_ids'] as String?,
+  masterModuleLocations: json['master_module_locations'] as String?,
 );
 
 Map<String, dynamic> _$CoachItemToJson(CoachItem instance) => <String, dynamic>{
@@ -58,4 +60,6 @@ Map<String, dynamic> _$CoachItemToJson(CoachItem instance) => <String, dynamic>{
   'make_of_coach_id': instance.makeOfCoachId,
   'type_of_coach_code': instance.typeOfCoachCode,
   'type_of_coach_id': instance.typeOfCoachId,
+  'master_module_ids': instance.masterModuleIds,
+  'master_module_locations': instance.masterModuleLocations,
 };

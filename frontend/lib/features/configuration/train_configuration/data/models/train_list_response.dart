@@ -3,6 +3,13 @@ import 'package:smart_coach_new/features/configuration/coach_configuration/data/
 
 part 'train_list_response.g.dart';
 
+int? _parseInt(dynamic value) {
+  if (value is int) return value;
+  if (value is double) return value.toInt();
+  if (value is String) return int.tryParse(value);
+  return null;
+}
+
 @JsonSerializable(explicitToJson: true)
 class TrainListResponse {
   final bool success;

@@ -73,9 +73,72 @@ class _ConfigureSensorDeviceState extends State<ConfigureSensorDevice> {
 
   void _loadDevices() {
     if (selectedCoach != null && selectedMasterModuleId != null) {
-      _sensorDeviceConfigurationBloc.add(LoadDeviceListData());
       setState(() {
+        _sensorDeviceConfigurationBloc.add(LoadDeviceListData());
         showDeviceSection = true;
+      });
+    }
+  }
+
+  Future<void> _showCoachSearchDialog() async {
+    final state = _sensorDeviceConfigurationBloc.state;
+    final coaches = state.coachList;
+    if (coaches.isEmpty) return;
+    final selected = await showDialog<CoachEntity>(
+      context: context,
+      builder: (ctx) => _SearchableSelectionDialog(
+        title: 'Select Coach',
+        items: coaches,
+        displayText: (e) => e.coachUniqueId ?? '',
+        searchFilter: (e, q) => (e.coachUniqueId ?? '').toLowerCase().contains(q.toLowerCase()),
+      ),
+    );
+    if (selected != null) {
+      setState(() {
+        selectedCoach = selected;
+        selectedMasterModuleId = null;
+        selectedDevicesId = null;
+        showDeviceSection = false;
+        showSensorSection = false;
+      });
+      final coachId = selected.coachId is int
+          ? selected.coachId as int
+          : int.tryParse(selected.coachId?.toString() ?? '');
+      if (coachId != null) {
+        _sensorDeviceConfigurationBloc.add(LoadMasterModulesForCoach(coachId));
+      } else {
+        Utils.showApiErrorMessageOrList(context, message: 'Invalid coach ID format');
+      }
+    }
+  }
+
+  Future<void> _showMasterModuleSearchDialog() async {
+    final state = _sensorDeviceConfigurationBloc.state;
+    final modules = state.masterModuleList;
+    if (modules.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(state.errorMessage ?? 'No master modules found for this coach'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+    final selected = await showDialog<MasterModuleEntity>(
+      context: context,
+      builder: (ctx) => _SearchableSelectionDialog(
+        title: 'Select Master Module',
+        items: modules,
+        displayText: (e) => e.moduleUniqueId ?? '',
+        searchFilter: (e, q) => (e.moduleUniqueId ?? '').toLowerCase().contains(q.toLowerCase()),
+      ),
+    );
+    if (selected != null) {
+      setState(() {
+        selectedMasterModuleId = selected.moduleId;
+        showDeviceSection = false;
       });
     }
   }
@@ -119,26 +182,6 @@ class _ConfigureSensorDeviceState extends State<ConfigureSensorDevice> {
       showDeviceSection =
           selectedMasterModuleId != null && selectedCoach != null;
       showSensorSection = selectedDevicesId != null;
-
-      // final sensors = item.sensors;
-      // if (sensors != null && sensors.isNotEmpty) {
-      //   sensorCount = sensors.length;
-      //   sensorForms = sensors.map((sensor) {
-      //     return SensorFormModel(
-      //       sensorId: sensor.sensorId,
-      //       make: sensor.make,
-      //       installDate: sensor.installDate != null
-      //           ? DateTime.tryParse(sensor.installDate!)
-      //           : null,
-      //       placement: sensor.placement,
-      //       location: sensor.location,
-      //       remarks: sensor.remarks,
-      //     );
-      //   }).toList();
-      // } else {
-      //   sensorCount = 1;
-      //   sensorForms = [SensorFormModel()];
-      // }
     });
   }
 
@@ -292,9 +335,6 @@ class _ConfigureSensorDeviceState extends State<ConfigureSensorDevice> {
     bool isActive =
         deviceStatus.name.toLowerCase() ==
         DeviceStatus.active.name.toLowerCase();
-    bool isPending =
-        deviceStatus.name.toLowerCase() ==
-        DeviceStatus.pending.name.toLowerCase();
     bool isInActive =
         deviceStatus.name.toLowerCase() ==
         DeviceStatus.inactive.name.toLowerCase();
@@ -304,16 +344,14 @@ class _ConfigureSensorDeviceState extends State<ConfigureSensorDevice> {
     if (isActive) {
       color = Colors.green.withValues(alpha: 0.13);
       textColor = Colors.green;
-    } else if (isPending) {
-      color = Colors.red.shade900.withValues(alpha: 0.13);
-      textColor = Colors.red.shade900;
     } else if (isInActive) {
-      color = Color(0xFFFEF7C3);
-      textColor = Color(0xFF684412);
+      color = Colors.red.withValues(alpha: 0.13);
+      textColor = Colors.red;
     }
+    final statusLabel = isActive ? 'Online' : 'Offline';
     return _chipView(
       getStatusIcon(deviceStatus),
-      '${(deviceName != null && deviceName.isNotEmpty) ? deviceName : '---'} (${deviceStatus.name})',
+      '${(deviceName != null && deviceName.isNotEmpty) ? deviceName : '---'} ($statusLabel)',
       color,
       textColor,
     );
@@ -322,8 +360,6 @@ class _ConfigureSensorDeviceState extends State<ConfigureSensorDevice> {
   IconData getStatusIcon(DeviceStatus status) {
     if (status == DeviceStatus.active) {
       return Icons.check_circle_outline;
-    } else if (status == DeviceStatus.pending) {
-      return Icons.access_time;
     } else if (status == DeviceStatus.inactive) {
       return Icons.remove_circle_outline;
     } else {
@@ -366,59 +402,58 @@ class _ConfigureSensorDeviceState extends State<ConfigureSensorDevice> {
             ),
           ),
           SizedBox(height: 2.h),
-          CustomDropDown<CoachEntity>(
-            hintText: 'Select Coach',
-            label: 'Coach',
-            isRequired: true,
-            value: selectedCoach,
-            items: state.coachList,
-            getValue: (e) => e, // internal value used by dropdown
-            displayText: (e) => e.coachUniqueId ?? '',
-            onChanged: (value) {
-              setState(() {
-                selectedCoach = value; // this is a CoachEntity
-                showDeviceSection = false;
-              });
-              // Coach ID: ${value.coachId}
-
-              _sensorDeviceConfigurationBloc.add(LoadMasterModulesForCoach(value.coachId));
-            },
+          GestureDetector(
+            onTap: _showCoachSearchDialog,
+            child: AbsorbPointer(
+              child: CustomTextField(
+                labelText: 'Coach',
+                hintText: 'Select Coach',
+                isRequired: true,
+                controller: TextEditingController(
+                  text: selectedCoach?.coachUniqueId ?? '',
+                ),
+                suffixIcon: const Icon(Icons.search),
+              ),
+            ),
           ),
           SizedBox(height: 2.h),
-          CustomDropDown<MasterModuleEntity>(
-            label: 'Master Module',
-            hintText: 'Select Master Module',
-            value: selectedMasterModuleId,
-            items: state.masterModuleList,
-            getValue: (e) => e.moduleId,
-            displayText: (e) => e.moduleUniqueId ?? '',
-            isRequired: true,
-            onChanged: (value) {
-              setState(() {
-                selectedMasterModuleId = value;
-                showDeviceSection = false;
-              });
-            },
+          GestureDetector(
+            onTap: _showMasterModuleSearchDialog,
+            child: AbsorbPointer(
+              child: CustomTextField(
+                labelText: 'Master Module',
+                hintText: 'Select Master Module',
+                isRequired: true,
+                controller: TextEditingController(
+                  text: state.masterModuleList
+                      .where((m) => m.moduleId == selectedMasterModuleId)
+                      .map((m) => m.moduleUniqueId ?? '')
+                      .firstOrNull ?? '',
+                ),
+                suffixIcon: const Icon(Icons.search),
+              ),
+            ),
           ),
           SizedBox(height: 2.5.h),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              Align(
-                alignment: Alignment.centerRight,
-                child: CustomButton(
-                  text: 'Load Devices',
-                  onPressed: _loadDevices,
-                  textSize: 12,
-                  radius: 6,
-                  padding: EdgeInsets.symmetric(
-                    vertical: 1.6.h,
-                    horizontal: 5.w,
+          if (selectedCoach != null && selectedMasterModuleId != null)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: CustomButton(
+                    text: 'Load Devices',
+                    onPressed: _loadDevices,
+                    textSize: 12,
+                    radius: 6,
+                    padding: EdgeInsets.symmetric(
+                      vertical: 1.6.h,
+                      horizontal: 5.w,
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
         ],
       ),
     );
@@ -643,6 +678,80 @@ class _ConfigureSensorDeviceState extends State<ConfigureSensorDevice> {
               ),
             );
           }),
+        ],
+      ),
+    );
+  }
+}
+
+class _SearchableSelectionDialog<T> extends StatefulWidget {
+  final String title;
+  final List<T> items;
+  final String Function(T) displayText;
+  final bool Function(T, String) searchFilter;
+
+  const _SearchableSelectionDialog({
+    required this.title,
+    required this.items,
+    required this.displayText,
+    required this.searchFilter,
+  });
+
+  @override
+  State<_SearchableSelectionDialog<T>> createState() => _SearchableSelectionDialogState<T>();
+}
+
+class _SearchableSelectionDialogState<T> extends State<_SearchableSelectionDialog<T>> {
+  final TextEditingController _searchController = TextEditingController();
+  late List<T> _filteredItems;
+
+  @override
+  void initState() {
+    super.initState();
+    _filteredItems = widget.items;
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      insetPadding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 8.h),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(3.w)),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: EdgeInsets.all(3.w),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Search...',
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(2.w)),
+                contentPadding: EdgeInsets.symmetric(vertical: 1.h, horizontal: 2.w),
+              ),
+              onChanged: (q) {
+                setState(() {
+                  _filteredItems = widget.items.where((e) => widget.searchFilter(e, q)).toList();
+                });
+              },
+            ),
+          ),
+          Flexible(
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: _filteredItems.length,
+              itemBuilder: (ctx, i) => ListTile(
+                title: Text(widget.displayText(_filteredItems[i])),
+                onTap: () => Navigator.pop(context, _filteredItems[i]),
+              ),
+            ),
+          ),
         ],
       ),
     );

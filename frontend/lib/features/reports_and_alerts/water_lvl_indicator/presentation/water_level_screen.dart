@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import '../../../../core/network/api_constants.dart';
 import '../../../../core/utils/app_dimensions.dart';
 import '../../../../core/utils/app_icons.dart';
 import '../../../../core/utils/app_strings.dart';
@@ -13,7 +14,7 @@ import '../../../../core/widgets/action_button.dart';
 import '../../../../core/widgets/filter_dropdown.dart';
 import '../../../../core/widgets/status_chip.dart';
 import '../../../../core/widgets/view_type_selector.dart';
-import '../data/datasource/wli_dummy_data.dart';
+import '../data/datasources/wli_data_service.dart';
 import '../data/models/water_tank_model.dart';
 import 'widgets/wli_card.dart';
 import 'widgets/wli_modal.dart';
@@ -29,6 +30,7 @@ class WaterLevelScreen extends StatefulWidget {
 }
 
 class _WaterLevelScreenState extends State<WaterLevelScreen> {
+  final WliDataService _dataService = WliDataService(baseUrl: ApiConstants.devUrl);
   String selectedTrainNumber = 'All Trains';
   String selectedCoachType = 'All Types';
   String selectedCoachNumber = 'All Coach Numbers';
@@ -36,6 +38,8 @@ class _WaterLevelScreenState extends State<WaterLevelScreen> {
   String selectedViewType = 'Assets';
   String lastUpdated = 'Never';
   bool isRefreshing = false;
+  bool _isLoading = true;
+  String? _errorMessage;
   Timer? _refreshTimer;
 
   List<String> trainNumbers = ['All Trains'];
@@ -77,44 +81,15 @@ class _WaterLevelScreenState extends State<WaterLevelScreen> {
     });
     _refreshData();
   }
-
-  Future<void> _loadTrains() async {
-    // Mocking the filter load
-    await Future.delayed(const Duration(milliseconds: 300));
-    if (mounted) {
-      setState(() {
-        trainNumbers = ['All Trains', '12615 Grand Trunk', '12951 Rajdhani', '12002 Shatabdi'];
-      });
-    }
-  }
-
-  Future<void> _loadCoachTypes(String trainNo) async {
-    await Future.delayed(const Duration(milliseconds: 300));
-    if (mounted) {
-      setState(() {
-        coachTypes = ['All Types', 'LHB_AC_3TIER', 'LHB_AC_2TIER', 'LHB_POWER_CAR'];
-        selectedCoachType = 'All Types';
-        coachNumbers = ['All Coach Numbers'];
-        selectedCoachNumber = 'All Coach Numbers';
-      });
-    }
-  }
-
-  Future<void> _loadCoachNumbers(String trainNo, String coachType) async {
-    await Future.delayed(const Duration(milliseconds: 300));
-    if (mounted) {
-      setState(() {
-        coachNumbers = ['All Coach Numbers', 'COACH_B1', 'COACH_B2', 'COACH_A1'];
-        selectedCoachNumber = 'All Coach Numbers';
-      });
-    }
-  }
-
   void _applyFilters() {
     setState(() {
       _filteredCoaches = _allCoaches.where((coach) {
-        final matchesTrain = selectedTrainNumber == 'All Trains' || coach.source.deviceId.contains(selectedTrainNumber) || coach.location.coachName.contains(selectedTrainNumber);
-        final matchesType = selectedCoachType == 'All Types' || coach.location.coachName.contains(selectedCoachType);
+        // Match train by checking device_id start OR coachName start (trainNo_coachName format)
+        final coachName = coach.location.coachName;
+        final matchesTrain = selectedTrainNumber == 'All Trains' ||
+            coach.source.deviceId.startsWith(selectedTrainNumber) ||
+            coachName.startsWith('${selectedTrainNumber}_');
+        final matchesType = selectedCoachType == 'All Types' || coach.coachType == selectedCoachType;
         final matchesCoach = selectedCoachNumber == 'All Coach Numbers' || coach.coachNumber == selectedCoachNumber;
         final matchesStatus = selectedStatus == 'All' || coach.status.toUpperCase() == selectedStatus.toUpperCase();
         return matchesTrain && matchesType && matchesCoach && matchesStatus;
@@ -126,30 +101,222 @@ class _WaterLevelScreenState extends State<WaterLevelScreen> {
     if (!isBackgroundRefresh) {
       if (mounted) setState(() => isRefreshing = true);
     }
-    
+
     if (trainNumbers.length <= 1 && selectedTrainNumber == 'All Trains') {
-      _loadTrains();
+      await _loadTrains();
     }
 
     try {
-      await Future.delayed(const Duration(milliseconds: 800));
-      
+      final tanks = await _dataService.fetchWliCoaches();
       if (mounted) {
-        final List<WaterTankModel> mockData = WliDummyData.generateCoaches();
-
         setState(() {
+          _isLoading = false;
+          _errorMessage = null;
           isRefreshing = false;
           lastUpdated = DateFormat('HH:mm:ss').format(DateTime.now());
-          _allCoaches = mockData;
+          _allCoaches = tanks;
           _applyFilters();
           if (!isBackgroundRefresh) isRefreshing = false;
         });
       }
     } catch (e) {
-      log('Error refreshing data: $e');
-      if (mounted && !isBackgroundRefresh) {
-        setState(() => isRefreshing = false);
+      log('Error refreshing data from API: $e');
+      
+      // Load mock data as fallback when API fails
+      if (mounted) {
+        _loadMockData();
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'API unavailable. Showing sample data.';
+          isRefreshing = false;
+        });
       }
+    }
+  }
+
+  void _loadMockData() {
+    // Load mock data similar to diesel and other screens
+    final now = DateTime.now();
+    _allCoaches = [
+      // Train A1
+      WaterTankModel(
+        source: WaterTankSource(companyName: 'VASP Rails Tech', systemType: 'WLI', deviceId: 'WLI-A1-1'),
+        location: WaterTankLocation(coachId: 'WC001', coachName: 'A1'),
+        messageType: 'METRICS',
+        timestamp: now.toIso8601String(),
+        placement: WaterTankPlacement(type: 'UNDERSLUNG', sensorCount: 1, position: ['CENTER']),
+        coachType: '3 TIER',
+        assets: [
+          WaterTankAsset(
+            assetId: 'WLI-A1-1-ASSET1',
+            assetName: 'Water Tank Sensor',
+            levelCm: 105.0,
+            volumeLiters: 450.0,
+            percentFull: 75.0,
+          ),
+        ],
+      ),
+      WaterTankModel(
+        source: WaterTankSource(companyName: 'VASP Rails Tech', systemType: 'WLI', deviceId: 'WLI-A1-2'),
+        location: WaterTankLocation(coachId: 'WC002', coachName: 'A2'),
+        messageType: 'METRICS',
+        timestamp: now.subtract(const Duration(minutes: 10)).toIso8601String(),
+        placement: WaterTankPlacement(type: 'UNDERSLUNG', sensorCount: 1, position: ['CENTER']),
+        coachType: '3 TIER',
+        assets: [
+          WaterTankAsset(
+            assetId: 'WLI-A1-2-ASSET1',
+            assetName: 'Water Tank Sensor',
+            levelCm: 35.0,
+            volumeLiters: 150.0,
+            percentFull: 25.0,
+          ),
+        ],
+      ),
+      WaterTankModel(
+        source: WaterTankSource(companyName: 'VASP Rails Tech', systemType: 'WLI', deviceId: 'WLI-A1-3'),
+        location: WaterTankLocation(coachId: 'WC003', coachName: 'A3'),
+        messageType: 'METRICS',
+        timestamp: now.subtract(const Duration(minutes: 5)).toIso8601String(),
+        placement: WaterTankPlacement(type: 'ROOF', sensorCount: 1, position: ['CENTER']),
+        coachType: 'SLEEPER',
+        assets: [
+          WaterTankAsset(
+            assetId: 'WLI-A1-3-ASSET1',
+            assetName: 'Water Tank Sensor',
+            levelCm: 10.0,
+            volumeLiters: 50.0,
+            percentFull: 5.0,
+          ),
+        ],
+      ),
+      // Train B2
+      WaterTankModel(
+        source: WaterTankSource(companyName: 'VASP Rails Tech', systemType: 'WLI', deviceId: 'WLI-B2-1'),
+        location: WaterTankLocation(coachId: 'WC004', coachName: 'B1'),
+        messageType: 'METRICS',
+        timestamp: now.subtract(const Duration(minutes: 15)).toIso8601String(),
+        placement: WaterTankPlacement(type: 'UNDERFRAME', sensorCount: 1, position: ['CENTER']),
+        coachType: 'GENERAL',
+        assets: [
+          WaterTankAsset(
+            assetId: 'WLI-B2-1-ASSET1',
+            assetName: 'Water Tank Sensor',
+            levelCm: 120.0,
+            volumeLiters: 600.0,
+            percentFull: 85.0,
+          ),
+        ],
+      ),
+      WaterTankModel(
+        source: WaterTankSource(companyName: 'VASP Rails Tech', systemType: 'WLI', deviceId: 'WLI-B2-2'),
+        location: WaterTankLocation(coachId: 'WC005', coachName: 'B2'),
+        messageType: 'METRICS',
+        timestamp: now.subtract(const Duration(minutes: 20)).toIso8601String(),
+        placement: WaterTankPlacement(type: 'UNDERFRAME', sensorCount: 1, position: ['CENTER']),
+        coachType: 'GENERAL',
+        assets: [
+          WaterTankAsset(
+            assetId: 'WLI-B2-2-ASSET1',
+            assetName: 'Water Tank Sensor',
+            levelCm: 20.0,
+            volumeLiters: 100.0,
+            percentFull: 15.0,
+          ),
+        ],
+      ),
+      // Train C3
+      WaterTankModel(
+        source: WaterTankSource(companyName: 'VASP Rails Tech', systemType: 'WLI', deviceId: 'WLI-C3-1'),
+        location: WaterTankLocation(coachId: 'WC006', coachName: 'C1'),
+        messageType: 'METRICS',
+        timestamp: now.subtract(const Duration(hours: 1)).toIso8601String(),
+        placement: WaterTankPlacement(type: 'ROOF', sensorCount: 1, position: ['CENTER']),
+        coachType: 'AC',
+        assets: [
+          WaterTankAsset(
+            assetId: 'WLI-C3-1-ASSET1',
+            assetName: 'Water Tank Sensor',
+            levelCm: 0.0,
+            volumeLiters: 0.0,
+            percentFull: 0.0,
+          ),
+        ],
+      ),
+      WaterTankModel(
+        source: WaterTankSource(companyName: 'VASP Rails Tech', systemType: 'WLI', deviceId: 'WLI-C3-2'),
+        location: WaterTankLocation(coachId: 'WC007', coachName: 'C2'),
+        messageType: 'METRICS',
+        timestamp: now.subtract(const Duration(hours: 2)).toIso8601String(),
+        placement: WaterTankPlacement(type: 'ROOF', sensorCount: 1, position: ['CENTER']),
+        coachType: 'AC',
+        assets: [
+          WaterTankAsset(
+            assetId: 'WLI-C3-2-ASSET1',
+            assetName: 'Water Tank Sensor',
+            levelCm: 80.0,
+            volumeLiters: 300.0,
+            percentFull: 50.0,
+          ),
+        ],
+      ),
+    ];
+    
+    // Apply filters after loading mock data to ensure proper display
+    _applyFilters();
+  }
+
+  Future<void> _loadTrains() async {
+    final Set<String> trains = {};
+    for (final c in _allCoaches) {
+      // Extract train prefix from device_id (format: TRAINNUM_XXXX)
+      final deviceParts = c.source.deviceId.split('_');
+      if (deviceParts.length > 1 && deviceParts[0].isNotEmpty) {
+        trains.add(deviceParts[0]);
+        continue;
+      }
+      // Extract train number from coachName (format: TRAINNUM_coachName)
+      final nameParts = c.location.coachName.split('_');
+      if (nameParts.length > 1 && nameParts[0].isNotEmpty) {
+        trains.add(nameParts[0]);
+      }
+    }
+    if (mounted) {
+      setState(() {
+        trainNumbers = ['All Trains', ...trains];
+      });
+    }
+  }
+
+  Future<void> _loadCoachTypes(String trainNo) async {
+    final Set<String> types = {};
+    for (final c in _allCoaches) {
+      if (trainNo == 'All Trains' || c.source.deviceId.startsWith(trainNo)) {
+        if (c.coachType.isNotEmpty) types.add(c.coachType);
+      }
+    }
+    if (mounted) {
+      setState(() {
+        coachTypes = ['All Types', ...types];
+        selectedCoachType = 'All Types';
+        coachNumbers = ['All Coach Numbers'];
+        selectedCoachNumber = 'All Coach Numbers';
+      });
+    }
+  }
+
+  Future<void> _loadCoachNumbers(String trainNo, String coachType) async {
+    final Set<String> nums = {};
+    for (final c in _allCoaches) {
+      final matchesTrain = trainNo == 'All Trains' || c.source.deviceId.startsWith(trainNo);
+      final matchesType = coachType == 'All Types' || c.coachType == coachType;
+      if (matchesTrain && matchesType) nums.add(c.coachNumber);
+    }
+    if (mounted) {
+      setState(() {
+        coachNumbers = ['All Coach Numbers', ...nums];
+        selectedCoachNumber = 'All Coach Numbers';
+      });
     }
   }
 
@@ -405,7 +572,7 @@ class _WaterLevelScreenState extends State<WaterLevelScreen> {
 
   Widget _buildContent() {
     if (selectedViewType == 'Chart') return ChartView(coaches: _filteredCoaches);
-    if (selectedViewType == 'Alerts') return const AlertsView();
+    if (selectedViewType == 'Alerts') return AlertsView(coaches: _filteredCoaches);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

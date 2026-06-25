@@ -5,7 +5,6 @@ import 'package:excel/excel.dart' hide Border;
 import 'package:path_provider/path_provider.dart';
 import 'package:open_file/open_file.dart';
 import 'package:smart_coach_new/core/utils/color_constants.dart';
-import 'package:smart_coach_new/features/reports_and_alerts/bc_pressure/data/datasource/bc_dummy_data.dart';
 import 'package:smart_coach_new/features/reports_and_alerts/bc_pressure/data/models/bc_pressure_model.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -109,9 +108,10 @@ class BCReportGenerator {
     final summary = excel['Summary'];
     excel.setDefaultSheet('Summary');
 
-    _hdr(summary, 0, 0, 'BC Pressure Monitoring Report — ${BCDummyData.trainName}');
+    final trainLabel = coaches.isNotEmpty ? 'Train ${coaches.first.trainNumber}' : '';
+    _hdr(summary, 0, 0, 'BC Pressure Monitoring Report${trainLabel.isNotEmpty ? ' — $trainLabel' : ''}');
     _hdr(summary, 1, 0, 'Period: ${_fmt(range.start)}  →  ${_fmt(range.end)}');
-    _hdr(summary, 2, 0, 'Generated: ${_fmt(DateTime(2026, 3, 12))} | Last Updated: ${BCDummyData.lastUpdated}');
+    _hdr(summary, 2, 0, 'Generated: ${_fmt(DateTime.now())} | Last Updated: ${DateFormat('HH:mm:ss').format(DateTime.now())}');
     _blank(summary, 3);
 
     final h1 = ['Coach No.', 'Sensor ID', 'Pressure (Kg/cm²)', 'Status', 'Brake Applied', 'Brake Released', 'Warning', 'Last Updated'];
@@ -142,58 +142,44 @@ class BCReportGenerator {
     _col(summary, totalRow + 2, 0, 'Warning');     _cell(summary, totalRow + 2, 1, '$warning',  color: 'BE8B22');
     _col(summary, totalRow + 3, 0, 'Critical');    _cell(summary, totalRow + 3, 1, '$critical', color: 'D32F2F');
 
-    final histSheet = excel['Pressure History'];
-    _hdr(histSheet, 0, 0, 'BC Pressure History — ${BCDummyData.trainName}');
-    _hdr(histSheet, 1, 0, 'Period: ${_fmt(range.start)}  →  ${_fmt(range.end)}');
-    _blank(histSheet, 2);
+    final alertSheet = excel['Pressure Alerts'];
+    _hdr(alertSheet, 0, 0, 'Current Pressure Alerts');
+    _hdr(alertSheet, 1, 0, 'Period: ${_fmt(range.start)}  →  ${_fmt(range.end)}');
+    _blank(alertSheet, 2);
 
-    final h2 = ['Coach No.', 'Sensor ID', 'Pressure (Kg/cm²)', 'Status', 'Brake Applied', 'Brake Released', 'Response Time', 'Location'];
+    final h2 = ['Coach No.', 'Pressure (Kg/cm²)', 'Status', 'Brake Applied', 'Brake Released', 'Warning'];
     for (var i = 0; i < h2.length; i++) {
-      _col(histSheet, 3, i, h2[i]);
+      _col(alertSheet, 3, i, h2[i]);
     }
 
-    int histRow = 4;
-    for (final coach in coaches) {
-      final entries = BCDummyData.getHistory(coach.coachNumber, 'Custom', from: range.start, to: range.end);
-      for (final e in entries) {
-        _cell(histSheet, histRow, 0, e.coachNumber);
-        _cell(histSheet, histRow, 1, e.sensorId);
-        _cell(histSheet, histRow, 2, e.pressure.toString(), color: e.pressure < 1.5 ? 'D32F2F' : e.pressure < 3.5 ? 'BE8B22' : '2E7D32');
-        _cell(histSheet, histRow, 3, e.status, color: e.status == 'Critical' ? 'D32F2F' : e.status == 'Warning' ? 'BE8B22' : '2E7D32');
-        _cell(histSheet, histRow, 4, e.brakeApplied);
-        _cell(histSheet, histRow, 5, e.brakeReleased);
-        _cell(histSheet, histRow, 6, e.brakeResponseTime);
-        _cell(histSheet, histRow, 7, e.location);
-        histRow++;
-      }
+    int alertRow = 4;
+    for (final coach in coaches.where((c) => c.status != 'Good')) {
+      _cell(alertSheet, alertRow, 0, coach.coachNumber);
+      _cell(alertSheet, alertRow, 1, coach.pressure.toString(), color: coach.status == 'Critical' ? 'D32F2F' : 'BE8B22');
+      _cell(alertSheet, alertRow, 2, coach.status, color: coach.status == 'Critical' ? 'D32F2F' : 'BE8B22');
+      _cell(alertSheet, alertRow, 3, coach.brakeApplied.isEmpty ? 'N/A' : coach.brakeApplied);
+      _cell(alertSheet, alertRow, 4, coach.brakeReleased.isEmpty ? 'Delayed/N/A' : coach.brakeReleased);
+      _cell(alertSheet, alertRow, 5, coach.warningMessage ?? '-');
+      alertRow++;
     }
 
-    final dateSheet = excel['Date-wise Summary'];
-    _hdr(dateSheet, 0, 0, 'Date-wise BC Pressure Summary');
+    final dateSheet = excel['Summary Stats'];
+    _hdr(dateSheet, 0, 0, 'BC Pressure Summary');
     _blank(dateSheet, 1);
 
-    final h3 = ['Date', 'Total', 'Good', 'Warning', 'Critical', 'Avg Pressure (Kg/cm²)'];
+    final goodCount     = coaches.where((c) => c.status == 'Good').length;
+    final warningCount  = coaches.where((c) => c.status == 'Warning').length;
+    final criticalCount = coaches.where((c) => c.status == 'Critical').length;
+    final h3 = ['Metric', 'Value'];
     for (var i = 0; i < h3.length; i++) {
       _col(dateSheet, 2, i, h3[i]);
     }
+    _cell(dateSheet, 3, 0, 'Total Coaches'); _cell(dateSheet, 3, 1, '${coaches.length}');
+    _cell(dateSheet, 4, 0, 'Good');           _cell(dateSheet, 4, 1, '$goodCount',    color: '2E7D32');
+    _cell(dateSheet, 5, 0, 'Warning');        _cell(dateSheet, 5, 1, '$warningCount', color: 'BE8B22');
+    _cell(dateSheet, 6, 0, 'Critical');       _cell(dateSheet, 6, 1, '$criticalCount',color: 'D32F2F');
 
-    final days = range.end.difference(range.start).inDays + 1;
-    for (var d = 0; d < days; d++) {
-      final date     = range.start.add(Duration(days: d));
-      final isToday  = date.day == 12 && date.month == 3;
-      final crit     = isToday ? 2 : (d % 7 == 0 ? 1 : 0);
-      final warn     = isToday ? 3 : (d % 4 == 0 ? 2 : (d % 3 == 0 ? 1 : 0));
-      final goodCnt  = 20 - crit - warn;
-      final avgPr    = (crit * 0.6 + warn * 3.4 + goodCnt * 5.0) / 20;
-      _cell(dateSheet, 3 + d, 0, _fmt(date));
-      _cell(dateSheet, 3 + d, 1, '20');
-      _cell(dateSheet, 3 + d, 2, '$goodCnt', color: '2E7D32');
-      _cell(dateSheet, 3 + d, 3, '$warn',    color: warn > 0 ? 'BE8B22' : null);
-      _cell(dateSheet, 3 + d, 4, '$crit',    color: crit > 0 ? 'D32F2F' : null);
-      _cell(dateSheet, 3 + d, 5, avgPr.toStringAsFixed(2));
-    }
-
-    for (final sh in [summary, histSheet, dateSheet]) {
+    for (final sh in [summary, alertSheet, dateSheet]) {
       for (var c = 0; c < 8; c++) {
         sh.setColumnWidth(c, 22);
       }
@@ -246,8 +232,8 @@ class BCReportGenerator {
           Text('Includes:', style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w500)),
           const SizedBox(height: 4),
           _feat('Coach Pressure Summary'),
-          _feat('Full Pressure History'),
-          _feat('Date-wise Summary'),
+          _feat('Pressure Alerts (warnings/critical)'),
+          _feat('Summary Stats'),
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.all(8),

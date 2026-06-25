@@ -77,6 +77,14 @@ class _TrainListState extends State<TrainList> {
                 }
               },
               builder: (context, state) {
+                if (!state.isLoading && state.trainList.isEmpty) {
+                  return Center(
+                    child: Text(
+                      'No trains found',
+                      style: TextStyle(fontSize: 12.sp, color: Colors.grey),
+                    ),
+                  );
+                }
                 return TrainTable(
                   items: state.trainList,
                   onTapEdit: (TrainConfigsEntity trainEntity) {

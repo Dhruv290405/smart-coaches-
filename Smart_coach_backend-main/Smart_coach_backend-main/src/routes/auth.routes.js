@@ -64,6 +64,8 @@ const validateLogin = [
 
 router.post('/register', validateRegister, authController.register);
 router.post('/login', validateLogin, authController.login);
+router.post('/send-otp', authController.sendOtp);
+router.post('/verify-otp', authController.verifyOtp);
 
 // Updated Roles in Authorization as per your DB Update
 router.get(

@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
 import '../../../../core/utils/app_dimensions.dart';
 import '../../../../core/utils/app_text_styles.dart';
 import '../../../../core/utils/color_constants.dart';
@@ -17,140 +15,106 @@ class HotAxleChartView extends StatefulWidget {
 }
 
 class _HotAxleChartViewState extends State<HotAxleChartView> {
-  String selectedPeriod = 'Live';
+  String selectedPeriod = '7 Days';
 
   @override
   Widget build(BuildContext context) {
+    final good = widget.coaches.where((c) => c.status == 'Good').length;
+    final warning = widget.coaches.where((c) => c.status == 'Warning').length;
+    final critical = widget.coaches.where((c) => c.status == 'Critical').length;
+    final total = widget.coaches.length;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        Text('Axle Temperature Overview', style: AppTextStyles.header2),
+        const SizedBox(height: 16),
+        _buildStatsGrid(good, warning, critical, total),
+        const SizedBox(height: 16),
+        _buildSummaryTable(),
+      ],
+    );
+  }
+
+  Widget _buildStatsGrid(int good, int warning, int critical, int total) {
+    return Row(
+      children: [
+        _statCard('Total', '$total', ColorConstants.primary),
+        const SizedBox(width: 8),
+        _statCard('Good', '$good', Colors.green),
+        const SizedBox(width: 8),
+        _statCard('Warning', '$warning', const Color(0xFFBE8B22)),
+        const SizedBox(width: 8),
+        _statCard('Critical', '$critical', const Color(0xFFD32F2F)),
+      ],
+    );
+  }
+
+  Widget _statCard(String label, String value, Color color) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withValues(alpha: 0.2)),
+        ),
+        child: Column(
           children: [
-            Text('Temperature Trends', style: AppTextStyles.header2),
-            Flexible(
-              child: PeriodFilter(
-                selected: selectedPeriod,
-                periods: const ['Live', '7 Days', '30 Days'],
-                onChanged: (v) => setState(() => selectedPeriod = v),
-              ),
-            ),
+            Text(value, style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.w700, color: color)),
+            const SizedBox(height: 4),
+            Text(label, style: GoogleFonts.poppins(fontSize: 11, color: ColorConstants.textSecondary)),
           ],
         ),
-        const SizedBox(height: 24),
-        SizedBox(
-          height: 250,
-          child: LineChart(
-            LineChartData(
-              gridData: FlGridData(
-                show: true,
-                drawVerticalLine: true,
-                horizontalInterval: 20,
-                verticalInterval: 1,
-                getDrawingHorizontalLine: (value) => const FlLine(color: ColorConstants.divider, strokeWidth: 1),
-                getDrawingVerticalLine: (value) => const FlLine(color: ColorConstants.divider, strokeWidth: 1),
-              ),
-              titlesData: FlTitlesData(
-                show: true,
-                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                bottomTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    reservedSize: 30,
-                    interval: 1,
-                    getTitlesWidget: (value, meta) {
-                      String text = '';
-                      if (selectedPeriod == 'Live') {
-                        text = '${value.toInt()}:00';
-                      } else {
-                        text = 'Day ${value.toInt()}';
-                      }
-                      return Padding(
-                        padding: const EdgeInsets.only(top: 8.0),
-                        child: Text(text, style: GoogleFonts.poppins(fontSize: 10, color: ColorConstants.textTertiary)),
-                      );
-                    },
-                  ),
-                ),
-                leftTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    interval: 20,
-                    reservedSize: 42,
-                    getTitlesWidget: (value, meta) {
-                      return Text('${value.toInt()}°C', style: GoogleFonts.poppins(fontSize: 10, color: ColorConstants.textTertiary));
-                    },
-                  ),
-                ),
-              ),
-              borderData: FlBorderData(show: false),
-              minX: 0,
-              maxX: selectedPeriod == 'Live' ? 12 : (selectedPeriod == '7 Days' ? 7 : 30),
-              minY: 0,
-              maxY: 120,
-              clipData: const FlClipData.all(),
-              lineBarsData: [
-                LineChartBarData(
-                  spots: _generateSpots(),
-                  isCurved: true,
-                  gradient: const LinearGradient(colors: [ColorConstants.primary, Color(0xFFFF5252)]),
-                  barWidth: 3,
-                  isStrokeCapRound: true,
-                  dotData: const FlDotData(show: false),
-                  belowBarData: BarAreaData(
-                    show: true,
-                    gradient: LinearGradient(
-                      colors: [ColorConstants.primary.withValues(alpha: 0.2), ColorConstants.primary.withValues(alpha: 0)],
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                    ),
-                  ),
-                ),
-              ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryTable() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: ColorConstants.cardBackground,
+        borderRadius: BorderRadius.circular(AppDimensions.radiusLarge),
+        border: Border.all(color: ColorConstants.divider),
+      ),
+      child: Column(
+        children: [
+          _summaryRow('Coach', 'Max Temp', 'Status'),
+          const Divider(height: 20),
+          ...widget.coaches.map((c) => Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: _summaryRow(
+              c.coachNumber,
+              '${c.maxTemp.toStringAsFixed(1)}°C',
+              c.status,
+              statusColor: c.status == 'Critical' ? const Color(0xFFD32F2F) : (c.status == 'Warning' ? const Color(0xFFBE8B22) : Colors.green),
+              deviceId: c.deviceId,
+              trainNo: c.trainNo,
             ),
+          )),
+        ],
+      ),
+    );
+  }
+
+  Widget _summaryRow(String coach, String temp, String status, {Color? statusColor, String? deviceId, String? trainNo}) {
+    return Row(
+      children: [
+        Expanded(flex: 2, child: Text(coach, style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w500))),
+        Expanded(flex: 1, child: Text(temp, textAlign: TextAlign.center, style: GoogleFonts.poppins(fontSize: 11)),
+        ),
+        Expanded(
+          flex: 2,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: (statusColor ?? Colors.grey).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(status, textAlign: TextAlign.center, style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w600, color: statusColor ?? Colors.grey)),
           ),
         ),
-        const SizedBox(height: 16),
-        _buildLegend(),
-      ],
-    );
-  }
-
-  List<FlSpot> _generateSpots() {
-    // Dummy chronological data showing temperature fluctuations
-    if (selectedPeriod == 'Live') {
-      return const [
-        FlSpot(0, 45), FlSpot(1, 48), FlSpot(2, 52), FlSpot(3, 50),
-        FlSpot(4, 55), FlSpot(5, 65), FlSpot(6, 75), FlSpot(7, 85),
-        FlSpot(8, 80), FlSpot(9, 70), FlSpot(10, 60), FlSpot(11, 55), FlSpot(12, 50),
-      ];
-    } else if (selectedPeriod == '7 Days') {
-      return const [
-        FlSpot(0, 40), FlSpot(1, 42), FlSpot(2, 60), FlSpot(3, 45),
-        FlSpot(4, 38), FlSpot(5, 55), FlSpot(6, 40), FlSpot(7, 45),
-      ];
-    } else {
-      return List.generate(31, (i) => FlSpot(i.toDouble(), 40 + (i % 10).toDouble() * 4));
-    }
-  }
-
-  Widget _buildLegend() {
-    return Row(
-      children: [
-        _legendItem('Critical Temp', const Color(0xFFFF5252)),
-        const SizedBox(width: 16),
-        _legendItem('Normal Temp', ColorConstants.primary),
-      ],
-    );
-  }
-
-  Widget _legendItem(String label, Color color) {
-    return Row(
-      children: [
-        Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-        const SizedBox(width: 4),
-        Text(label, style: AppTextStyles.bodySmall),
       ],
     );
   }

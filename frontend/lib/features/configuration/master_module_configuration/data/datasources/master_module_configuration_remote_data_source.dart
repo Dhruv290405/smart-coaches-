@@ -47,13 +47,16 @@ class MasterModuleConfigurationRemoteDataSourceImpl {
   }
 
   Future<String> createMasterModuleConfiguration(
-    MasterModuleConfigurationRequest masterModuleConfigurationRequest,
-  ) async {
+    MasterModuleConfigurationRequest masterModuleConfigurationRequest, {
+    Map<String, dynamic>? extraFields,
+  }) async {
     return safeRequest(() async {
+      final json = masterModuleConfigurationRequest.toJson();
+      if (extraFields != null) {
+        json.addAll(extraFields);
+      }
       final CreateMasterModuleConfigurationResponse configurationResponse =
-          await restClient.createMasterModuleConfiguration(
-            masterModuleConfigurationRequest.toJson(),
-          );
+          await restClient.createMasterModuleConfiguration(json);
       if (!configurationResponse.success) {
         throw Exception(configurationResponse.message);
       }
@@ -63,14 +66,16 @@ class MasterModuleConfigurationRemoteDataSourceImpl {
 
   Future<String> editMasterModuleConfiguration(
     int? moduleId,
-    MasterModuleConfigurationRequest masterModuleConfigurationRequest,
-  ) async {
+    MasterModuleConfigurationRequest masterModuleConfigurationRequest, {
+    Map<String, dynamic>? extraFields,
+  }) async {
     return safeRequest(() async {
+      final json = masterModuleConfigurationRequest.toJson();
+      if (extraFields != null) {
+        json.addAll(extraFields);
+      }
       final EditMasterModuleConfigurationResponse configurationResponse =
-          await restClient.editMasterModuleConfiguration(
-            moduleId,
-            masterModuleConfigurationRequest.toJson(),
-          );
+          await restClient.editMasterModuleConfiguration(moduleId, json);
       if (!configurationResponse.success) {
         throw Exception(configurationResponse.message);
       }

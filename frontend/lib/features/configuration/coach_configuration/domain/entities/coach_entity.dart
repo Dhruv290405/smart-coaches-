@@ -17,6 +17,8 @@ class CoachEntity {
   final dynamic makeOfCoachId;
   final String? typeOfCoach;
   final dynamic typeOfCoachId;
+  final String? masterModuleIds;
+  final String? masterModuleLocations;
 
   const CoachEntity({
     this.coachId,
@@ -35,6 +37,8 @@ class CoachEntity {
     this.createdBy,
     this.updatedAt,
     this.updatedBy,
+    this.masterModuleIds,
+    this.masterModuleLocations,
   });
 
   factory CoachEntity.fromModel(CoachItem model) {
@@ -55,6 +59,8 @@ class CoachEntity {
       createdBy: model.createdByName,
       updatedAt: model.updatedAt,
       updatedBy: model.updatedByName,
+      masterModuleIds: model.masterModuleIds,
+      masterModuleLocations: model.masterModuleLocations,
     );
   }
 }

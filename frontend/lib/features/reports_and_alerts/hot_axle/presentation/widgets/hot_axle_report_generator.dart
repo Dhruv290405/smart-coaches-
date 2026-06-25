@@ -5,7 +5,6 @@ import 'package:excel/excel.dart' hide Border;
 import 'package:path_provider/path_provider.dart';
 import 'package:open_file/open_file.dart';
 import 'package:smart_coach_new/core/utils/color_constants.dart';
-import 'package:smart_coach_new/features/reports_and_alerts/hot_axle/data/datasource/hot_axle_dummy_data.dart';
 import 'package:smart_coach_new/features/reports_and_alerts/hot_axle/data/models/hot_axle_model.dart';
 
 import 'package:pdf/pdf.dart';
@@ -110,9 +109,10 @@ class HotAxleReportGenerator {
     final summary = excel['Coach Summary'];
     excel.setDefaultSheet('Coach Summary');
 
-    _hdr(summary, 0, 0, 'Hot Axle Monitoring Report — ${HotAxleDummyData.trainName}');
+    final trainLabel = coaches.isNotEmpty ? 'Train ${coaches.first.trainNo}' : '';
+    _hdr(summary, 0, 0, 'Hot Axle Monitoring Report${trainLabel.isNotEmpty ? ' — $trainLabel' : ''}');
     _hdr(summary, 1, 0, 'Period: ${_fmt(range.start)}  →  ${_fmt(range.end)}');
-    _hdr(summary, 2, 0, 'Generated: ${_fmt(DateTime(2026, 3, 12))} | Last Updated: ${HotAxleDummyData.lastUpdated}');
+    _hdr(summary, 2, 0, 'Generated: ${_fmt(DateTime.now())} | Last Updated: ${DateFormat('HH:mm:ss').format(DateTime.now())}');
     _blank(summary, 3);
 
     final h1 = ['Coach No.', 'Status', 'Max Temp (°C)', 'Axles Monitored', 'Axles With Issue', 'Last Updated'];
@@ -170,34 +170,35 @@ class HotAxleReportGenerator {
       }
     }
 
-    final histSheet = excel['Overheat History'];
-    _hdr(histSheet, 0, 0, 'Axle Overheat History — ${HotAxleDummyData.trainName}');
-    _hdr(histSheet, 1, 0, 'Period: ${_fmt(range.start)}  →  ${_fmt(range.end)}');
-    _blank(histSheet, 2);
+    final alertSheet = excel['Axle Alerts'];
+    _hdr(alertSheet, 0, 0, 'Current Axle Alerts');
+    _hdr(alertSheet, 1, 0, 'Period: ${_fmt(range.start)}  →  ${_fmt(range.end)}');
+    _blank(alertSheet, 2);
 
     final h3 = ['Coach No.', 'Axle No.', 'Sensor ID', 'Max Temp', 'Status', 'Speed', 'Detected At', 'Location'];
     for (var i = 0; i < h3.length; i++) {
-      _col(histSheet, 3, i, h3[i]);
+      _col(alertSheet, 3, i, h3[i]);
     }
 
-    int histRow = 4;
+    int alertRow = 4;
     for (final coach in coaches) {
-      final entries = HotAxleDummyData.getHistory(coach.coachNumber, 'Custom', from: range.start, to: range.end);
-      for (final e in entries) {
-        final sc = e.status == 'Critical' ? 'D32F2F' : e.status == 'Warning' ? 'BE8B22' : null;
-        _cell(histSheet, histRow, 0, e.coachNumber);
-        _cell(histSheet, histRow, 1, 'Axle ${e.axleNumber}');
-        _cell(histSheet, histRow, 2, e.sensorId);
-        _cell(histSheet, histRow, 3, e.maxTemp,    color: sc);
-        _cell(histSheet, histRow, 4, e.status,     color: sc);
-        _cell(histSheet, histRow, 5, e.speed);
-        _cell(histSheet, histRow, 6, e.detectedAt);
-        _cell(histSheet, histRow, 7, e.location);
-        histRow++;
+      for (final axle in coach.axles) {
+        if (axle.status != 'Good') {
+          final sc = axle.status == 'Critical' ? 'D32F2F' : 'BE8B22';
+          _cell(alertSheet, alertRow, 0, coach.coachNumber);
+          _cell(alertSheet, alertRow, 1, 'Axle ${axle.axleNumber}');
+          _cell(alertSheet, alertRow, 2, axle.sensorId);
+          _cell(alertSheet, alertRow, 3, axle.maxTemp,    color: sc);
+          _cell(alertSheet, alertRow, 4, axle.status,     color: sc);
+          _cell(alertSheet, alertRow, 5, axle.speed);
+          _cell(alertSheet, alertRow, 6, axle.detectedAt.isEmpty ? '-' : axle.detectedAt);
+          _cell(alertSheet, alertRow, 7, axle.location.isEmpty ? '-' : axle.location);
+          alertRow++;
+        }
       }
     }
 
-    for (final sh in [summary, axleSheet, histSheet]) {
+    for (final sh in [summary, axleSheet, alertSheet]) {
       for (var c = 0; c < 10; c++) {
         sh.setColumnWidth(c, 20);
       }
@@ -251,7 +252,7 @@ class HotAxleReportGenerator {
           const SizedBox(height: 4),
           _feat('Coach Summary (status + max temp)'),
           _feat('Individual Axle Details (all 160 axles)'),
-          _feat('Overheat History (date filtered)'),
+          _feat('Axle Alerts (current warnings/critical)'),
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.all(8),

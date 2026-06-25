@@ -3,6 +3,13 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 part 'master_module_configuration_request.freezed.dart';
 part 'master_module_configuration_request.g.dart';
 
+int? _parseInt(dynamic value) {
+  if (value is int) return value;
+  if (value is double) return value.toInt();
+  if (value is String) return int.tryParse(value);
+  return null;
+}
+
 @freezed
 abstract class MasterModuleConfigurationRequest with _$MasterModuleConfigurationRequest {
   const factory MasterModuleConfigurationRequest({

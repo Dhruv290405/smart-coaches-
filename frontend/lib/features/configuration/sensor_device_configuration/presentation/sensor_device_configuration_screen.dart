@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:sizer/sizer.dart';
+import 'package:smart_coach_new/core/utils/export_utils.dart';
 import 'package:smart_coach_new/core/widgets/custom_button.dart';
 import 'package:smart_coach_new/core/widgets/custom_toggle_buttons.dart';
 import 'package:smart_coach_new/features/configuration/sensor_device_configuration/domain/entities/sensor_device_entity.dart';
+import 'package:smart_coach_new/features/configuration/sensor_device_configuration/presentation/bloc/sensor_device_configuration_bloc.dart';
 import 'package:smart_coach_new/features/configuration/sensor_device_configuration/presentation/widgets/configure_sensor_device.dart';
 import 'package:smart_coach_new/features/configuration/sensor_device_configuration/presentation/widgets/sensor_device_list.dart';
 
@@ -17,6 +21,24 @@ class SensorDeviceConfigurationScreen extends StatefulWidget {
 class _SensorDeviceConfigurationScreenState extends State<SensorDeviceConfigurationScreen> {
   int selectedTab = 0;
   SensorDeviceEntity? selectedSensorDeviceItem;
+
+  Future<void> _exportSensorDeviceList() async {
+    final state = context.read<SensorDeviceConfigurationBloc>().state;
+    final devices = state.sensorDeviceList;
+    if (devices.isEmpty) return;
+    final data = devices.map((d) => {
+      'Device ID': d.deviceUniqueId ?? '',
+      'Sensor Type': d.sensorTypeName ?? '',
+      'Master Module': d.moduleUniqueId ?? '',
+      'Status': d.isActive == true ? 'Active' : 'Inactive',
+      'Created At': d.createdAt ?? '',
+      'Updated At': d.updatedAt ?? '',
+    }).toList();
+    final path = await ExportUtils.exportToCsv(data, 'Sensor_Device_List');
+    if (path.isNotEmpty) {
+      await Share.shareXFiles([XFile(path)]);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -90,7 +112,7 @@ class _SensorDeviceConfigurationScreenState extends State<SensorDeviceConfigurat
                           horizontal: 3.w,
                         ),
                         radius: 8,
-                        onPressed: () {},
+                        onPressed: _exportSensorDeviceList,
                       ),
                   ],
                 ),

@@ -9,38 +9,37 @@ const coachConfigController = {
             if (!details) {
                 return res.status(404).json({ 
                     success: false, 
-                    message: "Coach details not found in master data" 
+                    message: `Coach "${coach_no}" not found in master data. Ensure the coach_unique_id exists in coach_master table with matching LEFT JOINs to train_master, master_module, module_device_mapping, and device_master.`
                 });
             }
 
-            const fittedDevices = [];
-            if (details.wli_sensor !== 'NOT FITTED') fittedDevices.push("Water Level Sensor");
-            if (details.fsds_sensor !== 'NOT FITTED') fittedDevices.push("FSDS Sensor");
-            if (details.bc_pressure !== 'NOT FITTED') fittedDevices.push("BC Pressure");
-            if (details.hot_axle_detector !== 'NOT FITTED') fittedDevices.push("Hot Axle Box Detector");
-            if (details.bad_odour_alert !== 'NOT FITTED') fittedDevices.push("Bad Odour Alert");
-            if (details.brake_binding !== 'NOT FITTED' && details.brake_binding !== undefined) {
-                fittedDevices.push("Brake Binding");
-            }
-
-            //  ACP KE LIYE YEH CHECKS ADD KAREIN
-            if (details.acp_buzzer_alert !== 'NOT FITTED' && details.acp_buzzer_alert !== undefined) {
-                fittedDevices.push("ACP Buzzer Alert");
-            }
-            if (details.acp_electrical_conn !== 'NOT FITTED' && details.acp_electrical_conn !== undefined) {
-                fittedDevices.push("ACP Electrical Connection");
-            }
+            const fittedDevices = details.fitted_devices || [];
 
             res.status(200).json({
                 success: true,
                 coach_info: {
                     coach_no: details.coach_no,
-                    coach_type: details.coach_type,
-                    rake_no: details.rake_no,
-                    wsp_make: details.wsp_make
+                    coach_type: details.coach_type || '',
+                    rake_no: details.rake_no || '',
+                    wsp_make: details.wsp_make || 'N/A'
                 },
                 fitted_devices: fittedDevices,
-                full_config: details
+                full_config: {
+                    id: details.coach_id || 0,
+                    rake_no: details.rake_no || '',
+                    coach_no: details.coach_no,
+                    coach_type: details.coach_type || '',
+                    wsp_make: details.wsp_make || 'N/A',
+                    wli_sensor: fittedDevices.some((d) => d.toLowerCase().includes('water')) ? 'FITTED' : 'NOT FITTED',
+                    fsds_sensor: fittedDevices.some((d) => d.toLowerCase().includes('fsds')) ? 'FITTED' : 'NOT FITTED',
+                    bc_pressure: fittedDevices.some((d) => d.toLowerCase().includes('bc pressure') || d.toLowerCase().includes('brake')) ? 'FITTED' : 'NOT FITTED',
+                    wsp_wifi: 'NOT FITTED',
+                    hot_axle_detector: fittedDevices.some((d) => d.toLowerCase().includes('hot axle') || d.toLowerCase().includes('axle')) ? 'FITTED' : 'NOT FITTED',
+                    acp_buzzer_alert: fittedDevices.some((d) => d.toLowerCase().includes('acp')) ? 'FITTED' : 'NOT FITTED',
+                    acp_electrical_conn: 'NOT FITTED',
+                    bad_odour_alert: fittedDevices.some((d) => d.toLowerCase().includes('odour') || d.toLowerCase().includes('odor')) ? 'FITTED' : 'NOT FITTED',
+                    created_at: ''
+                }
             });
 
         } catch (error) {

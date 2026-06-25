@@ -16,6 +16,8 @@ class RegisterState extends Equatable {
   final String? errorMessage;
   final List<String>? errorList;
   final bool isIdTypeIsPan;
+  final bool isOtpSent;
+  final bool isOtpVerified;
 
   final List<OrganizationItem> organizationTypes;
   final List<ZoneItem> zones;
@@ -32,6 +34,8 @@ class RegisterState extends Equatable {
     required this.successMessage,
     required this.errorMessage,
     required this.isIdTypeIsPan,
+    required this.isOtpSent,
+    required this.isOtpVerified,
     required this.errorList,
     required this.organizationTypes,
     required this.zones,
@@ -48,6 +52,8 @@ class RegisterState extends Equatable {
     submissionSuccess: false,
     successMessage: null,
     isIdTypeIsPan: true,
+    isOtpSent: false,
+    isOtpVerified: false,
     errorMessage: null,
     errorList: null,
     organizationTypes: [
@@ -68,6 +74,8 @@ class RegisterState extends Equatable {
     bool? submissionSuccess,
     String? successMessage,
     bool? isIdTypeIsPan,
+    bool? isOtpSent,
+    bool? isOtpVerified,
     String? errorMessage,
     List<String>? errorList,
     List<OrganizationItem>? organizationTypes,
@@ -84,6 +92,8 @@ class RegisterState extends Equatable {
       submissionSuccess: submissionSuccess ?? this.submissionSuccess,
       successMessage: successMessage ?? this.successMessage,
       isIdTypeIsPan: isIdTypeIsPan ?? this.isIdTypeIsPan,
+      isOtpSent: isOtpSent ?? this.isOtpSent,
+      isOtpVerified: isOtpVerified ?? this.isOtpVerified,
       errorMessage: errorMessage,
       errorList: errorList,
       organizationTypes: organizationTypes ?? this.organizationTypes,
@@ -102,6 +112,8 @@ class RegisterState extends Equatable {
     isSubmitting,
     submissionSuccess,
     isIdTypeIsPan,
+    isOtpSent,
+    isOtpVerified,
     errorMessage,
     organizationTypes,
     zones,

@@ -150,6 +150,10 @@ class SensorDeviceConfigurationBloc extends Bloc<SensorDeviceConfigurationEvent,
       LoadMasterModulesForCoach event,
       Emitter<SensorDeviceConfigurationState> emit,
       ) async {
+    if (event.coachId == null) {
+      emit(state.copyWith(isLoading: false, errorMessage: 'Coach ID is null'));
+      return;
+    }
     emit(state.copyWith(isLoading: true, errorMessage: null));
     try {
       print("Event ${event.coachId}");
@@ -157,8 +161,11 @@ class SensorDeviceConfigurationBloc extends Bloc<SensorDeviceConfigurationEvent,
           .getMasterModuleForCoach(event.coachId!);
 
       emit(state.copyWith(isLoading: false, masterModuleList: list));
+      if (list.isEmpty) {
+        emit(state.copyWith(isLoading: false, errorMessage: 'No master modules found for this coach'));
+      }
     } catch (e) {
-      emit(state.copyWith(isLoading: false, errorMessage: e.toString()));
+      emit(state.copyWith(isLoading: false, errorMessage: 'Failed to load master modules: ${e.toString().replaceAll('Exception: ', '')}'));
     }
   }
 }

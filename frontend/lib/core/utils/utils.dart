@@ -125,9 +125,13 @@ class Utils {
     if (date == null) {
       return date;
     }
-    final DateTime parsedDate = DateTime.parse(date).toLocal();
-    final DateFormat formatter = DateFormat(dateFormat);
-    return formatter.format(parsedDate);
+    try {
+      final DateTime parsedDate = DateTime.parse(date).toLocal();
+      final DateFormat formatter = DateFormat(dateFormat);
+      return formatter.format(parsedDate);
+    } catch (_) {
+      return date;
+    }
   }
 
   static String? setTextInOneLine(String? text) {

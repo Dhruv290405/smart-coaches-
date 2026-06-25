@@ -46,7 +46,6 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
   List<HotAxleCoachModel> _allCoaches = [];
   List<HotAxleCoachModel> _filteredCoaches = [];
 
-  // Live alerts derived from real data
   List<Map<String, dynamic>> _liveAlerts = [];
 
   @override
@@ -63,33 +62,23 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
   }
 
   void _startAutoRefresh() {
-    _refreshTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
-      if (mounted) {
-        _refreshData(isBackgroundRefresh: true);
-      }
+    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (mounted) _refreshData(isBackgroundRefresh: true);
     });
   }
 
   void _applyFilters() {
     setState(() {
       _filteredCoaches = _allCoaches.where((coach) {
-        final matchesTrain = selectedTrainNumber == 'All Trains' ||
-            coach.owningRly == selectedTrainNumber ||
-            coach.coachNumber.contains(selectedTrainNumber);
-        final matchesType = selectedCoachType == 'All Types' ||
-            coach.coachType == selectedCoachType;
-        final matchesCoach = selectedCoachNumber == 'All Coach Numbers' ||
-            coach.coachNumber == selectedCoachNumber ||
-            coach.deviceId == selectedCoachNumber;
-        final matchesStatus = selectedStatus == 'All' ||
-            coach.status.toUpperCase() == selectedStatus.toUpperCase();
-
+        final matchesTrain = selectedTrainNumber == 'All Trains' || coach.trainNo == selectedTrainNumber;
+        final matchesType = selectedCoachType == 'All Types' || coach.coachType == selectedCoachType;
+        final matchesCoach = selectedCoachNumber == 'All Coach Numbers' || coach.coachNumber == selectedCoachNumber || coach.deviceId == selectedCoachNumber;
+        final matchesStatus = selectedStatus == 'All' || coach.status.toUpperCase() == selectedStatus.toUpperCase();
         return matchesTrain && matchesType && matchesCoach && matchesStatus;
       }).toList();
     });
   }
 
-  // Clamp invalid sensor readings (negative = disconnected sensor → treat as 0)
   double _validTemp(double t) => t < 0 ? 0.0 : t;
 
   HotAxleCoachModel _mapDataToModel(HotAxleData d) {
@@ -98,6 +87,7 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
       coachNumber: d.coachNumber ?? d.techCoachNo ?? 'Unknown',
       coachType: d.coachType ?? 'Unknown',
       owningRly: d.owningRly ?? 'Unknown',
+      trainNo: d.trainNo?.toString() ?? '',
       timestamp: d.timestamp ?? '',
       a11Temp: _validTemp(d.a11Temp),
       a12Temp: _validTemp(d.a12Temp),
@@ -113,7 +103,6 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
     );
   }
 
-  // Map dashboard alert_status: Normal → Good, Warning → Warning, Critical → Critical
   String _mapAlertStatus(String? raw) {
     switch ((raw ?? '').toLowerCase()) {
       case 'warning':  return 'Warning';
@@ -124,15 +113,15 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
 
   List<Map<String, dynamic>> _buildAlerts(List<HotAxleCoachModel> coaches) {
     final alerts = <Map<String, dynamic>>[];
-    final now = DateFormat('dd MMM, hh:mm a').format(DateTime.now());
     for (final coach in coaches) {
       if (coach.status == 'Critical') {
         alerts.add({
           'type': 'critical',
-          'title': 'Critical: Axle Overheat detected (Max ${coach.maxTemp.toStringAsFixed(1)}°C)',
+          'title': 'Critical: Axle Overheat (Max ${coach.maxTemp.toStringAsFixed(1)}°C)',
           'coach': coach.coachNumber,
-          'time': now,
-          'detail': 'Device: ${coach.deviceId}  |  Type: ${coach.coachType}',
+          'deviceId': coach.deviceId,
+          'trainNo': coach.trainNo,
+          'detail': 'Coach: ${coach.coachNumber}  |  Device: ${coach.deviceId}  |  Train: ${coach.trainNo}',
           'note': 'Immediate inspection required',
         });
       } else if (coach.status == 'Warning') {
@@ -140,13 +129,22 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
           'type': 'warning',
           'title': 'Warning: Elevated axle temperature (Max ${coach.maxTemp.toStringAsFixed(1)}°C)',
           'coach': coach.coachNumber,
-          'time': now,
-          'detail': 'Device: ${coach.deviceId}  |  Type: ${coach.coachType}',
+          'deviceId': coach.deviceId,
+          'trainNo': coach.trainNo,
+          'detail': 'Coach: ${coach.coachNumber}  |  Device: ${coach.deviceId}  |  Train: ${coach.trainNo}',
           'note': 'Monitor closely',
         });
       }
     }
     return alerts.take(20).toList();
+  }
+
+  String _formatTimestamp(String ts) {
+    try {
+      return DateFormat('dd MMM yyyy HH:mm').format(DateTime.parse(ts).toLocal());
+    } catch (_) {
+      return ts;
+    }
   }
 
   Future<void> _refreshData({bool isBackgroundRefresh = false}) async {
@@ -156,11 +154,7 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
 
     try {
       final String? trainFilter = selectedTrainNumber == 'All Trains' ? null : selectedTrainNumber;
-
-      final List<HotAxleData> rawData = await getIt<HotAxleRepository>().getHotAxleDashboard(
-        trainNo: trainFilter,
-      );
-
+      final List<HotAxleData> rawData = await getIt<HotAxleRepository>().getHotAxleDashboard(trainNo: trainFilter);
       final List<HotAxleCoachModel> coaches = rawData.map(_mapDataToModel).toList();
 
       if (mounted) {
@@ -169,11 +163,10 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
           lastUpdated = DateFormat('HH:mm:ss').format(DateTime.now());
           _allCoaches = coaches;
 
-          trainNumbers = ['All Trains', ...coaches.map((e) => e.owningRly).where((e) => e != 'Unknown').toSet()];
+          trainNumbers = ['All Trains', ...coaches.map((e) => e.trainNo).where((e) => e.isNotEmpty).toSet()];
           coachTypes = ['All Types', ...coaches.map((e) => e.coachType).where((e) => e != 'Unknown').toSet()];
           coachNumbers = ['All Coach Numbers', ...coaches.map((e) => e.coachNumber).toSet()];
 
-          // Keep selected values valid
           if (!trainNumbers.contains(selectedTrainNumber)) selectedTrainNumber = 'All Trains';
           if (!coachTypes.contains(selectedCoachType)) selectedCoachType = 'All Types';
           if (!coachNumbers.contains(selectedCoachNumber)) selectedCoachNumber = 'All Coach Numbers';
@@ -184,9 +177,7 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
       }
     } catch (e) {
       log('Hot Axle error: $e');
-      if (mounted && !isBackgroundRefresh) {
-        setState(() => isRefreshing = false);
-      }
+      if (mounted && !isBackgroundRefresh) setState(() => isRefreshing = false);
     }
   }
 
@@ -201,7 +192,11 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
   }
 
   void _sendAlerts() {
-    final criticalCount = _liveAlerts.where((a) => a['type'] == 'critical').length;
+    final criticalCoaches = _allCoaches.where((c) => c.status == 'Critical').toList();
+    if (criticalCoaches.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No critical axles detected to alert.')));
+      return;
+    }
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
@@ -211,52 +206,28 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Alert will be sent to:', style: GoogleFonts.poppins(fontSize: 13, color: ColorConstants.textSecondary)),
+            Text('${criticalCoaches.length} coach(es) have critical axle overheat:', style: GoogleFonts.poppins(fontSize: 13, color: ColorConstants.textSecondary)),
             const SizedBox(height: 12),
-            _alertRecipient(Icons.person, 'Train Guard'),
-            _alertRecipient(Icons.support_agent, 'Station Master'),
-            _alertRecipient(Icons.security, 'RPF Control Room'),
-            if (criticalCount > 0) ...[
-              const SizedBox(height: 12),
-              Text(
-                '$criticalCount critical axle overheat alert(s) detected',
-                style: GoogleFonts.poppins(fontSize: 12, color: const Color(0xFFD32F2F), fontWeight: FontWeight.w500),
-              ),
-            ],
+            ...criticalCoaches.map((c) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(children: [
+                const Icon(Icons.warning, size: 16, color: ColorConstants.statusCritical),
+                const SizedBox(width: 8),
+                Expanded(child: Text('${c.coachNumber} — ${c.deviceId} (${c.trainNo})', style: GoogleFonts.poppins(fontSize: 12))),
+              ]),
+            )),
           ],
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Cancel', style: GoogleFonts.poppins(color: ColorConstants.textSecondary)),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel', style: GoogleFonts.poppins(color: ColorConstants.textSecondary))),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: ColorConstants.primary),
             onPressed: () {
               Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Alert sent successfully', style: GoogleFonts.poppins(fontSize: 13)),
-                  backgroundColor: Colors.green[700],
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Alert sent to control room', style: GoogleFonts.poppins(fontSize: 13)), backgroundColor: Colors.green[700], behavior: SnackBarBehavior.floating));
             },
             child: Text('Send Now', style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w600)),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _alertRecipient(IconData icon, String name) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: ColorConstants.primary),
-          const SizedBox(width: 8),
-          Text(name, style: GoogleFonts.poppins(fontSize: 13)),
         ],
       ),
     );
@@ -271,11 +242,7 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
         elevation: 0,
         scrolledUnderElevation: 0,
         leadingWidth: 40,
-        leading: IconButton(
-          padding: EdgeInsets.zero,
-          icon: const Icon(Icons.arrow_back, color: ColorConstants.textPrimary),
-          onPressed: () => Navigator.pop(context),
-        ),
+        leading: IconButton(padding: EdgeInsets.zero, icon: const Icon(Icons.arrow_back, color: ColorConstants.textPrimary), onPressed: () => Navigator.pop(context)),
         titleSpacing: 4,
         title: Text(AppStrings.hotAxleMonitoring, style: AppTextStyles.header1),
         actions: [
@@ -284,14 +251,8 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
               padding: const EdgeInsets.only(right: 16),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: ColorConstants.white,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  'Last Updated: $lastUpdated',
-                  style: AppTextStyles.bodySmall,
-                ),
+                decoration: BoxDecoration(color: ColorConstants.white, borderRadius: BorderRadius.circular(8)),
+                child: Text('Last Updated: $lastUpdated', style: AppTextStyles.bodySmall),
               ),
             ),
           ),
@@ -331,10 +292,7 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(AppDimensions.paddingLarge),
-      decoration: BoxDecoration(
-        color: ColorConstants.white,
-        borderRadius: BorderRadius.circular(AppDimensions.radiusLarge),
-      ),
+      decoration: BoxDecoration(color: ColorConstants.white, borderRadius: BorderRadius.circular(AppDimensions.radiusLarge)),
       child: child,
     );
   }
@@ -346,32 +304,17 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              AppStrings.filters,
-              style: AppTextStyles.header2.copyWith(color: ColorConstants.primary),
-            ),
+            Text(AppStrings.filters, style: AppTextStyles.header2.copyWith(color: ColorConstants.primary)),
             GestureDetector(
               onTap: _clearFilters,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: ColorConstants.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.clear_all, size: 14, color: ColorConstants.primary),
-                    const SizedBox(width: 4),
-                    Text(
-                      'Clear Filters',
-                      style: GoogleFonts.poppins(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: ColorConstants.primary,
-                      ),
-                    ),
-                  ],
-                ),
+                decoration: BoxDecoration(color: ColorConstants.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
+                child: Row(children: [
+                  const Icon(Icons.clear_all, size: 14, color: ColorConstants.primary),
+                  const SizedBox(width: 4),
+                  Text('Clear Filters', style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: ColorConstants.primary)),
+                ]),
               ),
             ),
           ],
@@ -385,11 +328,7 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
                 value: selectedTrainNumber,
                 items: trainNumbers,
                 onChanged: (value) {
-                  setState(() {
-                    selectedTrainNumber = value!;
-                    selectedCoachType = 'All Types';
-                    selectedCoachNumber = 'All Coach Numbers';
-                  });
+                  setState(() { selectedTrainNumber = value!; selectedCoachType = 'All Types'; selectedCoachNumber = 'All Coach Numbers'; });
                   _refreshData();
                 },
               ),
@@ -400,13 +339,7 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
                 label: 'Coach Type',
                 value: selectedCoachType,
                 items: coachTypes,
-                onChanged: (value) {
-                  setState(() {
-                    selectedCoachType = value!;
-                    selectedCoachNumber = 'All Coach Numbers';
-                  });
-                  _applyFilters();
-                },
+                onChanged: (value) { setState(() { selectedCoachType = value!; selectedCoachNumber = 'All Coach Numbers'; }); _applyFilters(); },
               ),
             ),
             const SizedBox(width: 8),
@@ -415,10 +348,7 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
                 label: AppStrings.uniqueId,
                 value: selectedCoachNumber,
                 items: coachNumbers,
-                onChanged: (value) {
-                  setState(() => selectedCoachNumber = value!);
-                  _applyFilters();
-                },
+                onChanged: (value) { setState(() => selectedCoachNumber = value!); _applyFilters(); },
               ),
             ),
           ],
@@ -463,9 +393,7 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
               child: ActionButton(
                 label: AppStrings.generateReport,
                 svgIcon: AppIcons.report,
-                onTap: () {
-                  HotAxleReportGenerator.generate(context, _filteredCoaches);
-                },
+                onTap: () => HotAxleReportGenerator.generate(context, _filteredCoaches),
                 isFullWidth: true,
               ),
             ),
@@ -474,19 +402,10 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
               onTap: isRefreshing ? () {} : _refreshData,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                decoration: BoxDecoration(
-                  color: ColorConstants.cardBackground,
-                  borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
-                  border: Border.all(color: ColorConstants.divider),
-                ),
+                decoration: BoxDecoration(color: ColorConstants.cardBackground, borderRadius: BorderRadius.circular(AppDimensions.radiusMedium), border: Border.all(color: ColorConstants.divider)),
                 child: isRefreshing
                     ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: ColorConstants.primary))
-                    : SvgPicture.asset(
-                        AppIcons.refresh,
-                        width: 18,
-                        height: 18,
-                        colorFilter: const ColorFilter.mode(ColorConstants.iconGrey, BlendMode.srcIn),
-                      ),
+                    : SvgPicture.asset(AppIcons.refresh, width: 18, height: 18, colorFilter: const ColorFilter.mode(ColorConstants.iconGrey, BlendMode.srcIn)),
               ),
             ),
           ],

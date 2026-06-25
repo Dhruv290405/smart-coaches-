@@ -239,7 +239,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               smartCoaches: state.smartCoaches,
                               activeDevices: state.activeDevices,
                               activeSensors: state.activeSensors,
-                              criticalAlerts: state.recentAlerts.length + state.recentPneumaticAlerts.length,
+                              criticalAlerts: state.criticalAlerts,
                               warnings: state.warnings,
                               moderate: state.moderate,
                               normalState: state.normalState,

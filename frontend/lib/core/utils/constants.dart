@@ -3,8 +3,29 @@ import 'package:smart_coach_new/core/utils/enums.dart';
 class Constants {
   static const List<String> genderList = ['Male', 'Female', 'Other'];
 
-  static const List<String> locationList = ['Front', 'Middle', 'Rear', 'Engine'];
-  static const List<String> placementTypeList = ['Front', 'Rear', 'Internal'];
+  static const List<String> locationList = ['Inside the Coach', 'Outside the Coach'];
+  static const List<String> placementTypeList = [
+    'Coach Electrical Panel',
+    'Coach Control Panel',
+    'Inside Coach',
+    'Near Coach Door',
+    'Coach End Wall',
+    'Inside Toilet',
+    'Outside Toilet / Toilet Passage Area',
+    'Toilet Service Panel',
+    'Under Coach',
+    'Battery Box Area',
+    'Brake Panel Area',
+    'Sensor Junction Box Area',
+    'SLR / Guard Coach',
+    'Pantry Car',
+    'Power Car',
+    'Loco Cabin',
+    'Rake Monitoring Panel',
+    'Workshop / Depot Area',
+    'Other',
+  ];
+  static const List<String> orientationList = ['Front', 'Rear', 'Internal'];
   static const List<String> serviceProviderList = ['Airtel', 'Jio', 'Vi', 'BSNL'];
   static const List<String> simStatusList = ['Active', 'Inactive', 'Registration'];
   static const List<String> batteryTypeList = ['Alkaline', 'Li-ion', 'Lithium-ion', 'Nickel-Cadmium (NiCd)', 'Nickel-Metal Hydride (NiMH)', 'Lead-acid', 'Sodium-ion'];

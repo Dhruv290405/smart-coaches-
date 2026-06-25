@@ -38,6 +38,8 @@ class RegisterBloc extends Bloc<RegisterEvent, RegisterState> {
     on<LoadRolesDropdowns>(_onLoadRolesDropdowns);
     on<UpdateDropdownValue>(_onUpdateDropdownValue);
     on<SubmitRegister>(_onSubmitRegister);
+    on<SendOtp>(_onSendOtp);
+    on<VerifyOtp>(_onVerifyOtp);
   }
 
   void _onIdTypeToggled(IdTypeToggled event, Emitter<RegisterState> emit) {
@@ -304,6 +306,26 @@ class RegisterBloc extends Bloc<RegisterEvent, RegisterState> {
         successMessage: null,
         errorList: null,
       ));
+    }
+  }
+
+  void _onSendOtp(SendOtp event, Emitter<RegisterState> emit) async {
+    emit(state.copyWith(isLoading: true, errorMessage: null, errorList: null));
+    try {
+      await registerUseCase.sendOtp(event.mobileNumber);
+      emit(state.copyWith(isLoading: false, isOtpSent: true));
+    } catch (e) {
+      emit(state.copyWith(isLoading: false, errorMessage: e.toString()));
+    }
+  }
+
+  void _onVerifyOtp(VerifyOtp event, Emitter<RegisterState> emit) async {
+    emit(state.copyWith(isLoading: true, errorMessage: null, errorList: null));
+    try {
+      await registerUseCase.verifyOtp(event.mobileNumber, event.otp);
+      emit(state.copyWith(isLoading: false, isOtpVerified: true));
+    } catch (e) {
+      emit(state.copyWith(isLoading: false, errorMessage: e.toString()));
     }
   }
 }

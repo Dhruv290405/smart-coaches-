@@ -135,7 +135,7 @@ const coachController = {
       }));
 
 
-      return successResponse(res, "coaches retrieved successfully.", coaches);
+      return successResponse(res, "coaches retrieved successfully.", updatedCoaches);
     } catch (error) {
       next(error);
     }

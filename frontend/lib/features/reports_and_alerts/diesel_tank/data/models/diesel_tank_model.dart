@@ -33,6 +33,61 @@ class DieselTankModel {
     required this.lastUpdated,
   });
 
+  static int? _parseInt(dynamic value) {
+    if (value is int) return value;
+    if (value is double) return value.toInt();
+    if (value is String) return int.tryParse(value);
+    return null;
+  }
+
+  static double? _parseDouble(dynamic value) {
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
+  }
+
+  factory DieselTankModel.fromJson(Map<String, dynamic> json) {
+    return DieselTankModel(
+      engineId: json['loco_number'] as String? ?? '',
+      sensorId: json['sensor_id'] as String? ?? '',
+      locoNumber: json['loco_number'] as String? ?? '',
+      trainName: json['train_name'] as String? ?? '',
+      percentage: _parseInt(json['percentage']) ?? 0,
+      status: json['status'] as String? ?? 'Good',
+      height: _parseDouble(json['height']) ?? 180,
+      width: _parseDouble(json['width']) ?? 120,
+      length: _parseDouble(json['length']) ?? 220,
+      capacity: _parseInt(json['capacity']) ?? 5000,
+      consumptionRate: _parseInt(json['consumption_rate']) ?? 400,
+      estimatedRunTime: _parseDouble(json['estimated_run_time']) ?? 0,
+      rangeLeft: _parseInt(json['range_left']) ?? 0,
+      refilledBy: json['refilled_by'] as String? ?? 'N/A',
+      lastUpdated: json['last_updated'] != null
+          ? DateTime.tryParse(json['last_updated'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'loco_number': locoNumber,
+      'sensor_id': sensorId,
+      'train_name': trainName,
+      'percentage': percentage,
+      'status': status,
+      'height': height,
+      'width': width,
+      'length': length,
+      'capacity': capacity,
+      'consumption_rate': consumptionRate,
+      'estimated_run_time': estimatedRunTime,
+      'range_left': rangeLeft,
+      'refilled_by': refilledBy,
+      'last_updated': lastUpdated.toIso8601String(),
+    };
+  }
+
   String getFormattedLastUpdated() {
     final now = DateTime.now();
     final difference = now.difference(lastUpdated);

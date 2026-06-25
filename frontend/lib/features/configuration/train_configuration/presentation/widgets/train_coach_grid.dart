@@ -47,7 +47,7 @@ class _TrainCoachGridState extends State<TrainCoachGrid> {
       ..sort((a, b) {
         if (a.entityType == 'Loco' && b.entityType != 'Loco') return -1;
         if (a.entityType != 'Loco' && b.entityType == 'Loco') return 1;
-        return 0;
+        return (a.position ?? 0).compareTo(b.position ?? 0);
       });
 
     return GridView.builder(
@@ -101,7 +101,7 @@ class _TrainCoachGridState extends State<TrainCoachGrid> {
                 ),
                 Text(
                   coach.isConfigured
-                      ? coach.displayId!
+                      ? (coach.displayId ?? 'Coach ${index + 1}')
                       : '${coach.entityType} ${index + 1}',
                   style: TextStyle(
                     fontSize: 10.sp,

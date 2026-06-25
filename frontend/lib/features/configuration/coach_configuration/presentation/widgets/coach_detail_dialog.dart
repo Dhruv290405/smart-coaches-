@@ -52,28 +52,26 @@ class CoachDetailDialog extends StatelessWidget {
                 'Coach ID',
                 coachEntity.coachId?.toString(),
                 'Entity Type',
-                coachEntity.entityType,
+                coachEntity.entityType?.isNotEmpty == true ? coachEntity.entityType : null,
               ),
               _buildTwoCols(
                 'Coach Technical No',
                 coachEntity.coachUniqueId,
                 'Make',
-                coachEntity.makeOfCoach,
+                coachEntity.makeOfCoach?.isNotEmpty == true ? coachEntity.makeOfCoach : null,
               ),
               _buildTwoCols(
                 'Type',
-                coachEntity.typeOfCoach,
-                'Seating Capacity',
-                '24',
-              ),
-              // hardcoded as per screenshot
-              _buildTwoCols(
+                coachEntity.typeOfCoach?.isNotEmpty == true ? coachEntity.typeOfCoach : null,
                 'Manufacturing Year',
                 coachEntity.manufacturingYear.toString(),
+              ),
+              _buildTwoCols(
                 '# Master Modules',
                 coachEntity.noOfMasterModule?.toString(),
+                'Coach Status',
+                coachEntity.coachStatus,
               ),
-              _buildTwoCols('Coach Status', coachEntity.coachStatus, '', ''),
 
               SizedBox(height: 1.h),
               _buildTwoCols(
@@ -82,6 +80,35 @@ class CoachDetailDialog extends StatelessWidget {
                 'Last Updated',
                 _formatDateTime(coachEntity.updatedAt),
               ),
+
+              /// Master Module Details
+              if (coachEntity.masterModuleIds?.isNotEmpty == true) ...[
+                SizedBox(height: 1.h),
+                Container(
+                  width: double.infinity,
+                  height: 1,
+                  color: Colors.grey.shade300,
+                ),
+                SizedBox(height: 1.h),
+                Text(
+                  'Master Module Details',
+                  style: TextStyle(
+                    fontSize: 13.sp,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black,
+                  ),
+                ),
+                SizedBox(height: 0.5.h),
+                _buildItem(
+                  label: 'Module IDs',
+                  value: coachEntity.masterModuleIds,
+                ),
+                if (coachEntity.masterModuleLocations?.isNotEmpty == true)
+                  _buildItem(
+                    label: 'Locations',
+                    value: coachEntity.masterModuleLocations,
+                  ),
+              ],
               SizedBox(height: 2.h),
 
               /// Action Button
@@ -158,7 +185,7 @@ class CoachDetailDialog extends StatelessWidget {
           isStatusView
               ? _buildStatusView(label: label, statusValue: value)
               : Text(
-                  value ?? 'N/A',
+                  value ?? '----',
                   style: TextStyle(fontSize: 12.5.sp, color: Colors.black),
                 ),
         ],
@@ -171,13 +198,13 @@ class CoachDetailDialog extends StatelessWidget {
     required String label,
     required String? statusValue,
   }) {
+    final statusText = statusValue?.replaceAll(' ', '').toLowerCase();
     bool isActive =
-        statusValue?.toLowerCase() == DeviceStatus.active.name.toLowerCase();
+        statusText == DeviceStatus.active.name.toLowerCase();
     bool isUnderMaintenance =
-        statusValue?.toLowerCase() ==
-        DeviceStatus.underMaintenance.name.toLowerCase();
+        statusText == DeviceStatus.underMaintenance.name.toLowerCase();
     bool isRetired =
-        statusValue?.toLowerCase() == DeviceStatus.retired.name.toLowerCase();
+        statusText == DeviceStatus.retired.name.toLowerCase();
 
     Color color = Colors.black;
     if (isActive) {

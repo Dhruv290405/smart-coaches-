@@ -71,6 +71,11 @@ class CoachItem {
   @JsonKey(name: 'type_of_coach_id')
   final dynamic typeOfCoachId;
 
+  @JsonKey(name: 'master_module_ids')
+  final String? masterModuleIds;
+
+  @JsonKey(name: 'master_module_locations')
+  final String? masterModuleLocations;
 
   CoachItem({
     this.coachId,
@@ -89,6 +94,8 @@ class CoachItem {
     this.coachStatus,
     this.createdAt,
     this.updatedAt,
+    this.masterModuleIds,
+    this.masterModuleLocations,
   });
 
   factory CoachItem.fromJson(Map<String, dynamic> json) =>

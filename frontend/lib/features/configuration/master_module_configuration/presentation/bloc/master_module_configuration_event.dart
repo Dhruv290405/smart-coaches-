@@ -11,9 +11,10 @@ class CreateEditMasterModuleConfiguration
     extends MasterModuleConfigurationEvent {
   final int? moduleId; //for edit
   final MasterModuleConfigurationRequest masterModuleConfigurationRequest;
+  final Map<String, dynamic>? extraFields;
 
   CreateEditMasterModuleConfiguration(this.masterModuleConfigurationRequest,
-      {this.moduleId});
+      {this.moduleId, this.extraFields});
 }
 
 class DeleteMasterModuleConfiguration extends MasterModuleConfigurationEvent {

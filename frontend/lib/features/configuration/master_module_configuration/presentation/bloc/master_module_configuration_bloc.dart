@@ -75,11 +75,13 @@ class MasterModuleConfigurationBloc
             .editMasterModuleConfiguration(
               event.moduleId,
               event.masterModuleConfigurationRequest,
+              extraFields: event.extraFields,
             );
       } else {
         message = await masterModuleConfigurationUseCase
             .createMasterModuleConfiguration(
               event.masterModuleConfigurationRequest,
+              extraFields: event.extraFields,
             );
       }
 
