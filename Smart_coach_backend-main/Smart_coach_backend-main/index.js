@@ -79,7 +79,7 @@ app.get('/test', async (req, res) => {
     wliCount = rows[0].cnt;
     const [tbls] = await connection.query("SHOW TABLES");
     tables = tbls.map(r => Object.values(r)[0]);
-    try { const [u] = await connection.query("SELECT COUNT(*) as cnt FROM user_master WHERE password_hash IS NOT NULL"); userCount = u[0].cnt; pwExists = true; } catch (_) { userCount = -1; }
+    try { const [u] = await connection.query("SELECT COUNT(*) as total, SUM(password_hash IS NOT NULL) as with_pw FROM user_master"); userCount = u[0].total + ' users, ' + u[0].with_pw + ' with pw'; pwExists = u[0].with_pw > 0; } catch (_) { userCount = 'err'; }
     connection.release();
   } catch (e) {
     dbStatus = 'failed: ' + e.message;
