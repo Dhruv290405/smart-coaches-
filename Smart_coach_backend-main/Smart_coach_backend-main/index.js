@@ -186,7 +186,7 @@ app.post('/migrate-all', (req, res) => {
 
     // Drop problem tables so dynamic createTable re-creates with correct columns
     for (const t of ['zone_master', 'division_master', 'region_master', 'role_master',
-      'coach_make', 'coach_type', 'sensor_make', 'stations']) {
+      'coach_make', 'coach_type', 'sensor_make', 'stations', 'coach_master']) {
       try { await pool.query(`DROP TABLE IF EXISTS \`${t}\``); } catch (_) {}
     }
     // Create tables needed by queries but not populated from API
