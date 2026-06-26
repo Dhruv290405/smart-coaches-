@@ -3,11 +3,10 @@ const WliModel = require("../models/wli.model");
 const wliController = {
     receiveData: async (req, res) => {
         try {
-            const payload = req.body;
-
             if (req.query.confirmationToken) return res.status(200).send("OK");
 
-            if (!payload.assets || !Array.isArray(payload.assets)) {
+            const payload = req.body;
+            if (!payload || !payload.assets || !Array.isArray(payload.assets)) {
                 return res.status(400).json({ success: false, message: "No asset data found" });
             }
 
