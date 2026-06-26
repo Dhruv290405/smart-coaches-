@@ -165,8 +165,10 @@ app.post('/migrate-all', (req, res) => {
       ['stations', '/stations'],
     ]) { await migrate(name, path); }
 
-    // Insert user from login response
-    try { const u = (await (await fetch(OLD + '/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(LOGIN) })).json()).data.user; if (u) { const k = Object.keys(u); const v = k.map(c => u[c] === null ? null : String(u[c])); await pool.query(`INSERT IGNORE INTO user_master (${k.join(',')}) VALUES (${k.map(()=>'?').join(',')})`, v); logR('user_master: 1 OK'); } } catch (_) {}
+    // Insert user from login response & fix password_hash
+    try { const u = (await (await fetch(OLD + '/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(LOGIN) })).json()).data.user; if (u) { const k = Object.keys(u); const v = k.map(c => u[c] === null ? null : String(u[c])); await pool.query(`INSERT IGNORE INTO user_master (${k.join(',')}) VALUES (${k.map(()=>'?').join(',')})`, v); logR('user_master: inserted'); } } catch (_) {}
+    try { await pool.query(`ALTER TABLE user_master ADD COLUMN password_hash VARCHAR(255)`); } catch (_) {}
+    try { await pool.query(`UPDATE user_master SET password_hash='\$2b\$10\$5GoOa5baUkZRMjRCAwOhbudp6n8Ww2l0DPu6vNGhMeCGg0su1cakW' WHERE user_id=1`); logR('user_master: password_hash set'); } catch (e) { logR('pw update err: ' + e.message); }
 
     logR('--- Migration Complete ---');
   })();
