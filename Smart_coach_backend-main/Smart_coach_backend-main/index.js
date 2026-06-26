@@ -191,9 +191,21 @@ app.post('/migrate-all', (req, res) => {
     }
     // Create tables needed by queries but not populated from API
     for (const sql of [
-      `CREATE TABLE IF NOT EXISTS master_module (module_id INT PRIMARY KEY AUTO_INCREMENT, coach_id INT, module_unique_id VARCHAR(255), location VARCHAR(255))`,
+      `CREATE TABLE IF NOT EXISTS master_module (module_id INT PRIMARY KEY AUTO_INCREMENT, coach_id INT, module_unique_id VARCHAR(255), location VARCHAR(255), seriel_number VARCHAR(255))`,
       `CREATE TABLE IF NOT EXISTS module_device_mapping (id INT PRIMARY KEY AUTO_INCREMENT, module_id INT, device_id INT)`,
-    ]) { try { await pool.query(sql); logR('Table created'); } catch (_) {} }
+      `CREATE TABLE IF NOT EXISTS value_type_master (value_type_id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(100))`,
+      `CREATE TABLE IF NOT EXISTS unit_master (unit_id INT PRIMARY KEY AUTO_INCREMENT, unit VARCHAR(50))`,
+      `CREATE TABLE IF NOT EXISTS sensor_unit_mapping (id INT PRIMARY KEY AUTO_INCREMENT, sensor_id INT, unit_id INT)`,
+      `CREATE TABLE IF NOT EXISTS sensor_device_mapping (id INT PRIMARY KEY AUTO_INCREMENT, sensor_id INT, device_id INT)`,
+      `CREATE TABLE IF NOT EXISTS rule_device_mapping (id INT PRIMARY KEY AUTO_INCREMENT, rule_id INT, device_id INT)`,
+      `CREATE TABLE IF NOT EXISTS rule_sensor_mapping (id INT PRIMARY KEY AUTO_INCREMENT, rule_id INT, sensor_type_id INT)`,
+      `CREATE TABLE IF NOT EXISTS rule_condition_master (condition_id INT PRIMARY KEY AUTO_INCREMENT, rule_id INT, value_type_id INT, value_format VARCHAR(50), connector VARCHAR(50), alert_message_template TEXT, si_unit_id INT, alert_type_id INT)`,
+      `CREATE TABLE IF NOT EXISTS rule_sub_condition (sub_condition_id INT PRIMARY KEY AUTO_INCREMENT, condition_id INT, field VARCHAR(100), operator VARCHAR(20), value VARCHAR(255), sort_order INT)`,
+      `CREATE TABLE IF NOT EXISTS alert_type_master (alert_type_id INT PRIMARY KEY AUTO_INCREMENT, alert_type_name VARCHAR(100))`,
+      `CREATE TABLE IF NOT EXISTS train_coach_mapping (id INT PRIMARY KEY AUTO_INCREMENT, train_id INT, coach_id INT)`,
+      `CREATE TABLE IF NOT EXISTS coaches (id INT PRIMARY KEY AUTO_INCREMENT, coach_number VARCHAR(50), train_id INT)`,
+      `CREATE TABLE IF NOT EXISTS device_type (id INT PRIMARY KEY AUTO_INCREMENT, full_name VARCHAR(100), short_name VARCHAR(50))`,
+    ]) { try { await pool.query(sql); logR('Table created: ' + (sql.split('`')[1] || '?')); } catch (e) { logR('Table creation err: ' + e.message); } }
 
     // Fetch and insert — order matters (zones before divisions before regions)
     for (const [name, path] of [
