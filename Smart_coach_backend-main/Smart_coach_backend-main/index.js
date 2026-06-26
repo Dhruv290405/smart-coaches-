@@ -105,15 +105,20 @@ app.get('/db-data', async (req, res) => {
   } catch (e) { res.json({ error: e.message }); }
 });
 
+// In-memory migration log (for debugging)
+let migrateLog = [];
+const logR = (msg) => { migrateLog.push('[' + new Date().toISOString().slice(11,19) + '] ' + msg); console.log('[MIGRATE] ' + msg); };
+
+app.get('/migrate-log', (req, res) => res.json(migrateLog.slice(-100)));
+
 // --- MASTER DATA MIGRATION (one-time trigger, runs async) ---
 app.post('/migrate-all', (req, res) => {
   res.json({ status: 'Migration started in background, check server logs' });
+  migrateLog = [];
 
   (async () => {
     const OLD = 'https://smart-coach-api-production.up.railway.app/smart_coach_api/api';
     const LOGIN = { email: 'tester@example.com', password: '123456' };
-
-    const logR = (msg) => console.log('[MIGRATE] ' + msg);
 
     let token;
     try {
