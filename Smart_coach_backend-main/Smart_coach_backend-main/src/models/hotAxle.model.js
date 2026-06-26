@@ -102,23 +102,19 @@ class HotAxleModel {
     }
 }   
 
-async getLatestStatusForAllCoaches() {
+    async getLatestStatusForAllCoaches() {
     const query = `
         SELECT 
             l.id, l.device_id, l.coach_number, l.coach_type, l.owning_rly, 
             l.timestamp, l.alert_status, l.a11_temp, l.a12_temp, l.a21_temp, 
             l.a22_temp, l.a31_temp, l.a32_temp, l.a41_temp, l.a42_temp, 
-            l.battery_percentage, l.signal_strength,
-            COALESCE(dm.tech_coach_no, 'Not Mapped') AS tech_coach_no, 
-            COALESCE(c.train_id, 'NA') AS train_no 
+            l.battery_percentage, l.signal_strength
         FROM hot_axle_logs l
         INNER JOIN (
             SELECT MAX(id) as latest_id 
             FROM hot_axle_logs 
             GROUP BY device_id
         ) latest_logs ON l.id = latest_logs.latest_id
-        LEFT JOIN device_master dm ON l.device_id = dm.device_id
-        LEFT JOIN coaches c ON dm.tech_coach_no = c.coach_number
         ORDER BY l.timestamp DESC
     `;
 

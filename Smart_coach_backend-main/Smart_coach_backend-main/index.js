@@ -180,30 +180,44 @@ const startServer = async () => {
     if (isConnected) {
       console.log(' Database connection verified.');
 
-      // Auto-create wli_logs table if not exists
-      try {
-        await pool.query(`
-          CREATE TABLE IF NOT EXISTS wli_logs (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            device_id VARCHAR(100),
-            coach_id VARCHAR(50),
-            coach_name VARCHAR(100),
-            placement_type VARCHAR(50),
-            asset_id VARCHAR(100),
-            asset_name VARCHAR(100),
-            raw_value DECIMAL(10,2),
-            level_cm DECIMAL(10,2),
-            volume_liters DECIMAL(10,2),
-            percent_full DECIMAL(5,2),
-            timestamp VARCHAR(50),
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            INDEX idx_device_id (device_id),
-            INDEX idx_timestamp (timestamp)
-          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-        `);
-        console.log(' wli_logs table ready');
-      } catch (err) {
-        console.error(' wli_logs table creation failed:', err.message);
+      // Auto-create required tables
+      const tableDefs = [
+        { name: 'wli_logs', sql: `CREATE TABLE IF NOT EXISTS wli_logs (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          device_id VARCHAR(100), coach_id VARCHAR(50), coach_name VARCHAR(100),
+          placement_type VARCHAR(50), asset_id VARCHAR(100), asset_name VARCHAR(100),
+          raw_value DECIMAL(10,2), level_cm DECIMAL(10,2), volume_liters DECIMAL(10,2),
+          percent_full DECIMAL(5,2), timestamp VARCHAR(50),
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_device_id (device_id), INDEX idx_timestamp (timestamp)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4` },
+        { name: 'hot_axle_logs', sql: `CREATE TABLE IF NOT EXISTS hot_axle_logs (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          device_id VARCHAR(100), coach_number VARCHAR(50), coach_type VARCHAR(50),
+          owning_rly VARCHAR(20), timestamp VARCHAR(50), alert_status VARCHAR(20),
+          a11_temp DECIMAL(10,2), a12_temp DECIMAL(10,2),
+          a21_temp DECIMAL(10,2), a22_temp DECIMAL(10,2),
+          a31_temp DECIMAL(10,2), a32_temp DECIMAL(10,2),
+          a41_temp DECIMAL(10,2), a42_temp DECIMAL(10,2),
+          battery_percentage INT, signal_strength INT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_device_id (device_id), INDEX idx_timestamp (timestamp)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4` },
+        { name: 'pressure_logs', sql: `CREATE TABLE IF NOT EXISTS pressure_logs (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          device_id VARCHAR(100), coach_number VARCHAR(50), coach_type VARCHAR(50),
+          owning_rly VARCHAR(20), train_number VARCHAR(20),
+          timestamp VARCHAR(50), brake_pipe_pressure DECIMAL(10,2),
+          brake_cylinder_pressure DECIMAL(10,2), main_reservoir_pressure DECIMAL(10,2),
+          brake_applied_time VARCHAR(50), brake_released_time VARCHAR(50),
+          brake_status VARCHAR(20), battery_percentage INT, signal_strength INT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_device_id (device_id), INDEX idx_timestamp (timestamp)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4` },
+      ];
+      for (const t of tableDefs) {
+        try { await pool.query(t.sql); console.log(` ${t.name} table ready`); }
+        catch (err) { console.error(` ${t.name} table creation failed:`, err.message); }
       }
 
       // 2. Start Simulation only if DB is ready

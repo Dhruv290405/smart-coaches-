@@ -45,9 +45,7 @@ class PressureModel {
     async getDashboardStatus() {
         const query = `
             SELECT 
-                p.*, 
-                COALESCE(dm.tech_coach_no, 'Not Mapped') AS tech_coach_no, 
-                COALESCE(c.train_id, 'NA') AS train_no 
+                p.*
             FROM pressure_logs p
             INNER JOIN (
                 SELECT coach_number, MAX(id) as latest_id 
@@ -55,8 +53,6 @@ class PressureModel {
                 WHERE coach_number IS NOT NULL AND coach_number != ''
                 GROUP BY coach_number
             ) latest_logs ON p.id = latest_logs.latest_id
-            LEFT JOIN device_master dm ON p.device_id = dm.device_id
-            LEFT JOIN coaches c ON dm.tech_coach_no = c.coach_number
             ORDER BY p.timestamp DESC
         `;
 
