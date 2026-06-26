@@ -220,10 +220,16 @@ const startServer = async () => {
         try { await pool.query(t.sql); console.log(` ${t.name} table ready`); }
         catch (err) { console.error(` ${t.name} table creation failed:`, err.message); }
       }
-      // Migrate old pressure_logs columns if table was created with old schema
-      const alterCols = [ 'ALTER TABLE pressure_logs ADD COLUMN bp_pressure DECIMAL(10,2) AFTER train_number' ];
+      // Ensure pressure_logs has all columns from old system
+      const alterCols = [
+        'ALTER TABLE pressure_logs ADD COLUMN bp_pressure DECIMAL(10,2)',
+        'ALTER TABLE pressure_logs ADD COLUMN current_pressure DECIMAL(10,2)',
+        'ALTER TABLE pressure_logs ADD COLUMN charging_time VARCHAR(50)',
+        'ALTER TABLE pressure_logs ADD COLUMN discharging_time VARCHAR(50)',
+        'ALTER TABLE pressure_logs ADD COLUMN brake_response_time VARCHAR(50)',
+      ];
       for (const a of alterCols) {
-        try { await pool.query(a); console.log(`  ALTER: ${a.split(' ').slice(-1)} added`); } catch (_) {}
+        try { await pool.query(a); console.log(`  ALTER: column added`); } catch (_) {}
       }
 
       // 2. Start Simulation only if DB is ready
