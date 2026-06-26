@@ -88,138 +88,88 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'Server is running' });
 });
 
-// --- MASTER DATA MIGRATION (one-time trigger) ---
-app.post('/migrate-all', async (req, res) => {
-  const OLD = 'https://smart-coach-api-production.up.railway.app/smart_coach_api/api';
-  const LOGIN = { email: 'tester@example.com', password: '123456' };
-  const results = [];
+// --- MASTER DATA MIGRATION (one-time trigger, runs async) ---
+app.post('/migrate-all', (req, res) => {
+  res.json({ status: 'Migration started in background, check server logs' });
 
-  const logR = (msg) => { console.log(msg); results.push(msg); };
+  (async () => {
+    const OLD = 'https://smart-coach-api-production.up.railway.app/smart_coach_api/api';
+    const LOGIN = { email: 'tester@example.com', password: '123456' };
 
-  let token;
-  try {
-    const r = await fetch(OLD + '/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(LOGIN) });
-    const j = await r.json(); token = j.data.token;
-    logR('Login OK');
-  } catch (e) { logR('Login FAILED: ' + e.message); return res.json({ results }); }
+    const logR = (msg) => console.log('[MIGRATE] ' + msg);
 
-  const GET = async (path) => {
-    const r = await fetch(OLD + path, { headers: { Authorization: 'Bearer ' + token } });
-    if (!r.ok) { logR(`  GET ${path} FAILED ${r.status}`); return null; }
-    const body = await r.json();
-    return body.data || body;
-  };
+    let token;
+    try {
+      const r = await fetch(OLD + '/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(LOGIN) });
+      const j = await r.json(); token = j.data.token;
+      logR('Login OK');
+    } catch (e) { logR('Login FAILED: ' + e.message); return; }
 
-  const q = (s) => '`' + s.replace(/`/g, '') + '`';
-  const insertData = async (table, rows) => {
-    if (!rows || !rows.length) { logR(`  ${table}: 0 rows (skip)`); return; }
-    const keys = Object.keys(rows[0]);
+    const GET = async (path) => {
+      const r = await fetch(OLD + path, { headers: { Authorization: 'Bearer ' + token } });
+      if (!r.ok) { logR(`GET ${path} FAILED ${r.status}`); return null; }
+      const body = await r.json();
+      return body.data || body;
+    };
+
+    const q = (s) => '`' + s.replace(/`/g, '') + '`';
     const dropKeys = ['created_by_name', 'updated_by_name', 'make_of_coach_name', 'type_of_coach_code', 'master_module_ids', 'master_module_locations'];
-    const cols = keys.filter(k => !dropKeys.includes(k));
-    const placeholders = cols.map(() => '?').join(',');
-    const colNames = cols.map(q).join(',');
-    let ok = 0, fail = 0;
-    for (const row of rows) {
-      const vals = cols.map(c => row[c] === undefined || row[c] === null ? null : String(row[c]));
-      try {
-        await pool.query(`INSERT IGNORE INTO \`${table}\` (${colNames}) VALUES (${placeholders})`, vals);
-        ok++;
-      } catch (e) { fail++; if (fail <= 2) logR(`    ${table} insert err: ${e.message}`); }
-    }
-    logR(`  ${table}: ${ok} inserted, ${fail} failed`);
-  };
 
-  const createTable = async (name, sample) => {
-    if (!sample) return;
-    const dropKeys = ['created_by_name', 'updated_by_name', 'make_of_coach_name', 'type_of_coach_code', 'master_module_ids', 'master_module_locations'];
-    const cols = Object.keys(sample).filter(k => !dropKeys.includes(k)).map(k => `\`${k}\` VARCHAR(255)`).join(',\n  ');
-    try { await pool.query(`CREATE TABLE IF NOT EXISTS \`${name}\` (\n  ${cols}\n)`); }
-    catch (e) { logR(`  ${name} create err: ${e.message}`); }
-  };
+    const insertData = async (table, rows) => {
+      if (!rows || !rows.length) { logR(`${table}: 0 rows`); return; }
+      const cols = Object.keys(rows[0]).filter(k => !dropKeys.includes(k));
+      const ph = cols.map(() => '?').join(',');
+      const cn = cols.map(q).join(',');
+      let ok = 0, fail = 0;
+      for (const row of rows) {
+        const vals = cols.map(c => row[c] === undefined || row[c] === null ? null : String(row[c]));
+        try { await pool.query(`INSERT IGNORE INTO \`${table}\` (${cn}) VALUES (${ph})`, vals); ok++; }
+        catch (e) { fail++; if (fail <= 2) logR(`${table} err: ${e.message}`); }
+      }
+      logR(`${table}: ${ok} OK, ${fail} failed`);
+    };
 
-  // 1. Zones
-  logR('\n--- Master Data ---');
-  let data = await GET('/masters/zones');
-  if (data) {
-    await pool.query(`CREATE TABLE IF NOT EXISTS zone_master (zone_id INT PRIMARY KEY, name VARCHAR(100), is_active TINYINT DEFAULT 1)`);
-    await insertData('zone_master', Array.isArray(data) ? data : [data]);
-  }
+    const createTable = async (name, sample) => {
+      if (!sample) return;
+      const cols = Object.keys(sample).filter(k => !dropKeys.includes(k)).map(k => `\`${k}\` VARCHAR(255)`).join(', ');
+      try { await pool.query(`CREATE TABLE IF NOT EXISTS \`${name}\` (${cols})`); }
+      catch (e) { logR(`${name} create err: ${e.message}`); }
+    };
 
-  data = await GET('/masters/roles');
-  if (data) {
-    await pool.query(`CREATE TABLE IF NOT EXISTS role_master (role_id INT PRIMARY KEY, name VARCHAR(100), is_active TINYINT DEFAULT 1)`);
-    await insertData('role_master', Array.isArray(data) ? data : [data]);
-  }
+    const migrate = async (name, path) => {
+      logR(`Fetching ${name}...`);
+      const d = await GET(path);
+      if (d) { await createTable(name, d[0]); await insertData(name, d); }
+    };
 
-  // 2. Coach Make
-  data = await GET('/coach-makes');
-  if (data) {
-    await pool.query(`CREATE TABLE IF NOT EXISTS coach_make (id INT PRIMARY KEY, name VARCHAR(100))`);
-    await insertData('coach_make', data);
-  }
+    logR('--- Starting Master Data Migration ---');
 
-  // 3. Coach Type
-  data = await GET('/coach-types');
-  if (data) {
-    await pool.query(`CREATE TABLE IF NOT EXISTS coach_type (id INT PRIMARY KEY, code VARCHAR(50), name VARCHAR(100))`);
-    await insertData('coach_type', data);
-  }
+    // Static schema tables
+    for (const [sql] of [
+      [`CREATE TABLE IF NOT EXISTS zone_master (zone_id INT PRIMARY KEY, name VARCHAR(100), is_active TINYINT DEFAULT 1)`],
+      [`CREATE TABLE IF NOT EXISTS role_master (role_id INT PRIMARY KEY, name VARCHAR(100), is_active TINYINT DEFAULT 1)`],
+      [`CREATE TABLE IF NOT EXISTS coach_make (id INT PRIMARY KEY, name VARCHAR(100))`],
+      [`CREATE TABLE IF NOT EXISTS coach_type (id INT PRIMARY KEY, code VARCHAR(50), name VARCHAR(100))`],
+      [`CREATE TABLE IF NOT EXISTS sensor_make (sensor_make_id INT PRIMARY KEY, name VARCHAR(100))`],
+      [`CREATE TABLE IF NOT EXISTS user_master (user_id INT PRIMARY KEY, first_name VARCHAR(100), last_name VARCHAR(100), email VARCHAR(100), mobile_number VARCHAR(20), gender VARCHAR(20), organisation_type VARCHAR(100), organisation_name VARCHAR(100), zone_id INT, division_id INT, region_id INT, role_id INT, status VARCHAR(20), approval_status VARCHAR(20), employee_id VARCHAR(50), pan_card_no VARCHAR(50), aadhar_no VARCHAR(50), company_id VARCHAR(50), created_date VARCHAR(50), updated_date VARCHAR(50), role_name VARCHAR(100), zone_name VARCHAR(100), division_name VARCHAR(100), region_name VARCHAR(100))`],
+    ]) { try { await pool.query(sql); } catch (_) {} }
 
-  // 4. Sensor Make
-  data = await GET('/sensors-make');
-  if (data) {
-    await pool.query(`CREATE TABLE IF NOT EXISTS sensor_make (sensor_make_id INT PRIMARY KEY, name VARCHAR(100))`);
-    await insertData('sensor_make', data);
-  }
+    // Fetch and insert
+    for (const [name, path] of [
+      ['zone_master', '/masters/zones'], ['role_master', '/masters/roles'],
+      ['coach_make', '/coach-makes'], ['coach_type', '/coach-types'],
+      ['sensor_make', '/sensors-make'], ['train_master', '/trains'],
+      ['coach_master', '/coaches'], ['device_master', '/devices'],
+      ['sensor_master', '/sensors'], ['sensor_config', '/sensors-config'],
+      ['rule_master', '/rules'], ['region_master', '/regions'],
+      ['stations', '/stations'],
+    ]) { await migrate(name, path); }
 
-  // 5. Coach Master
-  data = await GET('/coaches');
-  if (data) { await createTable('coach_master', data[0]); await insertData('coach_master', data); }
+    // Insert user from login response
+    try { const u = (await (await fetch(OLD + '/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(LOGIN) })).json()).data.user; if (u) { const k = Object.keys(u); const v = k.map(c => u[c] === null ? null : String(u[c])); await pool.query(`INSERT IGNORE INTO user_master (${k.join(',')}) VALUES (${k.map(()=>'?').join(',')})`, v); logR('user_master: 1 OK'); } } catch (_) {}
 
-  // 6. Train Master
-  data = await GET('/trains');
-  if (data) { await createTable('train_master', data[0]); await insertData('train_master', data); }
-
-  // 7. Device Master
-  data = await GET('/devices');
-  if (data) { await createTable('device_master', data[0]); await insertData('device_master', data); }
-
-  // 8. Sensor Master
-  data = await GET('/sensors');
-  if (data) { await createTable('sensor_master', data[0]); await insertData('sensor_master', data); }
-
-  // 9. Sensor Config
-  data = await GET('/sensors-config');
-  if (data) { await createTable('sensor_config', data[0]); await insertData('sensor_config', data); }
-
-  // 10. Rules
-  data = await GET('/rules');
-  if (data) { await createTable('rule_master', data[0]); await insertData('rule_master', data); }
-
-  // 11. Regions
-  data = await GET('/regions');
-  if (data) { await createTable('region_master', data[0]); await insertData('region_master', data); }
-
-  // 12. Stations
-  data = await GET('/stations');
-  if (data) { await createTable('stations', data[0]); await insertData('stations', data); }
-
-  // 13. User Master (from login response)
-  try {
-    await pool.query(`CREATE TABLE IF NOT EXISTS user_master (
-      user_id INT PRIMARY KEY, first_name VARCHAR(100), last_name VARCHAR(100),
-      email VARCHAR(100), mobile_number VARCHAR(20), gender VARCHAR(20),
-      organisation_type VARCHAR(100), organisation_name VARCHAR(100),
-      zone_id INT, division_id INT, region_id INT, role_id INT,
-      status VARCHAR(20), approval_status VARCHAR(20), employee_id VARCHAR(50),
-      pan_card_no VARCHAR(50), aadhar_no VARCHAR(50), company_id VARCHAR(50),
-      created_date VARCHAR(50), updated_date VARCHAR(50), role_name VARCHAR(100),
-      zone_name VARCHAR(100), division_name VARCHAR(100), region_name VARCHAR(100)
-    )`);
-  } catch (_) {}
-
-  logR('\nMigration complete!');
-  res.json({ results });
+    logR('--- Migration Complete ---');
+  })();
 });
 
 // Global error handler
