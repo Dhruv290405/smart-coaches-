@@ -207,17 +207,23 @@ const startServer = async () => {
           id INT AUTO_INCREMENT PRIMARY KEY,
           device_id VARCHAR(100), coach_number VARCHAR(50), coach_type VARCHAR(50),
           owning_rly VARCHAR(20), train_number VARCHAR(20),
-          timestamp VARCHAR(50), brake_pipe_pressure DECIMAL(10,2),
-          brake_cylinder_pressure DECIMAL(10,2), main_reservoir_pressure DECIMAL(10,2),
+          bp_pressure DECIMAL(10,2), current_pressure DECIMAL(10,2),
+          charging_time VARCHAR(50), discharging_time VARCHAR(50),
           brake_applied_time VARCHAR(50), brake_released_time VARCHAR(50),
-          brake_status VARCHAR(20), battery_percentage INT, signal_strength INT,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          brake_response_time VARCHAR(50),
+          battery_percentage INT, signal_strength INT,
+          timestamp VARCHAR(50), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           INDEX idx_device_id (device_id), INDEX idx_timestamp (timestamp)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4` },
       ];
       for (const t of tableDefs) {
         try { await pool.query(t.sql); console.log(` ${t.name} table ready`); }
         catch (err) { console.error(` ${t.name} table creation failed:`, err.message); }
+      }
+      // Migrate old pressure_logs columns if table was created with old schema
+      const alterCols = [ 'ALTER TABLE pressure_logs ADD COLUMN bp_pressure DECIMAL(10,2) AFTER train_number' ];
+      for (const a of alterCols) {
+        try { await pool.query(a); console.log(`  ALTER: ${a.split(' ').slice(-1)} added`); } catch (_) {}
       }
 
       // 2. Start Simulation only if DB is ready

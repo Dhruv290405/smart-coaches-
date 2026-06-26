@@ -11,10 +11,22 @@ const getOldData = async (path) => {
   return j.data || j.records || [];
 };
 
+const stripDerived = (obj) => {
+  const derived = ['tech_coach_no', 'train_no', 'id', 'created_at'];
+  const out = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (!derived.includes(k)) out[k] = v;
+  }
+  return out;
+};
+
 const endpoints = [
-  { name: 'Hot Axle', get: '/hot-axle/dashboard-status', post: '/hot-axle/receive-data' },
+  { name: 'Hot Axle', get: '/hot-axle/dashboard-status', post: '/hot-axle/receive-data', map: stripDerived },
   { name: 'BC Pressure', get: '/pressure/dashboard-status', post: '/pressure/receive-data',
-    map: item => ({ device_id: item.device_id, coach_number: item.coach_number, coach_type: item.coach_type, owning_rly: item.owning_rly, readings: [item] }) },
+    map: item => {
+      const clean = stripDerived(item);
+      return { device_id: clean.device_id, coach_number: clean.coach_number, coach_type: clean.coach_type, owning_rly: clean.owning_rly, readings: [clean] };
+    }},
 ];
 
 async function migrateType({ name, get, post, map }) {
