@@ -107,30 +107,13 @@ class Sensor_configModel extends BaseModel {
   async getAllSensorConfigs() {
   const [rows] = await this.pool.execute(`
     SELECT 
-      sc.sensor_config_id,
-      sc.sensor_id,
-      sc.device_id,
-      sc.sensor_type_id,
-      sc.install_date,
-      sc.placement,
-      sc.remarks,
-      sc.master_module_id,
-      sc.coach_id,
-      sc.created_at,
-      -- Agar table mein column nahi hai toh dummy value bhej dete hain
-      1 AS is_active, 
-      0 AS dual_profile_supported,
-      0 AS lora_enabled,
-      0 AS esim_enabled,
-      -- ANY_VALUE for ONLY_FULL_GROUP_BY compatibility
-      ANY_VALUE(d.tech_coach_no) AS tech_coach_no,
-      ANY_VALUE(d.comm_coach_no) AS comm_coach_no,
-      ANY_VALUE(d.train_no) AS train_no,
-      ANY_VALUE(COALESCE(sc.location, d.train_location, 'Ara To Jainagar')) AS location,
-      'ONLINE' as status
+      sc.*,
+      COALESCE(d.tech_coach_no, '') AS tech_coach_no,
+      COALESCE(d.comm_coach_no, '') AS comm_coach_no,
+      COALESCE(d.train_no, '') AS train_no,
+      COALESCE(d.train_location, '') AS train_location
     FROM sensor_config sc
     LEFT JOIN device_master d ON sc.device_id = d.device_id
-    GROUP BY sc.sensor_config_id 
     ORDER BY sc.sensor_config_id DESC
   `);
 
@@ -198,11 +181,11 @@ class Sensor_configModel extends BaseModel {
     }
 
     const [coachRows] = await this.pool.execute(
-      `SELECT train_id FROM coach_master WHERE coach_id = ?`,
+      `SELECT coach_id FROM coach_master WHERE coach_id = ?`,
       [coach_id]
     );
     
-    const train_id = coachRows.length > 0 ? coachRows[0].train_id : null;
+    const train_id = null;
 
     return { coach_id, train_id };
   }

@@ -272,6 +272,14 @@ app.post('/migrate-all', (req, res) => {
       logR('user_master: tester user inserted with password_hash');
     } catch (e) { logR('user insert err: ' + e.message); }
 
+    // Add missing columns on tables recreated by migration
+    for (const a of [
+      "ALTER TABLE coach_master ADD COLUMN train_id INT",
+      "ALTER TABLE master_module ADD COLUMN seriel_number VARCHAR(255)",
+    ]) { try { await pool.query(a); logR('ALTER: column added'); } catch (e) { logR('ALTER err: ' + e.message); } }
+    // Fix SQL mode for older queries
+    try { await pool.query("SET GLOBAL sql_mode = ''"); logR('sql_mode disabled'); } catch (e) { logR('sql_mode err: ' + e.message); }
+
     logR('--- Migration Complete ---');
   })();
 });
@@ -365,8 +373,9 @@ const startServer = async () => {
     // 1. Database Connection Check
     const isConnected = await testConnection();
     
-    if (isConnected) {
-      console.log(' Database connection verified.');
+      if (isConnected) {
+        console.log(' Database connection verified.');
+        try { pool.query("SET sql_mode = ''"); } catch (_) {}
 
       // Auto-create required tables
       const tableDefs = [
