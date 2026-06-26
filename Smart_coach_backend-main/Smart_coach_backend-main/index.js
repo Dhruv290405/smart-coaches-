@@ -68,14 +68,20 @@ app.use('/smart_coach_api/api/diesel', require('./src/routes/diesel.routes'));
 app.get('/test', async (req, res) => {
   let dbStatus = 'not checked';
   let dbHost = process.env.MYSQLHOST || 'not set';
+  let wliCount = 0;
+  let tables = [];
   try {
     const connection = await pool.getConnection();
     dbStatus = 'connected';
+    const [rows] = await connection.query("SELECT COUNT(*) as cnt FROM wli_logs");
+    wliCount = rows[0].cnt;
+    const [tbls] = await connection.query("SHOW TABLES");
+    tables = tbls.map(r => Object.values(r)[0]);
     connection.release();
   } catch (e) {
     dbStatus = 'failed: ' + e.message;
   }
-  res.json({ status: 'Test route works!', db: dbStatus, host: dbHost });
+  res.json({ status: 'Test route works!', db: dbStatus, host: dbHost, wliLogs: wliCount, tables: tables });
 });
 
 app.get('/health', (req, res) => {
