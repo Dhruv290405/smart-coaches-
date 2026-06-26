@@ -90,6 +90,20 @@ app.get('/test', async (req, res) => {
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'Server is running' });
 });
+app.get('/db-data', async (req, res) => {
+  try {
+    const conn = await pool.getConnection();
+    const [tbls] = await conn.query("SHOW TABLES");
+    const tables = tbls.map(r => Object.values(r)[0]);
+    const info = {};
+    for (const t of tables) {
+      const [cnt] = await conn.query(`SELECT COUNT(*) as c FROM \`${t}\``);
+      info[t] = cnt[0].c;
+    }
+    conn.release();
+    res.json({ tables: info });
+  } catch (e) { res.json({ error: e.message }); }
+});
 
 // --- MASTER DATA MIGRATION (one-time trigger, runs async) ---
 app.post('/migrate-all', (req, res) => {
