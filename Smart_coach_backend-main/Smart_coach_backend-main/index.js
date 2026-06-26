@@ -153,33 +153,7 @@ async function getSensorIds() {
   }
 }
 
-// WLI data simulator — updates percent values every 5 minutes
-function startWliSimulation() {
-  setInterval(async () => {
-    try {
-      const wliCoaches = [
-        { id: '12615_S1', coachId: 'C1', name: '12615_Coach1' },
-        { id: '12615_S2', coachId: 'C2', name: '12615_Coach2' },
-        { id: '13277_S1', coachId: 'S4', name: '13277_Coach1' },
-        { id: '13277_S2', coachId: 'S5', name: '13277_Coach2' },
-        { id: '13071_S1', coachId: 'M3', name: '13071_Coach1' },
-      ];
-      for (const c of wliCoaches) {
-        const percent = +(10 + Math.random() * 85).toFixed(1);
-        const levelCm = +(percent * 1.4).toFixed(1);
-        const volumeLiters = +(percent * 6).toFixed(1);
-        await pool.query(
-          `INSERT INTO wli_logs (device_id, coach_id, coach_name, placement_type, asset_id, asset_name, raw_value, level_cm, volume_liters, percent_full, timestamp)
-           VALUES (?, ?, ?, 'UNDERSLUNG', CONCAT('WLI-', ?), 'Water Tank Sensor', ?, ?, ?, ?, NOW())`,
-          [c.id, c.coachId, c.name, c.id, percent, levelCm, volumeLiters, percent]
-        );
-      }
-      console.log(' WLI simulated data updated');
-    } catch (err) {
-      console.error(' WLI simulation error:', err.message);
-    }
-  }, 5 * 60 * 1000);
-}
+
 
 // --- SERVER STARTUP ---
 
@@ -190,30 +164,6 @@ const startServer = async () => {
     
     if (isConnected) {
       console.log(' Database connection verified.');
-
-      // Seed initial WLI data if table is empty
-      try {
-        const [rows] = await pool.query('SELECT COUNT(*) as cnt FROM wli_logs');
-        if (rows[0].cnt === 0) {
-          const coaches = [
-            { device_id: '12615_S1', coach_id: 'C1', coach_name: '12615_Coach1', percent: 75, level: 105, volume: 450 },
-            { device_id: '12615_S2', coach_id: 'C2', coach_name: '12615_Coach2', percent: 25, level: 35, volume: 150 },
-            { device_id: '13277_S1', coach_id: 'S4', coach_name: '13277_Coach1', percent: 85, level: 120, volume: 600 },
-            { device_id: '13277_S2', coach_id: 'S5', coach_name: '13277_Coach2', percent: 15, level: 20, volume: 100 },
-            { device_id: '13071_S1', coach_id: 'M3', coach_name: '13071_Coach1', percent: 50, level: 80, volume: 300 },
-          ];
-          for (const c of coaches) {
-            await pool.query(
-              `INSERT INTO wli_logs (device_id, coach_id, coach_name, placement_type, asset_id, asset_name, raw_value, level_cm, volume_liters, percent_full, timestamp)
-               VALUES (?, ?, ?, 'UNDERSLUNG', CONCAT('WLI-', ?), 'Water Tank Sensor', ?, ?, ?, ?, NOW())`,
-              [c.device_id, c.coach_id, c.coach_name, c.device_id, c.percent, c.level, c.volume, c.percent]
-            );
-          }
-          console.log(' Seeded WLI test data');
-        }
-      } catch (err) {
-        console.error(' WLI seed failed:', err.message);
-      }
 
       // Auto-create wli_logs table if not exists
       try {
@@ -250,8 +200,6 @@ const startServer = async () => {
         console.log(" No active sensors found in DB for simulation.");
       }
 
-      // Start WLI data simulator
-      startWliSimulation();
     } else {
       console.error(' Critical: Database connection failed. Simulation skipped.');
     }
