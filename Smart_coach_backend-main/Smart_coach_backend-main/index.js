@@ -65,8 +65,17 @@ app.use("/smart_coach_api/api/coach-config", require("./src/routes/coachConfig.r
 app.use('/smart_coach_api/api/notifications', notificationRoutes);
 app.use('/smart_coach_api/api/diesel', require('./src/routes/diesel.routes'));
 // Test routes
-app.get('/test', (req, res) => {
-  res.json({ status: 'Test route works!' });
+app.get('/test', async (req, res) => {
+  let dbStatus = 'not checked';
+  let dbHost = process.env.MYSQLHOST || 'not set';
+  try {
+    const connection = await pool.getConnection();
+    dbStatus = 'connected';
+    connection.release();
+  } catch (e) {
+    dbStatus = 'failed: ' + e.message;
+  }
+  res.json({ status: 'Test route works!', db: dbStatus, host: dbHost });
 });
 
 app.get('/health', (req, res) => {

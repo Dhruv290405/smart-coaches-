@@ -2,7 +2,7 @@ const mysql = require('mysql2/promise');
 require('dotenv').config();
 
 // Railway MySQL Connection Pool Setup
-const pool = mysql.createPool({
+const poolConfig = {
   host: String(process.env.MYSQLHOST || '').trim(),
   user: String(process.env.MYSQLUSER || 'root').trim(),
   password: String(process.env.MYSQL_ROOT_PASSWORD || '').trim(),
@@ -11,10 +11,8 @@ const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
-  ssl: {
-    rejectUnauthorized: false // Railway connectivity ke liye zaroori hai
-  }
-});
+};
+const pool = mysql.createPool(poolConfig);
 
 // Function jo server startup par check karega ki DB connected hai ya nahi
 const testConnection = async () => {
