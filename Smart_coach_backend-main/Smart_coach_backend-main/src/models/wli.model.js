@@ -24,17 +24,13 @@ class WliModel {
             SELECT 
                 l.id, l.device_id, l.coach_name, l.coach_id,
                 l.asset_id, l.asset_name, l.level_cm, l.volume_liters,
-                l.percent_full, l.raw_value, l.placement_type, l.timestamp,
-                COALESCE(dm.tech_coach_no, l.coach_name) AS tech_coach_no,
-                COALESCE(c.train_id, 'NA') AS train_no
+                l.percent_full, l.raw_value, l.placement_type, l.timestamp
             FROM wli_logs l
             INNER JOIN (
                 SELECT MAX(id) as latest_id 
                 FROM wli_logs 
                 GROUP BY device_id
             ) latest ON l.id = latest.latest_id
-            LEFT JOIN device_master dm ON l.device_id = dm.device_id
-            LEFT JOIN coaches c ON dm.tech_coach_no = c.coach_number
             ORDER BY l.timestamp DESC
         `;
 
