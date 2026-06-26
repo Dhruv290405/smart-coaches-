@@ -53,7 +53,7 @@ class ApiConstants {
   // ─── URL CONFIGURATION ────────────────────────────────────────────────────
   // PRODUCTION: deployed Railway backend
   static const String devUrl =
-      'https://smart-coach-api-production.up.railway.app/smart_coach_api/api';
+      'https://smart-coaches-production.up.railway.app/smart_coach_api/api';
 
   // LOCAL: comment above and uncomment below to use local backend (port 3000)
   // static const String devUrl = 'http://10.0.2.2:3000/smart_coach_api/api';   // Android emulator
