@@ -130,7 +130,7 @@ exports.getBreakBindingData = async (req, res) => {
         // ============================================================
         //  MAPPING & CALCULATIONS (Unchanged)
         // ============================================================
-        const deviceMapping = {};
+        const deviceMapping = {
             'Raspberry4_4': { technical_id: '231035', coach_no: 'M3', Train_no: '13071', location: 'Kolkatta' },
             'Raspberry4_1': { technical_id: '231545', coach_no: 'S4', Train_no: '13277', location: 'Jaipur' },
             'Raspberry4_2': { technical_id: '234534', coach_no: 'S3', Train_no: '12578', location: 'Jaipur' },
