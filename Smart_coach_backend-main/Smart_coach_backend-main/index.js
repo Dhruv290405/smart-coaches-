@@ -104,6 +104,17 @@ app.get('/db-data', async (req, res) => {
     res.json({ tables: info });
   } catch (e) { res.json({ error: e.message }); }
 });
+// Debug endpoint that mirrors a failing query to show the real error
+app.get('/debug-query', async (req, res) => {
+  try {
+    const q = req.query.q;
+    if (!q) return res.json({ error: '?q=SQL_QUERY' });
+    const conn = await pool.getConnection();
+    const [rows] = await conn.query(q);
+    conn.release();
+    res.json({ ok: true, rows: rows.length, sample: rows[0] || null });
+  } catch (e) { res.json({ error: e.message }); }
+});
 
 // In-memory migration log (for debugging)
 let migrateLog = [];
@@ -407,6 +418,21 @@ const startServer = async () => {
       ];
       for (const a of alterCols) {
         try { await pool.query(a); console.log(`  ALTER: column added`); } catch (_) {}
+      }
+      // Fix missing columns on tables created by migration
+      const fixCols = [
+        'ALTER TABLE master_module ADD COLUMN seriel_number VARCHAR(255)',
+        'ALTER TABLE coach_master ADD COLUMN train_id INT',
+        'ALTER TABLE device_master ADD COLUMN train_id INT',
+        'ALTER TABLE sensor_config ADD COLUMN location VARCHAR(255)',
+        'ALTER TABLE sensor_config ADD COLUMN tech_coach_no VARCHAR(100)',
+        'ALTER TABLE sensor_config ADD COLUMN comm_coach_no VARCHAR(100)',
+        'ALTER TABLE sensor_config ADD COLUMN train_no VARCHAR(100)',
+        'ALTER TABLE sensor_config ADD COLUMN status VARCHAR(50)',
+        'ALTER TABLE sensor_config ADD COLUMN is_active TINYINT DEFAULT 1',
+      ];
+      for (const a of fixCols) {
+        try { await pool.query(a); } catch (_) {}
       }
 
       // 2. Start Simulation only if DB is ready
