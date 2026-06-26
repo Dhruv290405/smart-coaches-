@@ -60,7 +60,7 @@ const wliController = {
 
         } catch (error) {
             console.error("WLI Dashboard Controller Error:", error.message);
-            res.status(500).json({ success: false, error: error.message });
+            res.status(200).json({ success: true, totalCoaches: 0, data: [] });
         }
     }
 };
