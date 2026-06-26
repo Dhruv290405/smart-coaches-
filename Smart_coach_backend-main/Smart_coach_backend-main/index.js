@@ -106,25 +106,35 @@ app.post('/migrate-all', async (req, res) => {
   const GET = async (path) => {
     const r = await fetch(OLD + path, { headers: { Authorization: 'Bearer ' + token } });
     if (!r.ok) { logR(`  GET ${path} FAILED ${r.status}`); return null; }
-    return (await r.json()).data || (await r.json());
+    const body = await r.json();
+    return body.data || body;
   };
 
+  const q = (s) => '`' + s.replace(/`/g, '') + '`';
   const insertData = async (table, rows) => {
     if (!rows || !rows.length) { logR(`  ${table}: 0 rows (skip)`); return; }
     const keys = Object.keys(rows[0]);
     const dropKeys = ['created_by_name', 'updated_by_name', 'make_of_coach_name', 'type_of_coach_code', 'master_module_ids', 'master_module_locations'];
     const cols = keys.filter(k => !dropKeys.includes(k));
     const placeholders = cols.map(() => '?').join(',');
-    const colNames = cols.join(',');
+    const colNames = cols.map(q).join(',');
     let ok = 0, fail = 0;
     for (const row of rows) {
-      const vals = cols.map(c => row[c] === undefined ? null : row[c]);
+      const vals = cols.map(c => row[c] === undefined || row[c] === null ? null : String(row[c]));
       try {
-        await pool.query(`INSERT IGNORE INTO ${table} (${colNames}) VALUES (${placeholders})`, vals);
+        await pool.query(`INSERT IGNORE INTO \`${table}\` (${colNames}) VALUES (${placeholders})`, vals);
         ok++;
       } catch (e) { fail++; if (fail <= 2) logR(`    ${table} insert err: ${e.message}`); }
     }
     logR(`  ${table}: ${ok} inserted, ${fail} failed`);
+  };
+
+  const createTable = async (name, sample) => {
+    if (!sample) return;
+    const dropKeys = ['created_by_name', 'updated_by_name', 'make_of_coach_name', 'type_of_coach_code', 'master_module_ids', 'master_module_locations'];
+    const cols = Object.keys(sample).filter(k => !dropKeys.includes(k)).map(k => `\`${k}\` VARCHAR(255)`).join(',\n  ');
+    try { await pool.query(`CREATE TABLE IF NOT EXISTS \`${name}\` (\n  ${cols}\n)`); }
+    catch (e) { logR(`  ${name} create err: ${e.message}`); }
   };
 
   // 1. Zones
@@ -164,69 +174,35 @@ app.post('/migrate-all', async (req, res) => {
 
   // 5. Coach Master
   data = await GET('/coaches');
-  if (data) {
-    const keys = Object.keys(data[0]);
-    const drop = ['created_by_name', 'updated_by_name', 'make_of_coach_name', 'type_of_coach_code', 'master_module_ids', 'master_module_locations'];
-    const cols = keys.filter(k => !drop.includes(k)).join(' VARCHAR(255),\n  ');
-    await pool.query(`CREATE TABLE IF NOT EXISTS coach_master (\n  ${cols} VARCHAR(255)\n)`);
-    await insertData('coach_master', data);
-  }
+  if (data) { await createTable('coach_master', data[0]); await insertData('coach_master', data); }
 
   // 6. Train Master
   data = await GET('/trains');
-  if (data) {
-    const k = Object.keys(data[0]).join(' VARCHAR(255),\n  ');
-    await pool.query(`CREATE TABLE IF NOT EXISTS train_master (\n  ${k} VARCHAR(255)\n)`);
-    await insertData('train_master', data);
-  }
+  if (data) { await createTable('train_master', data[0]); await insertData('train_master', data); }
 
   // 7. Device Master
   data = await GET('/devices');
-  if (data) {
-    const k = Object.keys(data[0]).join(' VARCHAR(255),\n  ');
-    await pool.query(`CREATE TABLE IF NOT EXISTS device_master (\n  ${k} VARCHAR(255)\n)`);
-    await insertData('device_master', data);
-  }
+  if (data) { await createTable('device_master', data[0]); await insertData('device_master', data); }
 
   // 8. Sensor Master
   data = await GET('/sensors');
-  if (data) {
-    const k = Object.keys(data[0]).join(' VARCHAR(255),\n  ');
-    await pool.query(`CREATE TABLE IF NOT EXISTS sensor_master (\n  ${k} VARCHAR(255)\n)`);
-    await insertData('sensor_master', data);
-  }
+  if (data) { await createTable('sensor_master', data[0]); await insertData('sensor_master', data); }
 
   // 9. Sensor Config
   data = await GET('/sensors-config');
-  if (data) {
-    const k = Object.keys(data[0]).join(' VARCHAR(255),\n  ');
-    await pool.query(`CREATE TABLE IF NOT EXISTS sensor_config (\n  ${k} VARCHAR(255)\n)`);
-    await insertData('sensor_config', data);
-  }
+  if (data) { await createTable('sensor_config', data[0]); await insertData('sensor_config', data); }
 
   // 10. Rules
   data = await GET('/rules');
-  if (data) {
-    const k = Object.keys(data[0]).join(' VARCHAR(255),\n  ');
-    await pool.query(`CREATE TABLE IF NOT EXISTS rule_master (\n  ${k} VARCHAR(255)\n)`);
-    await insertData('rule_master', data);
-  }
+  if (data) { await createTable('rule_master', data[0]); await insertData('rule_master', data); }
 
   // 11. Regions
   data = await GET('/regions');
-  if (data) {
-    const k = Object.keys(data[0]).join(' VARCHAR(255),\n  ');
-    await pool.query(`CREATE TABLE IF NOT EXISTS region_master (\n  ${k} VARCHAR(255)\n)`);
-    await insertData('region_master', data);
-  }
+  if (data) { await createTable('region_master', data[0]); await insertData('region_master', data); }
 
   // 12. Stations
   data = await GET('/stations');
-  if (data) {
-    const k = Object.keys(data[0]).join(' VARCHAR(255),\n  ');
-    await pool.query(`CREATE TABLE IF NOT EXISTS stations (\n  ${k} VARCHAR(255)\n)`);
-    await insertData('stations', data);
-  }
+  if (data) { await createTable('stations', data[0]); await insertData('stations', data); }
 
   // 13. User Master (from login response)
   try {
