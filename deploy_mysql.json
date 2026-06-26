@@ -1,3 +1,0 @@
-{
-  "query": "mutation { serviceCreate(input: { projectId: \"556c27f6-efaf-4042-bfb7-7b4deb7f44a2\" environmentId: \"fd63b9ff-ae64-4d95-ad57-42922946325e\" name: \"MySQL\" source: { image: \"mysql:9.4\" } }) { id name } }"
-}
