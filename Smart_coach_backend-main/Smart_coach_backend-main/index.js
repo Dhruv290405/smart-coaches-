@@ -147,14 +147,16 @@ app.post('/migrate-all', (req, res) => {
 
     logR('--- Starting Master Data Migration ---');
 
-    // Static schema tables
+    // Static schema tables (include all tables referenced by JOINs)
     for (const [sql] of [
-      [`CREATE TABLE IF NOT EXISTS zone_master (zone_id INT PRIMARY KEY, name VARCHAR(100), is_active TINYINT DEFAULT 1)`],
-      [`CREATE TABLE IF NOT EXISTS role_master (role_id INT PRIMARY KEY, name VARCHAR(100), is_active TINYINT DEFAULT 1)`],
-      [`CREATE TABLE IF NOT EXISTS coach_make (id INT PRIMARY KEY, name VARCHAR(100))`],
-      [`CREATE TABLE IF NOT EXISTS coach_type (id INT PRIMARY KEY, code VARCHAR(50), name VARCHAR(100))`],
-      [`CREATE TABLE IF NOT EXISTS sensor_make (sensor_make_id INT PRIMARY KEY, name VARCHAR(100))`],
-      [`CREATE TABLE IF NOT EXISTS user_master (user_id INT PRIMARY KEY, first_name VARCHAR(100), last_name VARCHAR(100), email VARCHAR(100), mobile_number VARCHAR(20), gender VARCHAR(20), organisation_type VARCHAR(100), organisation_name VARCHAR(100), zone_id INT, division_id INT, region_id INT, role_id INT, status VARCHAR(20), approval_status VARCHAR(20), employee_id VARCHAR(50), pan_card_no VARCHAR(50), aadhar_no VARCHAR(50), company_id VARCHAR(50), created_date VARCHAR(50), updated_date VARCHAR(50), role_name VARCHAR(100), zone_name VARCHAR(100), division_name VARCHAR(100), region_name VARCHAR(100))`],
+      [`CREATE TABLE IF NOT EXISTS zone_master (zone_id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(100), is_active TINYINT DEFAULT 1)`],
+      [`CREATE TABLE IF NOT EXISTS division_master (division_id INT PRIMARY KEY AUTO_INCREMENT, zone_id INT, name VARCHAR(100), is_active TINYINT DEFAULT 1)`],
+      [`CREATE TABLE IF NOT EXISTS role_master (role_id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(100), is_active TINYINT DEFAULT 1)`],
+      [`CREATE TABLE IF NOT EXISTS coach_make (id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(100))`],
+      [`CREATE TABLE IF NOT EXISTS coach_type (id INT PRIMARY KEY AUTO_INCREMENT, code VARCHAR(50), name VARCHAR(100))`],
+      [`CREATE TABLE IF NOT EXISTS sensor_make (sensor_make_id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(100))`],
+      [`CREATE TABLE IF NOT EXISTS region_master (region_id INT PRIMARY KEY AUTO_INCREMENT, division_id INT, name VARCHAR(100), is_active TINYINT DEFAULT 1, code VARCHAR(50))`],
+      [`CREATE TABLE IF NOT EXISTS user_master (user_id INT PRIMARY KEY AUTO_INCREMENT, first_name VARCHAR(100), last_name VARCHAR(100), email VARCHAR(100), mobile_number VARCHAR(20), gender VARCHAR(20), organisation_type VARCHAR(100), organisation_name VARCHAR(100), zone_id INT, division_id INT, region_id INT, role_id INT, status VARCHAR(20) DEFAULT 'Active', approval_status VARCHAR(20) DEFAULT 'Approved', employee_id VARCHAR(50), pan_card_no VARCHAR(50), aadhar_no VARCHAR(50), company_id VARCHAR(50), created_date VARCHAR(50), updated_date VARCHAR(50), role_name VARCHAR(100), zone_name VARCHAR(100), division_name VARCHAR(100), region_name VARCHAR(100), password_hash VARCHAR(255))`],
     ]) { try { await pool.query(sql); } catch (_) {} }
 
     // Fetch and insert
