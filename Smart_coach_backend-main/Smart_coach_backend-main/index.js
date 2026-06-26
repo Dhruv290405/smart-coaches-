@@ -126,7 +126,11 @@ app.post('/migrate-all', (req, res) => {
       const r = await fetch(OLD + path, { headers: { Authorization: 'Bearer ' + token } });
       if (!r.ok) { logR(`GET ${path} FAILED ${r.status}`); return null; }
       const body = await r.json();
-      return body.data || body;
+      let data = body.data || body;
+      if (data && data.items && Array.isArray(data.items)) data = data.items;
+      else if (data && data.regions && Array.isArray(data.regions)) data = data.regions;
+      else if (data && data.stations && Array.isArray(data.stations)) data = data.stations;
+      return data;
     };
 
     const q = (s) => '`' + s.replace(/`/g, '') + '`';
@@ -175,16 +179,64 @@ app.post('/migrate-all', (req, res) => {
       [`CREATE TABLE IF NOT EXISTS user_master (user_id INT PRIMARY KEY AUTO_INCREMENT, first_name VARCHAR(100), last_name VARCHAR(100), email VARCHAR(100), mobile_number VARCHAR(20), gender VARCHAR(20), organisation_type VARCHAR(100), organisation_name VARCHAR(100), zone_id INT, division_id INT, region_id INT, role_id INT, status VARCHAR(20) DEFAULT 'Active', approval_status VARCHAR(20) DEFAULT 'Approved', employee_id VARCHAR(50), pan_card_no VARCHAR(50), aadhar_no VARCHAR(50), company_id VARCHAR(50), created_date VARCHAR(50), updated_date VARCHAR(50), role_name VARCHAR(100), zone_name VARCHAR(100), division_name VARCHAR(100), region_name VARCHAR(100), password_hash VARCHAR(255))`],
     ]) { try { await pool.query(sql); } catch (_) {} }
 
-    // Fetch and insert
+    // Drop problem tables so dynamic createTable re-creates with correct columns
+    for (const t of ['zone_master', 'division_master', 'region_master', 'role_master',
+      'coach_make', 'coach_type', 'sensor_make', 'stations']) {
+      try { await pool.query(`DROP TABLE IF EXISTS \`${t}\``); } catch (_) {}
+    }
+    // Create tables needed by queries but not populated from API
+    for (const sql of [
+      `CREATE TABLE IF NOT EXISTS master_module (module_id INT PRIMARY KEY AUTO_INCREMENT, coach_id INT, module_unique_id VARCHAR(255), location VARCHAR(255))`,
+      `CREATE TABLE IF NOT EXISTS module_device_mapping (id INT PRIMARY KEY AUTO_INCREMENT, module_id INT, device_id INT)`,
+    ]) { try { await pool.query(sql); logR('Table created'); } catch (_) {} }
+
+    // Fetch and insert — order matters (zones before divisions before regions)
     for (const [name, path] of [
       ['zone_master', '/masters/zones'], ['role_master', '/masters/roles'],
       ['coach_make', '/coach-makes'], ['coach_type', '/coach-types'],
       ['sensor_make', '/sensors-make'], ['train_master', '/trains'],
-      ['coach_master', '/coaches'], ['device_master', '/devices'],
+      ['device_master', '/devices'],
       ['sensor_master', '/sensors'], ['sensor_config', '/sensors-config'],
-      ['rule_master', '/rules'], ['region_master', '/regions'],
-      ['stations', '/stations'],
+      ['rule_master', '/rules'], ['stations', '/stations'],
     ]) { await migrate(name, path); }
+
+    // Coaches: rename columns before insert
+    try {
+      const raw = await GET('/coaches');
+      if (raw && raw.length) {
+        const fixed = raw.map(r => {
+          const o = { ...r };
+          if ('make_of_coach_id' in o) { o.make_of_coach = o.make_of_coach_id; delete o.make_of_coach_id; }
+          if ('type_of_coach_id' in o) { o.type_of_coach = o.type_of_coach_id; delete o.type_of_coach_id; }
+          return o;
+        });
+        await createTable('coach_master', fixed[0]);
+        await insertData('coach_master', fixed);
+      }
+    } catch (e) { logR('coach_master err: ' + e.message); }
+
+    // Divisions: iterate zones to get all divisions
+    try {
+      const [zones] = await pool.query("SELECT zone_id FROM zone_master");
+      const allDivs = [];
+      for (const z of zones) {
+        const divs = await GET(`/masters/divisions?zone_id=${z.zone_id}`);
+        if (divs) allDivs.push(...divs);
+      }
+      if (allDivs.length) { await createTable('division_master', allDivs[0]); await insertData('division_master', allDivs); }
+    } catch (e) { logR('division_master err: ' + e.message); }
+
+    // Regions: iterate divisions and also fetch /regions
+    try {
+      const allRegs = [];
+      const regs = await GET('/regions');
+      if (regs) allRegs.push(...regs);
+      if (!allRegs.length) { // fallback: fetch per division
+        const [divs] = await pool.query("SELECT division_id FROM division_master");
+        for (const d of divs) { const r = await GET(`/masters/regions?division_id=${d.division_id}`); if (r) allRegs.push(...r); }
+      }
+      if (allRegs.length) { await createTable('region_master', allRegs[0]); await insertData('region_master', allRegs); }
+    } catch (e) { logR('region_master err: ' + e.message); }
 
     // Insert tester user directly (password: 123456)
     try {
