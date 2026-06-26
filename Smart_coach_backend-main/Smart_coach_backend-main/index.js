@@ -162,7 +162,33 @@ const startServer = async () => {
     
     if (isConnected) {
       console.log(' Database connection verified.');
-      
+
+      // Auto-create wli_logs table if not exists
+      try {
+        await pool.query(`
+          CREATE TABLE IF NOT EXISTS wli_logs (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            device_id VARCHAR(100),
+            coach_id VARCHAR(50),
+            coach_name VARCHAR(100),
+            placement_type VARCHAR(50),
+            asset_id VARCHAR(100),
+            asset_name VARCHAR(100),
+            raw_value DECIMAL(10,2),
+            level_cm DECIMAL(10,2),
+            volume_liters DECIMAL(10,2),
+            percent_full DECIMAL(5,2),
+            timestamp VARCHAR(50),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_device_id (device_id),
+            INDEX idx_timestamp (timestamp)
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        `);
+        console.log(' wli_logs table ready');
+      } catch (err) {
+        console.error(' wli_logs table creation failed:', err.message);
+      }
+
       // 2. Start Simulation only if DB is ready
       const sensorIds = await getSensorIds();
       if (sensorIds.length > 0) {
