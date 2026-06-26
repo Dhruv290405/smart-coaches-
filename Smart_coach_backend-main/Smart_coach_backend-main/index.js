@@ -70,6 +70,8 @@ app.get('/test', async (req, res) => {
   let dbHost = process.env.MYSQLHOST || 'not set';
   let wliCount = 0;
   let tables = [];
+  let userCount = 0;
+  let pwExists = false;
   try {
     const connection = await pool.getConnection();
     dbStatus = 'connected';
@@ -77,11 +79,12 @@ app.get('/test', async (req, res) => {
     wliCount = rows[0].cnt;
     const [tbls] = await connection.query("SHOW TABLES");
     tables = tbls.map(r => Object.values(r)[0]);
+    try { const [u] = await connection.query("SELECT COUNT(*) as cnt FROM user_master WHERE password_hash IS NOT NULL"); userCount = u[0].cnt; pwExists = true; } catch (_) { userCount = -1; }
     connection.release();
   } catch (e) {
     dbStatus = 'failed: ' + e.message;
   }
-  res.json({ status: 'Test route works!', db: dbStatus, host: dbHost, wliLogs: wliCount, tables: tables });
+  res.json({ status: 'Test route works!', db: dbStatus, host: dbHost, wliLogs: wliCount, tables: tables, users: userCount, pwSet: pwExists });
 });
 
 app.get('/health', (req, res) => {
