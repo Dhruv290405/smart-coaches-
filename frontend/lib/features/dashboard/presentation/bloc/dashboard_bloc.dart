@@ -44,12 +44,15 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     }
 
     try {
-      // We use individual try-catches or a custom wrapper to be more resilient
+      final List<String> errors = [];
+
       Future<T?> safeFetch<T>(Future<T> Function() call) async {
         try {
           return await call();
         } catch (e) {
-          print("Dashboard fetch error: $e");
+          final msg = e.toString();
+          print("Dashboard fetch error: $msg");
+          errors.add(msg);
           return null;
         }
       }
@@ -65,7 +68,10 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
 
       // If all failed and we have no old data, THEN show error
       if (results.every((element) => element == null) && prevState is! DashboardDataLoaded) {
-        emit(DashboardError("Failed to connect to server. Please check your internet."));
+        final anyAuth = errors.any((e) => e.contains('Invalid token') || e.contains('Please authenticate') || e.contains('Unauthorized') || e.contains('401'));
+        emit(anyAuth
+            ? DashboardError("Session expired. Please logout and login again.")
+            : DashboardError("Failed to connect to server. Please check your internet."));
         return;
       }
 

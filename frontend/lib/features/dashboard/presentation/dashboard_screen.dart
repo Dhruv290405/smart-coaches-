@@ -5,6 +5,8 @@ import 'package:get_it/get_it.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:sizer/sizer.dart';
+import 'package:get_it/get_it.dart';
+import 'package:go_router/go_router.dart';
 import 'package:smart_coach_new/core/permissions/bloc/permission_bloc.dart';
 import 'package:smart_coach_new/core/permissions/bloc/permission_event.dart';
 import 'package:smart_coach_new/core/utils/color_constants.dart';
@@ -319,11 +321,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         return Center(
                           child: Column(
                             children: [
-                              Text(state.message, style: const TextStyle(color: Colors.red)),
+                              Padding(
+                                padding: EdgeInsets.all(4.w),
+                                child: Text(state.message,
+                                    style: const TextStyle(color: Colors.red),
+                                    textAlign: TextAlign.center),
+                              ),
                               ElevatedButton(
                                 onPressed: () => _dashboardBloc.add(LoadDashboardData()),
                                 child: const Text("Retry"),
-                              )
+                              ),
+                              SizedBox(height: 1.h),
+                              TextButton(
+                                onPressed: () async {
+                                  await GetIt.I<Prefs>().clear();
+                                  if (context.mounted) context.go(AppRouter.loginRoute);
+                                },
+                                child: Text("Login again",
+                                    style: TextStyle(color: Colors.grey[600])),
+                              ),
                             ],
                           ),
                         );
