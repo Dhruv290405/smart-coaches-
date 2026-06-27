@@ -20,6 +20,34 @@ const stripDerived = (obj) => {
   return out;
 };
 
+const MAX_WLI_SENSOR_ID = 50;
+let wliLastSeenId = 0;
+
+const buildWliPayload = (sensorId, waterLevel, ts) => ({
+  source: { deviceId: `WLI-${sensorId}`, systemType: 'WLI' },
+  location: { coachId: String(sensorId), coachName: `Coach ${sensorId}` },
+  placement: { type: 'UNDERSLUNG' },
+  timestamp: ts || new Date().toISOString(),
+  assets: [{
+    assetId: `TANK-${sensorId}-1`, assetName: 'Water Tank Sensor',
+    rawValue: waterLevel,
+    levelCm: Math.round((waterLevel / 100) * 35 * 10) / 10,
+    volumeLiters: Math.round((waterLevel / 100) * 35 * 4.5 * 10) / 10,
+    percentFull: waterLevel
+  }]
+});
+
+const migrateWli = async () => {
+  for (let sid = 1; sid <= MAX_WLI_SENSOR_ID; sid++) {
+    const r = await fetch(OLD_BASE + `/iot_water_level/get_water_level_data?sensor_id=${sid}`);
+    if (!r.ok) continue;
+    const data = (await r.json()).data;
+    if (!data || !data.id || data.id <= wliLastSeenId) continue;
+    const res = await postJson(NEW_BASE + '/wli/receive-data', buildWliPayload(sid, data.water_level, data.timestamp));
+    if (res.ok) { console.log(`  WLI sensor ${sid}: id=${data.id} water_level=${data.water_level}`); wliLastSeenId = data.id; }
+  }
+};
+
 const endpoints = [
   { name: 'Hot Axle', get: '/hot-axle/dashboard-status', post: '/hot-axle/receive-data', map: stripDerived },
   { name: 'BC Pressure', get: '/pressure/dashboard-status', post: '/pressure/receive-data',
@@ -27,6 +55,7 @@ const endpoints = [
       const clean = stripDerived(item);
       return { device_id: clean.device_id, coach_number: clean.coach_number, coach_type: clean.coach_type, owning_rly: clean.owning_rly, readings: [clean] };
     }},
+  { name: 'WLI', get: null, post: null, custom: migrateWli },
 ];
 
 async function migrateType({ name, get, post, map }) {
@@ -49,7 +78,10 @@ async function migrateType({ name, get, post, map }) {
 
 async function main() {
   console.log('Bridge: Old → New Railway');
-  for (const ep of endpoints) await migrateType(ep);
+  for (const ep of endpoints) {
+    if (ep.custom) await ep.custom();
+    else await migrateType(ep);
+  }
   console.log('\nDone!');
 }
 

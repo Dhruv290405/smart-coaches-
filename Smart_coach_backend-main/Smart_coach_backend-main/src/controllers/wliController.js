@@ -1,4 +1,5 @@
 const WliModel = require("../models/wli.model");
+const OLD = 'https://smart-coach-api-production.up.railway.app/smart_coach_api/api';
 
 const wliController = {
     receiveData: async (req, res) => {
@@ -33,6 +34,13 @@ const wliController = {
             });
 
             const ids = await Promise.all(savePromises);
+
+            // Dual-write: forward to old backend (fire-and-forget)
+            fetch(OLD + '/wli/receive-data', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).catch(() => {});
 
             return res.status(201).json({ 
                 success: true, 
