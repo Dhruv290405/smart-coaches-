@@ -196,5 +196,5 @@ abstract class RegisterModule {
   }
 
   @lazySingleton
-  RestClient provideRestClient(Dio dio) => RestClient(dio, baseUrl: ApiConstants.devUrl);
+  RestClient provideRestClient(Dio dio) => RestClient(dio);
 }

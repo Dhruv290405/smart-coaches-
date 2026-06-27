@@ -11,7 +11,7 @@ part of 'rest_client.dart';
 class _RestClient implements RestClient {
   _RestClient(this._dio, {this.baseUrl, this.errorLogger}) {
     baseUrl ??=
-        'https://smart-coaches-production.up.railway.app/smart_coach_api/api';
+        'https://smart-coach-api-production.up.railway.app/smart_coach_api/api';
   }
 
   final Dio _dio;
