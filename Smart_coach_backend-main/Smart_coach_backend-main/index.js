@@ -295,9 +295,9 @@ app.use((err, req, res, next) => {
   }
   return errorResponse(
     res, 
-    'Internal server error', 
+    err.message || 'Internal server error', 
     500, 
-    process.env.NODE_ENV === 'development' ? err : {}
+    err
   );
 });
 
