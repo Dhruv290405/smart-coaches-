@@ -4,7 +4,7 @@ const { insertIoTData, getWaterLevelData, getWaterLevelDataForCoach,
 const { evaluateRule } = require('../utils/ruleEvaluator');
 const { successResponse, errorResponse } = require('../utils/response');
 const { sendPushNotification } = require("../utils/notificationService");
-const { pool } = require('../config/db');
+const supabaseAdmin = require('../config/supabaseAdmin');
 const { get } = require('../..');
 const { getAlerts } = require('./sensor.controller');
 
@@ -83,10 +83,11 @@ exports.addIoTData = async (req, res) => {
       const alerts = await getAlertsByIds(alertTypeIds);
 
       let getUserFcmTokens = async (sensor_id) => {
-        const [rows] = await pool.query(
-          `SELECT fcm_token FROM user_fcm_tokens`,
-        );
+        const { data: rows, error } = await supabaseAdmin
+          .from('user_fcm_tokens')
+          .select('fcm_token');
 
+        if (error) throw error;
         return rows;
       };
 
@@ -121,14 +122,12 @@ async function getAlertsByIds(alertIds) {
       throw new Error("alertIds must be a non-empty array");
     }
 
-    const placeholders = alertIds.map(() => "?").join(", ");
-    const query = `
-      SELECT  alert_type_name, description
-      FROM alert_type_master
-      WHERE alert_type_id IN (${placeholders});
-    `;
+    const { data: rows, error } = await supabaseAdmin
+      .from('alert_type_master')
+      .select('alert_type_name, description')
+      .in('alert_type_id', alertIds);
 
-    const [rows] = await pool.query(query, alertIds);
+    if (error) throw error;
     return rows;
   } catch (error) {
     console.error("Error in getAlertsByIds:", error);

@@ -2,7 +2,7 @@ const { validationResult } = require('express-validator');
 const { successResponse, errorResponse } = require('../utils/response');
 const trainModel = require('../models/train.model');
 const coachModel = require('../models/coach.model');
-const { pool } = require('../config/db');
+const supabaseAdmin = require('../config/supabaseAdmin');
 const userModel = require('../models/user.model');
 const jwt = require('jsonwebtoken');
 
@@ -138,17 +138,19 @@ const trainController = {
       } else if (zoneId === -1) {
         regionIds = null;
       } else if (zoneId !== -1 && divisionId === -1) {
-        const [divisions] = await pool.query(
-          'SELECT division_id FROM division_master WHERE zone_id = ?',
-          [zoneId]
-        );
-        const divisionIds = divisions.map(d => d.division_id);
+        const { data: divisions, error: divErr } = await supabaseAdmin
+          .from('division_master')
+          .select('division_id')
+          .eq('zone_id', zoneId);
+        if (divErr) throw divErr;
+        const divisionIds = (divisions || []).map(d => d.division_id);
         if (divisionIds.length > 0) {
-          const [regions] = await pool.query(
-            `SELECT region_id FROM region_master WHERE division_id IN (?)`,
-            [divisionIds]
-          );
-          regionIds = regions.map(r => r.region_id);
+          const { data: regions, error: regErr } = await supabaseAdmin
+            .from('region_master')
+            .select('region_id')
+            .in('division_id', divisionIds);
+          if (regErr) throw regErr;
+          regionIds = (regions || []).map(r => r.region_id);
         }
       } else if (zoneId !== -1 && divisionId !== -1) {
         if (region_id) {
@@ -172,11 +174,12 @@ const trainController = {
       if (user_id) {
         console.log(`Fetching mapped trains for user ID: ${user_id}`);
         const userId = user_id;
-        const [mappedRows] = await pool.query(
-          `SELECT train_id FROM user_train_mapping WHERE user_id = ?`,
-          [userId]
-        );
-        userMappedTrainIds = mappedRows.map(row => row.train_id);
+        const { data: mappedRows, error: mapErr } = await supabaseAdmin
+          .from('user_train_mapping')
+          .select('train_id')
+          .eq('user_id', userId);
+        if (mapErr) throw mapErr;
+        userMappedTrainIds = (mappedRows || []).map(row => row.train_id);
       }
 
       const enrichedTrains = trains.map(train => ({

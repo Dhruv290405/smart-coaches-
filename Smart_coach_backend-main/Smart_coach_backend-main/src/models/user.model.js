@@ -1,6 +1,7 @@
 const BaseModel = require('./base.model');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const supabaseAdmin = require('../config/supabaseAdmin');
 
 class UserModel extends BaseModel {
   constructor() {
@@ -11,108 +12,66 @@ class UserModel extends BaseModel {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(userData.password, salt);
 
-    const conn = await this.pool.getConnection();
-    try {
-      await conn.beginTransaction();
+    const { data: user, error } = await supabaseAdmin
+      .from('user_master')
+      .insert({
+        first_name: userData.first_name,
+        last_name: userData.last_name || null,
+        email: userData.email,
+        password_hash: hashedPassword,
+        mobile_number: userData.mobile_number,
+        gender: userData.gender || null,
+        organisation_type: userData.organisation_type,
+        organisation_name: userData.organisation_name || null,
+        zone_id: userData.zone_id,
+        division_id: userData.division_id,
+        role_id: userData.role_id,
+        status: userData.status || 'Inactive',
+        approval_status: userData.approval_status || 'Pending',
+        created_date: new Date(),
+        employee_id: userData.employee_id || null,
+        pan_card_no: userData.pan_card_no || null,
+        pan_card_image: userData.pan_card_image || null,
+        aadhar_no: userData.aadhar_no || null,
+        aadhar_img: userData.aadhar_img || null,
+        company_id: userData.company_id || null,
+        user_image: userData.user_image || null
+      })
+      .select()
+      .single();
 
-      // 1. Insert into user_master
-      const [result] = await conn.query(
-        `INSERT INTO user_master (
-        first_name,
-        last_name,
-        email,
-        password_hash,
-        mobile_number,
-        gender,
-        organisation_type,
-        organisation_name,
-        zone_id,
-        division_id,
-        role_id,
-        status,
-        approval_status,
-        created_date,
-        employee_id,
-        pan_card_no,
-        pan_card_image,
-        aadhar_no,
-        aadhar_img,
-        company_id,
-        user_image
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          userData.first_name,
-          userData.last_name || null,
-          userData.email,
-          hashedPassword,
-          userData.mobile_number,
-          userData.gender || null,
-          userData.organisation_type,
-          userData.organisation_name || null,
-          userData.zone_id,
-          userData.division_id,
-          userData.role_id,
-          userData.status || 'Inactive',
-          userData.approval_status || 'Pending',
-          new Date(), // created_date
-          userData.employee_id || null,
-          userData.pan_card_no || null,
-          userData.pan_card_image || null,
-          userData.aadhar_no || null,
-          userData.aadhar_img || null,
-          userData.company_id || null,
-          userData.user_image || null
-        ]
-      );
+    if (error) throw error;
 
-      const userId = result.insertId;
+    const userId = user.user_id;
 
-      // 2. Insert into user_region_mapping 
-      if (userData.region_id && Array.isArray(userData.region_id) && userData.region_id.length > 0) {
-        const regionValues = userData.region_id.map(id => [userId, id]);
-        await conn.query(
-          'INSERT INTO user_region_mapping (user_id, region_id) VALUES ?',
-          [regionValues]
-        );
-      }
-
-      // 3. Insert into user_train_mapping
-      if (userData.train_ids && Array.isArray(userData.train_ids) && userData.train_ids.length > 0) {
-        const trainValues = userData.train_ids.map(id => [userId, id]);
-        await conn.query(
-          'INSERT INTO user_train_mapping (user_id, train_id) VALUES ?',
-          [trainValues]
-        );
-      }
-
-      await conn.commit();
-
-      const [rows] = await conn.query(
-        'SELECT * FROM user_master WHERE user_id = ?',
-        [userId]
-      );
-
-      const user = rows[0];
-      if (user) {
-        delete user.password_hash;
-      }
-
-      return user;
-    } catch (error) {
-      await conn.rollback();
-      console.error("Database Transaction Error:", error);
-      throw error;
-    } finally {
-      conn.release();
+    if (userData.region_id && Array.isArray(userData.region_id) && userData.region_id.length > 0) {
+      const regionValues = userData.region_id.map(id => ({ user_id: userId, region_id: id }));
+      const { error: regionError } = await supabaseAdmin
+        .from('user_region_mapping')
+        .insert(regionValues);
+      if (regionError) throw regionError;
     }
+
+    if (userData.train_ids && Array.isArray(userData.train_ids) && userData.train_ids.length > 0) {
+      const trainValues = userData.train_ids.map(id => ({ user_id: userId, train_id: id }));
+      const { error: trainError } = await supabaseAdmin
+        .from('user_train_mapping')
+        .insert(trainValues);
+      if (trainError) throw trainError;
+    }
+
+    delete user.password_hash;
+    return user;
   }
 
   async findByEmail(email) {
-    const [users] = await this.pool.query(
-      'SELECT * FROM user_master WHERE email = ?',
-      [email]
-    );
-    return users[0] || null;
+    const { data: user, error } = await supabaseAdmin
+      .from('user_master')
+      .select('*')
+      .eq('email', email)
+      .maybeSingle();
+    if (error) throw error;
+    return user || null;
   }
 
   async validatePassword(user, password) {
@@ -134,126 +93,163 @@ class UserModel extends BaseModel {
   }
 
   async getPendingUsersByScope(currentUser, filters = {}) {
-    const queryParams = [];
-    let whereClause = 'WHERE u.role_id > ?'; // base filter
-    queryParams.push(currentUser.role_id);
+    let query = supabaseAdmin
+      .from('user_master')
+      .select(`
+        user_id,
+        first_name,
+        last_name,
+        email,
+        mobile_number,
+        organisation_type,
+        created_date,
+        employee_id,
+        zone_id,
+        division_id,
+        pan_card_no,
+        aadhar_no,
+        role_id,
+        approval_status,
+        role_master!inner(name),
+        zone_master!left(name),
+        division_master!left(name),
+        region_master!left(name)
+      `);
+
+    query = query.gt('role_id', currentUser.role_id);
 
     switch (currentUser.role_id) {
-      case 3: // Admin
-        whereClause += ` AND (
-        (u.role_id = 4 AND u.zone_id = ?)
-        OR (u.role_id IN (5, 6) AND u.division_id IN (
-          SELECT division_id FROM division_master WHERE zone_id = ?
-        ))
-        OR (u.role_id = 7 AND u.region_id IN (
-          SELECT region_id FROM region_master WHERE division_id IN (
-            SELECT division_id FROM division_master WHERE zone_id = ?
-          )
-        ))
-      )`;
-        queryParams.push(currentUser.zone_id, currentUser.zone_id, currentUser.zone_id);
+      case 3: {
+        const orParts = [`and(role_id.eq.4,zone_id.eq.${currentUser.zone_id})`];
+        const { data: divisions } = await supabaseAdmin
+          .from('division_master')
+          .select('division_id')
+          .eq('zone_id', currentUser.zone_id);
+        const divisionIds = divisions.map(d => d.division_id);
+        if (divisionIds.length > 0) {
+          const { data: regions } = await supabaseAdmin
+            .from('region_master')
+            .select('region_id')
+            .in('division_id', divisionIds);
+          const regionIds = regions.map(r => r.region_id);
+          orParts.push(`and(role_id.in.(5,6),division_id.in.(${divisionIds.join(',')}))`);
+          if (regionIds.length > 0) {
+            orParts.push(`and(role_id.eq.7,region_id.in.(${regionIds.join(',')}))`);
+          }
+        }
+        query = query.or(orParts.join(','));
         break;
-
-      case 4: // Manager
-        whereClause += ` AND (
-        (u.role_id IN (5, 6) AND u.division_id = ?)
-        OR (u.role_id = 7 AND u.region_id IN (
-          SELECT region_id FROM region_master WHERE division_id = ?
-        ))
-      )`;
-        queryParams.push(currentUser.division_id, currentUser.division_id);
+      }
+      case 4: {
+        const orParts = [`and(role_id.in.(5,6),division_id.eq.${currentUser.division_id})`];
+        const { data: regions } = await supabaseAdmin
+          .from('region_master')
+          .select('region_id')
+          .eq('division_id', currentUser.division_id);
+        const regionIds = regions.map(r => r.region_id);
+        if (regionIds.length > 0) {
+          orParts.push(`and(role_id.eq.7,region_id.in.(${regionIds.join(',')}))`);
+        }
+        query = query.or(orParts.join(','));
         break;
-
-      case 5: // Editor
-        whereClause += ` AND (
-        u.role_id = 7 AND u.region_id IN (
-          SELECT region_id FROM region_master WHERE division_id = ?
-        )
-      )`;
-        queryParams.push(currentUser.division_id);
+      }
+      case 5: {
+        query = query.eq('role_id', 7);
+        const { data: regions } = await supabaseAdmin
+          .from('region_master')
+          .select('region_id')
+          .eq('division_id', currentUser.division_id);
+        const regionIds = regions.map(r => r.region_id);
+        if (regionIds.length > 0) {
+          query = query.in('region_id', regionIds);
+        }
         break;
+      }
     }
 
     if (filters.status) {
       const statuses = Array.isArray(filters.status) ? filters.status : [filters.status];
-      const placeholders = statuses.map(() => '?').join(', ');
-      whereClause += ` AND u.approval_status IN (${placeholders})`;
-      queryParams.push(...statuses);
+      query = query.in('approval_status', statuses);
     }
 
     if (filters.organisation_type) {
       const orgTypes = Array.isArray(filters.organisation_type) ? filters.organisation_type : [filters.organisation_type];
-      const placeholders = orgTypes.map(() => '?').join(', ');
-      whereClause += ` AND u.organisation_type IN (${placeholders})`;
-      queryParams.push(...orgTypes);
+      query = query.in('organisation_type', orgTypes);
     }
 
     if (filters.from_date) {
-      whereClause += ` AND DATE(u.created_date) >= ?`;
-      queryParams.push(filters.from_date);
+      query = query.gte('created_date', filters.from_date);
     }
 
     if (filters.to_date) {
-      whereClause += ` AND DATE(u.created_date) <= ?`;
-      queryParams.push(filters.to_date);
+      query = query.lte('created_date', filters.to_date);
     }
 
-    const [rows] = await this.pool.query(
-      `
-    SELECT 
-      u.user_id,
-      u.first_name,
-      u.last_name,
-      u.email,
-      u.mobile_number,
-      u.organisation_type,
-      u.created_date,
-      r.name AS role,
-      u.employee_id,
-      u.zone_id,
-      z.name AS zone_name,
-      u.division_id,
-      d.name AS division_name,
-      u.pan_card_no,
-      u.aadhar_no,
-      u.role_id,
-      u.approval_status,
-      IFNULL(GROUP_CONCAT(DISTINCT urm.region_id), u.region_id) AS region_ids,
-      IFNULL(GROUP_CONCAT(DISTINCT rm_map.name), rm.name) AS region_names
-    FROM user_master u
-    JOIN role_master r ON u.role_id = r.role_id
-    LEFT JOIN user_region_mapping urm ON u.user_id = urm.user_id
-    LEFT JOIN region_master rm_map ON urm.region_id = rm_map.region_id
-    LEFT JOIN zone_master z ON u.zone_id = z.zone_id
-    LEFT JOIN division_master d ON u.division_id = d.division_id
-    LEFT JOIN region_master rm ON u.region_id = rm.region_id
-    ${whereClause}
-    GROUP BY u.user_id
-    `,
-      queryParams
-    );
+    const { data: rows, error } = await query;
+    if (error) throw error;
+
+    const userIds = rows.map(r => r.user_id);
+    const { data: allMappings } = await supabaseAdmin
+      .from('user_region_mapping')
+      .select('user_id, region_id')
+      .in('user_id', userIds);
+
+    const mappingsByUser = {};
+    for (const m of allMappings || []) {
+      if (!mappingsByUser[m.user_id]) mappingsByUser[m.user_id] = [];
+      mappingsByUser[m.user_id].push(m.region_id);
+    }
+
+    const allRegionIds = [...new Set((allMappings || []).map(m => m.region_id).concat(rows.filter(r => r.region_id).map(r => r.region_id)))];
+    const regionNameMap = {};
+    if (allRegionIds.length > 0) {
+      const { data: regionData } = await supabaseAdmin
+        .from('region_master')
+        .select('region_id, name')
+        .in('region_id', allRegionIds);
+      for (const r of regionData || []) {
+        regionNameMap[r.region_id] = r.name;
+      }
+    }
+
+    for (const row of rows) {
+      const mapped = mappingsByUser[row.user_id] || [];
+      if (mapped.length > 0) {
+        row.region_ids = mapped.join(',');
+        row.region_names = mapped.map(id => regionNameMap[id] || '').join(',');
+      } else {
+        row.region_ids = String(row.region_id || '');
+        row.region_names = row.region_master?.name || null;
+      }
+      row.role = row.role_master?.name || null;
+      row.zone_name = row.zone_master?.name || null;
+      row.division_name = row.division_master?.name || null;
+      delete row.role_master;
+      delete row.zone_master;
+      delete row.division_master;
+      delete row.region_master;
+    }
 
     return rows;
   }
 
   async approveUserWithRoleChange(userId, approvalStatus, roleId) {
-    let updateQuery = `UPDATE user_master SET updated_date = NOW()`;
-    const params = [];
+    const updateData = { updated_date: new Date() };
 
     if (approvalStatus !== undefined && approvalStatus !== null && approvalStatus !== '') {
-      updateQuery += `, approval_status = ?`;
-      params.push(approvalStatus);
+      updateData.approval_status = approvalStatus;
     }
 
     if (roleId !== undefined && roleId !== null && roleId !== '') {
-      updateQuery += `, role_id = ?`;
-      params.push(roleId);
+      updateData.role_id = roleId;
     }
 
-    updateQuery += ` WHERE user_id = ?`;
-    params.push(userId);
+    const { error } = await supabaseAdmin
+      .from('user_master')
+      .update(updateData)
+      .eq('user_id', userId);
 
-    await this.pool.query(updateQuery, params);
+    if (error) throw error;
   }
 
   isApproverAuthorized(currentUser, targetUser, currentUserRole) {
@@ -263,56 +259,69 @@ class UserModel extends BaseModel {
   async findOne(criteria) {
     const key = Object.keys(criteria)[0];
     const value = criteria[key];
-    const [rows] = await this.pool.query(
-      `SELECT u.*, z.name as zone_name, d.name as division_name, rm.name as region_name 
-       FROM user_master u
-       LEFT JOIN zone_master z ON u.zone_id = z.zone_id
-       LEFT JOIN division_master d ON u.division_id = d.division_id
-       LEFT JOIN region_master rm ON u.region_id = rm.region_id
-       WHERE u.${key} = ?`,
-      [value]
-    );
-    return rows[0] || null;
+    const { data, error } = await supabaseAdmin
+      .from('user_master')
+      .select(`*, zone_master!left(name), division_master!left(name), region_master!left(name)`)
+      .eq(key, value)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+    data.zone_name = data.zone_master?.name || null;
+    data.division_name = data.division_master?.name || null;
+    data.region_name = data.region_master?.name || null;
+    delete data.zone_master;
+    delete data.division_master;
+    delete data.region_master;
+    return data;
   }
-  
+
   async update(userId, updateData) {
-    const fields = [];
-    const values = [];
+    const fields = {};
 
     Object.keys(updateData).forEach(key => {
       if (updateData[key] !== undefined) {
-        fields.push(`${key} = ?`);
-        values.push(updateData[key]);
+        fields[key] = updateData[key];
       }
     });
 
-    if (fields.length === 0) return null;
+    if (Object.keys(fields).length === 0) return null;
 
-    values.push(userId);
-    const query = `UPDATE user_master SET ${fields.join(', ')}, updated_date = NOW() WHERE user_id = ?`;
-    
-    await this.pool.query(query, values);
+    fields.updated_date = new Date();
+
+    const { error } = await supabaseAdmin
+      .from('user_master')
+      .update(fields)
+      .eq('user_id', userId);
+
+    if (error) throw error;
     return true;
   }
 
   async getFullUserDetail(userId) {
-    const [rows] = await this.pool.query(
-      `SELECT 
-        u.*, 
-        r.name AS role_name,
-        z.name AS zone_name,
-        d.name AS division_name,
-        rm.name AS region_name,
-        (SELECT GROUP_CONCAT(train_id) FROM user_train_mapping WHERE user_id = u.user_id) AS mapped_trains
-      FROM user_master u
-      LEFT JOIN role_master r ON u.role_id = r.role_id
-      LEFT JOIN zone_master z ON u.zone_id = z.zone_id
-      LEFT JOIN division_master d ON u.division_id = d.division_id
-      LEFT JOIN region_master rm ON u.region_id = rm.region_id
-      WHERE u.user_id = ?`,
-      [userId]
-    );
-    return rows[0] || null;
+    const { data, error } = await supabaseAdmin
+      .from('user_master')
+      .select(`*, role_master!left(name), zone_master!left(name), division_master!left(name), region_master!left(name)`)
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+
+    const { data: trainMappings } = await supabaseAdmin
+      .from('user_train_mapping')
+      .select('train_id')
+      .eq('user_id', userId);
+
+    data.role_name = data.role_master?.name || null;
+    data.zone_name = data.zone_master?.name || null;
+    data.division_name = data.division_master?.name || null;
+    data.region_name = data.region_master?.name || null;
+    data.mapped_trains = (trainMappings || []).map(t => t.train_id).join(',');
+    delete data.role_master;
+    delete data.zone_master;
+    delete data.division_master;
+    delete data.region_master;
+
+    return data;
   }
 }
 

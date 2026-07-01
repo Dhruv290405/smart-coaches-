@@ -1,3 +1,4 @@
+const supabaseAdmin = require('../config/supabaseAdmin');
 const BaseModel = require('./base.model');
 
 class RolesModel extends BaseModel {
@@ -6,11 +7,14 @@ class RolesModel extends BaseModel {
   }
 
   async getAllRoles() {
-    const [rows] = await this.pool.query(
-        'SELECT role_id, name FROM role_master WHERE is_active = 1'
-    );
+    const { data: rows, error } = await supabaseAdmin
+        .from('role_master')
+        .select('role_id, name')
+        .eq('is_active', true);
+    if (error) throw error;
     return rows;
 }
+
   async getDefaultList(zoneId, divisionId, regionIds, trainIds) {
     let roleIdsToFetch = [];
 
@@ -28,7 +32,7 @@ class RolesModel extends BaseModel {
       roleIdsToFetch = [4];
     } else if (zoneId !== -1 && divisionId !== -1 && isRegionValid) {
       if (isMultipleRegions) {
-        roleIdsToFetch = [5, 6]; // ✅ Multiple regions → always 5,6
+        roleIdsToFetch = [5, 6];
       } else if (!isTrainIdsProvided) {
         roleIdsToFetch = [5, 6];
       } else if (isSingleTrainId) {
@@ -41,10 +45,11 @@ class RolesModel extends BaseModel {
     console.log('Role IDs to fetch:', roleIdsToFetch);
     if (roleIdsToFetch.length === 0) return [];
 
-    const [rows] = await this.pool.query(
-      `SELECT * FROM role_master WHERE role_id IN (?)`,
-      [roleIdsToFetch]
-    );
+    const { data: rows, error } = await supabaseAdmin
+      .from('role_master')
+      .select('*')
+      .in('role_id', roleIdsToFetch);
+    if (error) throw error;
 
     return rows;
   }

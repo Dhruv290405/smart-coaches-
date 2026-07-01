@@ -1,59 +1,101 @@
-const { pool } = require('../config/db');
+const supabaseAdmin = require('../config/supabaseAdmin');
 const BLOCKED_COACH = '205063';
+
+const toIST = (d) => {
+    if (!d) return null;
+    const date = new Date(d);
+    const ist = new Date(date.getTime() + 5.5 * 60 * 60 * 1000);
+    const y = ist.getUTCFullYear();
+    const m = String(ist.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(ist.getUTCDate()).padStart(2, '0');
+    const h = String(ist.getUTCHours()).padStart(2, '0');
+    const min = String(ist.getUTCMinutes()).padStart(2, '0');
+    const s = String(ist.getUTCSeconds()).padStart(2, '0');
+    return `${y}-${m}-${day} ${h}:${min}:${s}`;
+};
 
 const AcpModel = {
     updateLiveStatus: async (data, type) => {
         try {
+            const { data: maxRows, error: maxErr } = await supabaseAdmin
+                .from('acp_critical_events')
+                .select('total_count')
+                .eq('tech_coach_no', data.tech_coach_no)
+                .order('total_count', { ascending: false })
+                .limit(1);
 
-            const [latestHistory] = await pool.query(
-                `SELECT MAX(total_count) as total, 
-             (SELECT COUNT(DISTINCT total_count) FROM acp_critical_events 
-              WHERE tech_coach_no = ? AND DATE(event_time) = CURDATE()) as today 
-             FROM acp_critical_events WHERE tech_coach_no = ?`,
-                [data.tech_coach_no, data.tech_coach_no]
-            );
+            if (maxErr) throw maxErr;
 
-            const totalCount = latestHistory[0].total || data.total_count;
-            const todayCount = latestHistory[0].today || data.today_count;
+            const todayStart = new Date();
+            todayStart.setHours(0, 0, 0, 0);
+            const todayEnd = new Date();
+            todayEnd.setHours(23, 59, 59, 999);
+
+            const { data: todayRows, error: todayErr } = await supabaseAdmin
+                .from('acp_critical_events')
+                .select('total_count')
+                .eq('tech_coach_no', data.tech_coach_no)
+                .gte('event_time', todayStart.toISOString())
+                .lte('event_time', todayEnd.toISOString());
+
+            if (todayErr) throw todayErr;
+
+            const totalCount = (maxRows && maxRows[0] && maxRows[0].total_count) || data.total_count;
+            const uniqueToday = new Set((todayRows || []).map(r => r.total_count));
+            const todayCount = uniqueToday.size;
 
             const isPulled = todayCount > 0 ? 'Pulled' : 'Not Pulled';
             const isTrigger = (type === 'TRIGGER');
 
-            const query = `
-            INSERT INTO device_live_summary 
-            (tech_coach_no, last_heartbeat, last_trigger, today_count, total_count, status)
-            VALUES (?, NOW(), IF(? = 1, NOW(), NULL), ?, ?, ?)
-            ON DUPLICATE KEY UPDATE 
-                total_count = VALUES(total_count),
-                today_count = VALUES(today_count),
-                last_heartbeat = NOW(),
-                last_trigger = IF(? = 1, NOW(), last_trigger),
-                status = VALUES(status);
-        `;
+            const { data: existing, error: existErr } = await supabaseAdmin
+                .from('device_live_summary')
+                .select('tech_coach_no')
+                .eq('tech_coach_no', data.tech_coach_no)
+                .maybeSingle();
 
-            const params = [
-                data.tech_coach_no,
-                isTrigger ? 1 : 0,
-                todayCount,
-                totalCount,
-                isPulled,
-                isTrigger ? 1 : 0,
-                isPulled
-            ];
+            if (existErr) throw existErr;
 
-            await pool.query(query, params);
+            const now = new Date().toISOString();
 
+            if (existing) {
+                const updateData = {
+                    total_count: totalCount,
+                    today_count: todayCount,
+                    last_heartbeat: now,
+                    status: isPulled
+                };
+                if (isTrigger) updateData.last_trigger = now;
+                const { error: updErr } = await supabaseAdmin
+                    .from('device_live_summary')
+                    .update(updateData)
+                    .eq('tech_coach_no', data.tech_coach_no);
+                if (updErr) throw updErr;
+            } else {
+                const { error: insErr } = await supabaseAdmin
+                    .from('device_live_summary')
+                    .insert([{
+                        tech_coach_no: data.tech_coach_no,
+                        last_heartbeat: now,
+                        last_trigger: isTrigger ? now : null,
+                        today_count: todayCount,
+                        total_count: totalCount,
+                        status: isPulled
+                    }]);
+                if (insErr) throw insErr;
+            }
         } catch (error) {
             console.error("Error in AcpModel.updateLiveStatus:", error.message);
             throw error;
         }
     },
-    // AcpModel mein ye function add karo
+
     getBlockedCoaches: async () => {
         try {
-            const [rows] = await pool.query('SELECT tech_coach_no FROM blocked_devices');
-            // Sirf IDs ka array return karega [ '171806', '182941/C', ... ]
-            return rows.map(row => row.tech_coach_no);
+            const { data, error } = await supabaseAdmin
+                .from('blocked_devices')
+                .select('tech_coach_no');
+            if (error) throw error;
+            return (data || []).map(row => row.tech_coach_no);
         } catch (error) {
             console.error("Error fetching blocked devices:", error.message);
             return [];
@@ -62,75 +104,84 @@ const AcpModel = {
 
     saveLatestHeartbeat: async (data) => {
         try {
-            const query = `
-                INSERT INTO device_latest_status (tech_coach_no, data, last_updated)
-                VALUES (?, ?, NOW())
-                ON DUPLICATE KEY UPDATE data = VALUES(data), last_updated = NOW();
-            `;
-            await pool.query(query, [data.tech_coach_no, JSON.stringify(data)]);
+            const { error } = await supabaseAdmin
+                .from('device_latest_status')
+                .upsert([{
+                    tech_coach_no: data.tech_coach_no,
+                    data: JSON.stringify(data),
+                    last_updated: new Date().toISOString()
+                }], { onConflict: 'tech_coach_no' });
+            if (error) throw error;
         } catch (error) {
             console.error("Error in AcpModel.saveLatestHeartbeat:", error.message);
             throw error;
         }
     },
-    // 1. For getting all logs     
+
     getAllLogs: async () => {
         try {
-            const query = `
-                SELECT 
-                    id AS log_id,
-                    created_at AS last_updated,
-                    raw_asset_name,
-                    acp_status,
-                    total_count,
-                    train_location,
-                    train_no,
-                    comm_coach_no,
-                    tech_coach_no,
-                    power_car_no
-                FROM acp_critical_events
-                WHERE tech_coach_no != ? 
-                ORDER BY created_at DESC 
-                LIMIT 100;
-            `;
-            const [rows] = await pool.query(query, [BLOCKED_COACH]);
-            return rows;
+            const { data, error } = await supabaseAdmin
+                .from('acp_critical_events')
+                .select('id, created_at, raw_asset_name, acp_status, total_count, train_location, train_no, comm_coach_no, tech_coach_no, power_car_no')
+                .neq('tech_coach_no', BLOCKED_COACH)
+                .order('created_at', { ascending: false })
+                .limit(100);
+
+            if (error) throw error;
+            return (data || []).map(row => ({
+                log_id: row.id,
+                last_updated: row.created_at,
+                raw_asset_name: row.raw_asset_name,
+                acp_status: row.acp_status,
+                total_count: row.total_count,
+                train_location: row.train_location,
+                train_no: row.train_no,
+                comm_coach_no: row.comm_coach_no,
+                tech_coach_no: row.tech_coach_no,
+                power_car_no: row.power_car_no
+            }));
         } catch (error) {
             console.error("Error in AcpModel.getAllLogs:", error.message);
             throw error;
         }
     },
 
-    // 2. AWS Data Save karte waqt Mapping ke liye (With Fail-safe)
     getTrainByMapping: async (deviceId, techCoachNo) => {
         try {
-            const query = `
-                SELECT train_no 
-                FROM device_master 
-                WHERE device_id = ? OR tech_coach_no = ? 
-                LIMIT 1
-            `;
-            const [rows] = await pool.query(query, [deviceId, techCoachNo]);
-            return rows[0] || null;
+            const { data, error } = await supabaseAdmin
+                .from('device_master')
+                .select('train_no')
+                .or(`device_id.eq.${deviceId},tech_coach_no.eq.${techCoachNo}`)
+                .limit(1)
+                .maybeSingle();
+
+            if (error) throw error;
+            return data || null;
         } catch (error) {
             console.error("Error in AcpModel.getTrainByMapping:", error.message);
             throw error;
         }
     },
 
-    // 3. Normal Heartbeat save karne ke liye (Ab alag columns mein structured save hoga)
     saveHeartbeat: async (data) => {
         try {
-            const query = `
-                INSERT INTO acp_heartbeat_logs 
-                (train_location, raw_asset_name, acp_status, total_count, msg_type, train_no, comm_coach_no, tech_coach_no, power_car_no) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `;
-            const [result] = await pool.query(query, [
-                data.train_location, data.raw_asset_name, data.acp_status, data.total_count,
-                data.msg_type, data.train_no, data.comm_coach_no, data.tech_coach_no, data.power_car_no
-            ]);
-            return result.insertId;
+            const { data: inserted, error } = await supabaseAdmin
+                .from('acp_heartbeat_logs')
+                .insert([{
+                    train_location: data.train_location,
+                    raw_asset_name: data.raw_asset_name,
+                    acp_status: data.acp_status,
+                    total_count: data.total_count,
+                    msg_type: data.msg_type,
+                    train_no: data.train_no,
+                    comm_coach_no: data.comm_coach_no,
+                    tech_coach_no: data.tech_coach_no,
+                    power_car_no: data.power_car_no
+                }])
+                .select();
+
+            if (error) throw error;
+            return inserted[0].id;
         } catch (error) {
             console.error("Error in AcpModel.saveHeartbeat:", error.message);
             throw error;
@@ -141,68 +192,115 @@ const AcpModel = {
         if (data.acp_status !== 1) return null;
 
         try {
+            const { data: existing, error: checkErr } = await supabaseAdmin
+                .from('acp_critical_events')
+                .select('total_count')
+                .eq('tech_coach_no', data.tech_coach_no)
+                .order('id', { ascending: false })
+                .limit(1);
 
-            const checkQuery = `SELECT total_count FROM acp_critical_events 
-                            WHERE tech_coach_no = ? ORDER BY id DESC LIMIT 1`;
-            const [existing] = await pool.query(checkQuery, [data.tech_coach_no]);
+            if (checkErr) throw checkErr;
 
             if (existing.length > 0 && data.total_count <= existing[0].total_count) {
                 console.log(`Skipping duplicate/old event for coach ${data.tech_coach_no}`);
                 return null;
             }
 
-            const insertQuery = `
-            INSERT INTO acp_critical_events 
-            (train_location, raw_asset_name, acp_status, total_count, train_no, tech_coach_no, power_car_no, event_time) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
-        `;
-            const [result] = await pool.query(insertQuery, [
-                data.train_location, data.raw_asset_name, data.acp_status,
-                data.total_count, data.train_no, data.tech_coach_no, data.power_car_no
-            ]);
-            return result.insertId;
+            const { data: inserted, error: insErr } = await supabaseAdmin
+                .from('acp_critical_events')
+                .insert([{
+                    train_location: data.train_location,
+                    raw_asset_name: data.raw_asset_name,
+                    acp_status: data.acp_status,
+                    total_count: data.total_count,
+                    train_no: data.train_no,
+                    tech_coach_no: data.tech_coach_no,
+                    power_car_no: data.power_car_no,
+                    event_time: new Date().toISOString()
+                }])
+                .select();
+
+            if (insErr) throw insErr;
+            return inserted[0].id;
         } catch (error) {
             console.error("Error in AcpModel.saveCriticalEvent:", error.message);
             throw error;
         }
     },
 
-    // 5. Unique Trains ki list (Dropdown 1)
     getUniqueTrains: async () => {
         try {
-            const query = `SELECT DISTINCT train_no FROM device_master WHERE train_no IS NOT NULL ORDER BY train_no ASC`;
-            const [rows] = await pool.query(query);
-            return rows;
+            const { data, error } = await supabaseAdmin
+                .from('device_master')
+                .select('train_no')
+                .not('train_no', 'is', null)
+                .order('train_no', { ascending: true });
+
+            if (error) throw error;
+            const unique = [...new Set((data || []).map(r => r.train_no))];
+            return unique.map(train_no => ({ train_no }));
         } catch (error) {
             throw new Error("Error fetching unique trains: " + error.message);
         }
     },
 
-    // 6. Selected Train ke liye Coach Types (Dropdown 2)
     getCoachTypesByTrain: async (trainNo) => {
         try {
-            const query = `
-                SELECT DISTINCT 
-                    COALESCE(cm.coach_display_id, dm.comm_coach_no) AS comm_coach_no
-                FROM device_master dm
-                LEFT JOIN train_master tm ON dm.train_no = tm.train_number
-                LEFT JOIN coach_master cm ON tm.train_id = cm.train_id AND dm.tech_coach_no = cm.coach_unique_id
-                WHERE dm.train_no = ? 
-                ORDER BY comm_coach_no ASC
-            `;
-            const [rows] = await pool.query(query, [trainNo]);
-            return rows;
+            const { data: dmData, error: dmErr } = await supabaseAdmin
+                .from('device_master')
+                .select('comm_coach_no, tech_coach_no, train_no')
+                .eq('train_no', trainNo);
+
+            if (dmErr) throw dmErr;
+
+            const { data: tmData, error: tmErr } = await supabaseAdmin
+                .from('train_master')
+                .select('train_id, train_number')
+                .eq('train_number', trainNo)
+                .maybeSingle();
+
+            if (tmErr) throw tmErr;
+
+            let cmData = [];
+            if (tmData) {
+                const { data, error: cmErr } = await supabaseAdmin
+                    .from('coach_master')
+                    .select('coach_display_id, coach_unique_id')
+                    .eq('train_id', tmData.train_id);
+                if (cmErr) throw cmErr;
+                cmData = data || [];
+            }
+
+            const cmMap = {};
+            for (const cm of cmData) {
+                cmMap[cm.coach_unique_id] = cm.coach_display_id;
+            }
+
+            const uniqueCoaches = new Set();
+            for (const dm of (dmData || [])) {
+                const display = cmMap[dm.tech_coach_no] || dm.comm_coach_no;
+                if (display) uniqueCoaches.add(display);
+            }
+
+            return [...uniqueCoaches].sort().map(v => ({ comm_coach_no: v }));
         } catch (error) {
             throw new Error("Error fetching coach types: " + error.message);
         }
     },
 
-    // 7. Selected Train aur Coach Type ke liye specific Coach Numbers (Dropdown 3)
     getCoachNumbers: async (trainNo, coachType) => {
         try {
-            const query = `SELECT DISTINCT tech_coach_no FROM device_master WHERE train_no = ? AND comm_coach_no = ? AND tech_coach_no != ? ORDER BY tech_coach_no ASC`;
-            const [rows] = await pool.query(query, [trainNo, coachType, BLOCKED_COACH]);
-            return rows;
+            const { data, error } = await supabaseAdmin
+                .from('device_master')
+                .select('tech_coach_no')
+                .eq('train_no', trainNo)
+                .eq('comm_coach_no', coachType)
+                .neq('tech_coach_no', BLOCKED_COACH)
+                .order('tech_coach_no', { ascending: true });
+
+            if (error) throw error;
+            const unique = [...new Set((data || []).map(r => r.tech_coach_no))];
+            return unique.map(v => ({ tech_coach_no: v }));
         } catch (error) {
             throw new Error("Error fetching coach numbers: " + error.message);
         }
@@ -210,35 +308,118 @@ const AcpModel = {
 
     getSummaryLogs: async () => {
         try {
-            const query = `
-            SELECT 
-                dm.train_no, 
-                COALESCE(cm.coach_display_id, dm.comm_coach_no) AS comm_coach_no,
-                dm.tech_coach_no, 
-                dm.device_id,
-                DATE_FORMAT(CONVERT_TZ(dls.last_heartbeat, '+00:00', '+05:30'), '%Y-%m-%d %H:%i:%s') AS last_heartbeat,
-                DATE_FORMAT(CONVERT_TZ(dls.last_trigger, '+00:00', '+05:30'), '%Y-%m-%d %H:%i:%s') AS last_trigger,
-                COALESCE(dls.today_count, 0) AS today_count,
-                COALESCE(dls.total_count, 0) AS total_count,
-                (SELECT train_location FROM acp_critical_events 
-                 WHERE tech_coach_no = dm.tech_coach_no 
-                 ORDER BY id DESC LIMIT 1) AS train_location,
-                CASE 
-                    WHEN COALESCE(dls.today_count, 0) = 0 THEN 'Not Pulled'
-                    ELSE COALESCE(dls.status, 'Not Pulled')
-                END AS status,
-                (SELECT fire_status FROM fsds_logs WHERE device_id = dm.device_id ORDER BY id DESC LIMIT 1) AS fsds_status,
-                (SELECT timestamp FROM fsds_logs WHERE device_id = dm.device_id ORDER BY id DESC LIMIT 1) AS fsds_timestamp
-            FROM device_master dm
-            LEFT JOIN device_live_summary dls ON dm.tech_coach_no = dls.tech_coach_no
-            LEFT JOIN train_master tm ON dm.train_no = tm.train_number
-            LEFT JOIN coach_master cm ON tm.train_id = cm.train_id AND dm.tech_coach_no = cm.coach_unique_id
-            WHERE dm.tech_coach_no != ?
-            ORDER BY dm.train_no ASC, comm_coach_no ASC;
-        `;
+            const { data: dmRows, error: dmErr } = await supabaseAdmin
+                .from('device_master')
+                .select('train_no, tech_coach_no, device_id, comm_coach_no')
+                .neq('tech_coach_no', BLOCKED_COACH)
+                .order('train_no', { ascending: true });
 
-            const [rows] = await pool.query(query, [BLOCKED_COACH]);
-            return rows;
+            if (dmErr) throw dmErr;
+            if (!dmRows || dmRows.length === 0) return [];
+
+            const techCoaches = dmRows.map(r => r.tech_coach_no);
+            const deviceIds = dmRows.map(r => r.device_id).filter(Boolean);
+
+            let dlsData = [];
+            if (techCoaches.length > 0) {
+                const { data, error: dlsErr } = await supabaseAdmin
+                    .from('device_live_summary')
+                    .select('tech_coach_no, last_heartbeat, last_trigger, today_count, total_count, status')
+                    .in('tech_coach_no', techCoaches);
+                if (dlsErr) throw dlsErr;
+                dlsData = data || [];
+            }
+
+            const { data: tmRows, error: tmErr } = await supabaseAdmin
+                .from('train_master')
+                .select('train_id, train_number');
+
+            if (tmErr) throw tmErr;
+
+            const tmMap = {};
+            for (const tm of (tmRows || [])) {
+                tmMap[tm.train_number] = tm;
+            }
+
+            let cmRows = [];
+            const trainIds = (tmRows || []).map(r => r.train_id).filter(Boolean);
+            if (trainIds.length > 0) {
+                const { data, error: cmErr } = await supabaseAdmin
+                    .from('coach_master')
+                    .select('coach_display_id, coach_unique_id, train_id')
+                    .in('train_id', trainIds);
+                if (cmErr) throw cmErr;
+                cmRows = data || [];
+            }
+
+            const cmMap = {};
+            for (const cm of cmRows) {
+                cmMap[cm.coach_unique_id] = cm;
+            }
+
+            const { data: locData, error: locErr } = await supabaseAdmin
+                .from('acp_critical_events')
+                .select('id, tech_coach_no, train_location')
+                .in('tech_coach_no', techCoaches)
+                .order('id', { ascending: false });
+
+            if (locErr) throw locErr;
+
+            const latestLoc = {};
+            for (const row of (locData || [])) {
+                if (!latestLoc[row.tech_coach_no]) {
+                    latestLoc[row.tech_coach_no] = row.train_location;
+                }
+            }
+
+            let fsdsData = [];
+            if (deviceIds.length > 0) {
+                const { data, error: fsdsErr } = await supabaseAdmin
+                    .from('fsds_logs')
+                    .select('id, device_id, fire_status, timestamp')
+                    .in('device_id', deviceIds)
+                    .order('id', { ascending: false });
+                if (fsdsErr) throw fsdsErr;
+                fsdsData = data || [];
+            }
+
+            const latestFsds = {};
+            for (const row of fsdsData) {
+                if (!latestFsds[row.device_id]) {
+                    latestFsds[row.device_id] = { fsds_status: row.fire_status, fsds_timestamp: row.timestamp };
+                }
+            }
+
+            const dlsMap = {};
+            for (const row of (dlsData || [])) {
+                dlsMap[row.tech_coach_no] = row;
+            }
+
+            const result = (dmRows || []).map(dm => {
+                const dls = dlsMap[dm.tech_coach_no] || {};
+                const tm = tmMap[dm.train_no];
+                const cm = cmMap[dm.tech_coach_no];
+                const coachDisplay = (cm && cm.train_id === (tm && tm.train_id)) ? cm.coach_display_id : null;
+                const todayCount = dls.today_count || 0;
+                const fsds = latestFsds[dm.device_id] || {};
+
+                return {
+                    train_no: dm.train_no,
+                    comm_coach_no: coachDisplay || dm.comm_coach_no,
+                    tech_coach_no: dm.tech_coach_no,
+                    device_id: dm.device_id,
+                    last_heartbeat: toIST(dls.last_heartbeat),
+                    last_trigger: toIST(dls.last_trigger),
+                    today_count: todayCount,
+                    total_count: dls.total_count || 0,
+                    train_location: latestLoc[dm.tech_coach_no] || null,
+                    status: todayCount === 0 ? 'Not Pulled' : (dls.status || 'Not Pulled'),
+                    fsds_status: fsds.fsds_status || null,
+                    fsds_timestamp: fsds.fsds_timestamp || null
+                };
+            });
+
+            return result;
         } catch (error) {
             console.error("Error in getSummaryLogs:", error.message);
             throw error;
@@ -249,44 +430,45 @@ const AcpModel = {
         try {
             if (techCoachNo === BLOCKED_COACH) return [];
 
-            let dateFilter = "";
-            let dateParams = [];
+            let query = supabaseAdmin
+                .from('acp_critical_events')
+                .select('id, event_time, acp_status, train_location, raw_asset_name, total_count')
+                .eq('tech_coach_no', techCoachNo);
 
             if (startDate && endDate) {
-                dateFilter = ` AND event_time BETWEEN ? AND ? `;
-                dateParams = [`${startDate} 00:00:00`, `${endDate} 23:59:59`];
+                query = query
+                    .gte('event_time', `${startDate} 00:00:00`)
+                    .lte('event_time', `${endDate} 23:59:59`);
             }
 
-            const query = `
-            SELECT 
-                id AS log_id,
-                DATE_FORMAT(CONVERT_TZ(event_time, '+00:00', '+05:30'), '%Y-%m-%d %H:%i:%s') AS event_time,
-                acp_status,
-                train_location,
-                raw_asset_name,
-                total_count AS history_sequence_no,
-                /* Summary Table se Lifetime Pulls */
-                COALESCE((SELECT total_count FROM device_live_summary WHERE tech_coach_no = ?), 0) AS total_lifetime_pulls,
-                /* FIX: COALESCE use kiya taaki NULL ki jagah 0 aaye */
-                COALESCE((SELECT today_count FROM device_live_summary WHERE tech_coach_no = ?), 0) AS today_pulls_count
-            FROM acp_critical_events 
-            WHERE tech_coach_no = ?
-            ${dateFilter}
-            ORDER BY id DESC 
-            LIMIT ? OFFSET ?;
-        `;
+            query = query
+                .order('id', { ascending: false })
+                .range(offset, offset + parseInt(limit) - 1);
 
-            const queryParams = [
-                techCoachNo,
-                techCoachNo,
-                techCoachNo,
-                ...dateParams,
-                parseInt(limit),
-                parseInt(offset)
-            ];
+            const { data: rows, error } = await query;
+            if (error) throw error;
 
-            const [rows] = await pool.query(query, queryParams);
-            return rows;
+            const { data: dls, error: dlsErr } = await supabaseAdmin
+                .from('device_live_summary')
+                .select('total_count, today_count')
+                .eq('tech_coach_no', techCoachNo)
+                .maybeSingle();
+
+            if (dlsErr) throw dlsErr;
+
+            const totalLifetimePulls = (dls && dls.total_count) || 0;
+            const todayPullsCount = (dls && dls.today_count) || 0;
+
+            return (rows || []).map(row => ({
+                log_id: row.id,
+                event_time: toIST(row.event_time),
+                acp_status: row.acp_status,
+                train_location: row.train_location,
+                raw_asset_name: row.raw_asset_name,
+                history_sequence_no: row.total_count,
+                total_lifetime_pulls: totalLifetimePulls,
+                today_pulls_count: todayPullsCount
+            }));
         } catch (error) {
             console.error("Error in getCoachAcpHistory:", error.message);
             throw error;
@@ -294,40 +476,123 @@ const AcpModel = {
     },
 
     getFilteredLogs: async (trainNo, techCoachNo) => {
-    try {
-        const query = `
-            SELECT 
-                dm.train_no, 
-                COALESCE(cm.coach_display_id, dm.comm_coach_no) AS comm_coach_no, 
-                dm.tech_coach_no, 
-                dm.device_id,
-                DATE_FORMAT(CONVERT_TZ(dls.last_heartbeat, '+00:00', '+05:30'), '%Y-%m-%d %H:%i:%s') AS last_heartbeat,
-                DATE_FORMAT(CONVERT_TZ(dls.last_trigger, '+00:00', '+05:30'), '%Y-%m-%d %H:%i:%s') AS last_trigger,
-                COALESCE(dls.today_count, 0) AS today_count,
-                COALESCE(dls.total_count, 0) AS total_count,
-                (SELECT train_location FROM acp_critical_events 
-                 WHERE tech_coach_no = dm.tech_coach_no 
-                 ORDER BY id DESC LIMIT 1) AS train_location,
-                CASE 
-                    WHEN COALESCE(dls.today_count, 0) = 0 THEN 'Not Pulled'
-                    ELSE COALESCE(dls.status, 'Not Pulled')
-                END AS status,
-                (SELECT fire_status FROM fsds_logs WHERE device_id = dm.device_id ORDER BY id DESC LIMIT 1) AS fsds_status,
-                (SELECT timestamp FROM fsds_logs WHERE device_id = dm.device_id ORDER BY id DESC LIMIT 1) AS fsds_timestamp
-            FROM device_master dm
-            LEFT JOIN device_live_summary dls ON dm.tech_coach_no = dls.tech_coach_no
-            LEFT JOIN train_master tm ON dm.train_no = tm.train_number
-            LEFT JOIN coach_master cm ON tm.train_id = cm.train_id AND dm.tech_coach_no = cm.coach_unique_id
-            WHERE dm.train_no = ? 
-            AND dm.tech_coach_no = ?;
-        `;
-        
-        const [rows] = await pool.query(query, [trainNo, techCoachNo]);
-        return rows;
-    } catch (error) {
-        throw new Error("Error fetching filtered logs: " + error.message);
+        try {
+            const { data: dmRows, error: dmErr } = await supabaseAdmin
+                .from('device_master')
+                .select('train_no, tech_coach_no, device_id, comm_coach_no')
+                .eq('train_no', trainNo)
+                .eq('tech_coach_no', techCoachNo);
+
+            if (dmErr) throw dmErr;
+            if (!dmRows || dmRows.length === 0) return [];
+
+            const techCoaches = dmRows.map(r => r.tech_coach_no);
+            const deviceIds = dmRows.map(r => r.device_id).filter(Boolean);
+
+            let dlsData = [];
+            if (techCoaches.length > 0) {
+                const { data, error: dlsErr } = await supabaseAdmin
+                    .from('device_live_summary')
+                    .select('tech_coach_no, last_heartbeat, last_trigger, today_count, total_count, status')
+                    .in('tech_coach_no', techCoaches);
+                if (dlsErr) throw dlsErr;
+                dlsData = data || [];
+            }
+
+            const { data: tmRows, error: tmErr } = await supabaseAdmin
+                .from('train_master')
+                .select('train_id, train_number');
+
+            if (tmErr) throw tmErr;
+
+            const tmMap = {};
+            for (const tm of (tmRows || [])) {
+                tmMap[tm.train_number] = tm;
+            }
+
+            let cmRows = [];
+            const trainIds = (tmRows || []).map(r => r.train_id).filter(Boolean);
+            if (trainIds.length > 0) {
+                const { data, error: cmErr } = await supabaseAdmin
+                    .from('coach_master')
+                    .select('coach_display_id, coach_unique_id, train_id')
+                    .in('train_id', trainIds);
+                if (cmErr) throw cmErr;
+                cmRows = data || [];
+            }
+
+            const cmMap = {};
+            for (const cm of cmRows) {
+                cmMap[cm.coach_unique_id] = cm;
+            }
+
+            const { data: locData, error: locErr } = await supabaseAdmin
+                .from('acp_critical_events')
+                .select('id, tech_coach_no, train_location')
+                .in('tech_coach_no', techCoaches)
+                .order('id', { ascending: false });
+
+            if (locErr) throw locErr;
+
+            const latestLoc = {};
+            for (const row of (locData || [])) {
+                if (!latestLoc[row.tech_coach_no]) {
+                    latestLoc[row.tech_coach_no] = row.train_location;
+                }
+            }
+
+            let fsdsData = [];
+            if (deviceIds.length > 0) {
+                const { data, error: fsdsErr } = await supabaseAdmin
+                    .from('fsds_logs')
+                    .select('id, device_id, fire_status, timestamp')
+                    .in('device_id', deviceIds)
+                    .order('id', { ascending: false });
+                if (fsdsErr) throw fsdsErr;
+                fsdsData = data || [];
+            }
+
+            const latestFsds = {};
+            for (const row of fsdsData) {
+                if (!latestFsds[row.device_id]) {
+                    latestFsds[row.device_id] = { fsds_status: row.fire_status, fsds_timestamp: row.timestamp };
+                }
+            }
+
+            const dlsMap = {};
+            for (const row of (dlsData || [])) {
+                dlsMap[row.tech_coach_no] = row;
+            }
+
+            const result = (dmRows || []).map(dm => {
+                const dls = dlsMap[dm.tech_coach_no] || {};
+                const tm = tmMap[dm.train_no];
+                const cm = cmMap[dm.tech_coach_no];
+                const coachDisplay = (cm && cm.train_id === (tm && tm.train_id)) ? cm.coach_display_id : null;
+                const todayCount = dls.today_count || 0;
+                const fsds = latestFsds[dm.device_id] || {};
+
+                return {
+                    train_no: dm.train_no,
+                    comm_coach_no: coachDisplay || dm.comm_coach_no,
+                    tech_coach_no: dm.tech_coach_no,
+                    device_id: dm.device_id,
+                    last_heartbeat: toIST(dls.last_heartbeat),
+                    last_trigger: toIST(dls.last_trigger),
+                    today_count: todayCount,
+                    total_count: dls.total_count || 0,
+                    train_location: latestLoc[dm.tech_coach_no] || null,
+                    status: todayCount === 0 ? 'Not Pulled' : (dls.status || 'Not Pulled'),
+                    fsds_status: fsds.fsds_status || null,
+                    fsds_timestamp: fsds.fsds_timestamp || null
+                };
+            });
+
+            return result;
+        } catch (error) {
+            throw new Error("Error fetching filtered logs: " + error.message);
+        }
     }
-}
 };
 
 module.exports = AcpModel;

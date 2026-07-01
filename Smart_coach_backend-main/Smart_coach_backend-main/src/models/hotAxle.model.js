@@ -1,50 +1,37 @@
-const { pool } = require("../config/db");
+const supabaseAdmin = require("../config/supabaseAdmin");
 
 class HotAxleModel {
-    // 1. POST API logic: Dynamic Insert
     async saveDynamicLog(data) {
-        const keysArray = Object.keys(data);
-        const valuesArray = Object.values(data);
-
-        const columns = keysArray.join(", ");
-        const placeholders = keysArray.map(() => "?").join(", ");
-
-        const query = `INSERT INTO hot_axle_logs (${columns}) VALUES (${placeholders})`;
-
         try {
-            const [result] = await pool.query(query, valuesArray);
-            return result.insertId;
+            const { data: inserted, error } = await supabaseAdmin
+                .from('hot_axle_logs')
+                .insert([data])
+                .select();
+
+            if (error) throw error;
+            return inserted[0].id;
         } catch (err) {
             console.error("Database Dynamic Insert Error:", err.message);
             throw err;
         }
     }
 
-    // 2. GET API logic: Fetch data by linking logs -> device_master -> coaches
     async getData(deviceId, limit) {
-        
-        let query = `
-            SELECT 
-                l.*, 
-                dm.tech_coach_no, 
-                c.train_id AS train_no 
-            FROM hot_axle_logs l
-            LEFT JOIN device_master dm ON l.device_id = dm.device_id
-            LEFT JOIN coaches c ON dm.tech_coach_no = c.coach_number
-        `;
-        let params = [];
-
-        if (deviceId) {
-            query += " WHERE l.device_id = ?";
-            params.push(deviceId);
-        }
-
-        query += " ORDER BY l.timestamp DESC LIMIT ?";
-        params.push(limit);
-
         try {
-            const [rows] = await pool.query(query, params);
-            return rows;
+            let query = supabaseAdmin
+                .from('hot_axle_logs')
+                .select('*');
+
+            if (deviceId) {
+                query = query.eq('device_id', deviceId);
+            }
+
+            const { data, error } = await query
+                .order('id', { ascending: false })
+                .range(0, limit - 1);
+
+            if (error) throw error;
+            return data;
         } catch (err) {
             console.error("Database Select Error:", err.message);
             throw err;
@@ -52,81 +39,58 @@ class HotAxleModel {
     }
 
     async getHistoryData({ deviceId, coachNumber, startDate, endDate, limit, offset }) {
-    // Base Query with COALESCE to handle NULLs gracefully
-    let query = `
-        SELECT 
-            l.id, l.device_id, l.coach_number, l.coach_type, l.owning_rly, 
-            l.timestamp, l.alert_status, l.a11_temp, l.a12_temp, l.a21_temp, 
-            l.a22_temp, l.a31_temp, l.a32_temp, l.a41_temp, l.a42_temp, 
-            l.battery_percentage, l.signal_strength,
-            COALESCE(dm.tech_coach_no, 'Not Mapped') AS tech_coach_no, 
-            COALESCE(c.train_id, 'NA') AS train_no 
-        FROM hot_axle_logs l
-        LEFT JOIN device_master dm ON l.device_id = dm.device_id
-        LEFT JOIN coaches c ON dm.tech_coach_no = c.coach_number
-        WHERE 1=1
-    `;
-    let params = [];
+        try {
+            let query = supabaseAdmin
+                .from('hot_axle_logs')
+                .select('*', { count: 'exact' });
 
-    // Filter Logic: Agar value "All" hai ya empty hai toh skip karega
-    if (deviceId && deviceId !== 'All') {
-        query += " AND l.device_id = ?";
-        params.push(deviceId);
+            if (deviceId && deviceId !== 'All') {
+                query = query.eq('device_id', deviceId);
+            }
+
+            if (coachNumber && coachNumber !== 'All') {
+                query = query.eq('coach_number', coachNumber);
+            }
+
+            if (startDate && endDate) {
+                query = query
+                    .gte('timestamp', `${startDate} 00:00:00`)
+                    .lte('timestamp', `${endDate} 23:59:59`);
+            }
+
+            const { data, count, error } = await query
+                .order('timestamp', { ascending: false })
+                .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);
+
+            if (error) throw error;
+            return { data, total: count };
+        } catch (err) {
+            console.error("History Model Error:", err.message);
+            throw err;
+        }
     }
-
-    if (coachNumber && coachNumber !== 'All') {
-        // Dono jagah check karega: logs table aur mapping table
-        query += " AND (l.coach_number = ? OR dm.tech_coach_no = ?)";
-        params.push(coachNumber, coachNumber);
-    }
-
-    if (startDate && endDate) {
-        query += " AND l.timestamp BETWEEN ? AND ?";
-        params.push(`${startDate} 00:00:00`, `${endDate} 23:59:59`);
-    }
-
-    // Sorting and Pagination
-    query += " ORDER BY l.timestamp DESC LIMIT ? OFFSET ?";
-    params.push(parseInt(limit), parseInt(offset));
-
-    try {
-        const [rows] = await pool.query(query, params);
-        
-        // Count query for pagination meta-data
-        const [countResult] = await pool.query("SELECT COUNT(*) as total FROM hot_axle_logs");
-        
-        return { data: rows, total: countResult[0].total };
-    } catch (err) {
-        console.error("History Model Error:", err.message);
-        throw err;
-    }
-}   
 
     async getLatestStatusForAllCoaches() {
-    const query = `
-        SELECT 
-            l.id, l.device_id, l.coach_number, l.coach_type, l.owning_rly, 
-            l.timestamp, l.alert_status, l.a11_temp, l.a12_temp, l.a21_temp, 
-            l.a22_temp, l.a31_temp, l.a32_temp, l.a41_temp, l.a42_temp, 
-            l.battery_percentage, l.signal_strength
-        FROM hot_axle_logs l
-        INNER JOIN (
-            SELECT MAX(id) as latest_id 
-            FROM hot_axle_logs 
-            GROUP BY device_id
-        ) latest_logs ON l.id = latest_logs.latest_id
-        ORDER BY l.timestamp DESC
-    `;
+        try {
+            const { data, error } = await supabaseAdmin
+                .from('hot_axle_logs')
+                .select('*')
+                .order('id', { ascending: false });
 
-    try {
-        const [rows] = await pool.query(query);
-        return rows;
-    } catch (err) {
-        console.error("Dashboard Status Error:", err.message);
-        throw err;
+            if (error) throw error;
+
+            const latestMap = new Map();
+            for (const row of data) {
+                if (!latestMap.has(row.device_id)) {
+                    latestMap.set(row.device_id, row);
+                }
+            }
+            return Array.from(latestMap.values());
+        } catch (err) {
+            console.error("Dashboard Status Error:", err.message);
+            throw err;
+        }
     }
-}
-
 }
 
 module.exports = new HotAxleModel();

@@ -1,4 +1,4 @@
-const { pool } = require("../config/db");
+const supabaseAdmin = require('../config/supabaseAdmin');
 const { toMySQLDatetime } = require("../middleware/datetime");
 const BaseModel = require("./base.model");
 
@@ -8,10 +8,11 @@ class Coach_makeModel extends BaseModel {
   }
 
   async getAllCoachMake(deviceId) {
-    const [rows] = await this.pool.query(
-      'SELECT * FROM coach_make',
-   
-    );
+    const { data: rows, error } = await supabaseAdmin
+      .from('coach_make')
+      .select('*')
+      .order('name');
+    if (error) throw error;
     return rows;
   }
 }

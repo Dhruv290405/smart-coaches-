@@ -1,39 +1,77 @@
-const { pool } = require("../config/db");
+const supabaseAdmin = require("../config/supabaseAdmin");
 
 class CoachConfigModel {
     async getDetailsByCoach(coachNo) {
-        // Get coach info, master modules, and actual fitted devices
-        const query = `
-          SELECT 
-            cm.coach_id,
-            cm.coach_unique_id AS coach_no,
-            cm.coach_display_id AS coach_type,
-            t.train_number AS rake_no,
-            'N/A' AS wsp_make,
-            dm.device_id,
-            dm.short_name,
-            dm.full_name,
-            dm.device_unique_id,
-            dm.is_active,
-            mm.module_id,
-            mm.module_unique_id,
-            mdm.module_device_mapping_id
-          FROM coach_master cm
-          LEFT JOIN train_master t ON cm.train_id = t.train_id
-          LEFT JOIN master_module mm ON mm.coach_id = cm.coach_id
-          LEFT JOIN module_device_mapping mdm ON mdm.module_id = mm.module_id
-          LEFT JOIN device_master dm ON mdm.device_id = dm.device_id
-          WHERE cm.coach_unique_id = ?
-        `;
-        const [rows] = await pool.query(query, [coachNo]);
+        const { data: coachRows, error: err1 } = await supabaseAdmin
+            .from('coach_master')
+            .select('*')
+            .eq('coach_unique_id', coachNo);
 
-        if (!rows || rows.length === 0) {
-            const fallbackQuery = `SELECT * FROM coach_configurations WHERE coach_no = ?`;
-            const [fallbackRows] = await pool.query(fallbackQuery, [coachNo]);
+        if (err1) throw err1;
+
+        if (!coachRows || coachRows.length === 0) {
+            const { data: fallbackRows, error: fbErr } = await supabaseAdmin
+                .from('coach_configurations')
+                .select('*')
+                .eq('coach_no', coachNo);
+            if (fbErr) throw fbErr;
             return fallbackRows[0] || null;
         }
 
-        const coachInfo = rows[0];
+        const coachInfo = coachRows[0];
+        const coachId = coachInfo.coach_id;
+
+        let trainNumber = null;
+        if (coachInfo.train_id) {
+            const { data: trainRows, error: err2 } = await supabaseAdmin
+                .from('train_master')
+                .select('train_number')
+                .eq('train_id', coachInfo.train_id);
+            if (err2) throw err2;
+            trainNumber = trainRows[0]?.train_number || null;
+        }
+
+        const { data: modules, error: err3 } = await supabaseAdmin
+            .from('master_module')
+            .select(`
+                module_id,
+                module_unique_id,
+                module_device_mapping!left(
+                    module_device_mapping_id,
+                    device_master!left(
+                        device_id,
+                        short_name,
+                        full_name,
+                        device_unique_id,
+                        is_active
+                    )
+                )
+            `)
+            .eq('coach_id', coachId);
+
+        if (err3) throw err3;
+
+        const rows = [];
+        for (const mod of modules || []) {
+            for (const mapping of mod.module_device_mapping || []) {
+                const dev = mapping?.device_master;
+                rows.push({
+                    coach_id: coachInfo.coach_id,
+                    coach_unique_id: coachInfo.coach_unique_id,
+                    coach_display_id: coachInfo.coach_display_id,
+                    train_number: trainNumber,
+                    device_id: dev?.device_id || null,
+                    short_name: dev?.short_name || null,
+                    full_name: dev?.full_name || null,
+                    device_unique_id: dev?.device_unique_id || null,
+                    is_active: dev?.is_active || null,
+                    module_id: mod.module_id,
+                    module_unique_id: mod.module_unique_id,
+                    module_device_mapping_id: mapping?.module_device_mapping_id || null
+                });
+            }
+        }
+
         const fittedDevices = [];
         const deviceSet = new Set();
 
@@ -46,10 +84,10 @@ class CoachConfigModel {
         }
 
         return {
-            coach_no: coachInfo.coach_no,
-            coach_type: coachInfo.coach_type || '',
-            rake_no: coachInfo.rake_no || '',
-            wsp_make: coachInfo.wsp_make || 'N/A',
+            coach_no: coachInfo.coach_unique_id,
+            coach_type: coachInfo.coach_display_id || '',
+            rake_no: trainNumber || '',
+            wsp_make: 'N/A',
             fitted_devices: fittedDevices,
             devices: rows.filter(r => r.device_id).map(r => ({
                 device_id: r.device_id,

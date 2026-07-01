@@ -1,168 +1,230 @@
 const BaseModel = require('./base.model');
+const supabaseAdmin = require('../config/supabaseAdmin');
 
 class DeviceModel extends BaseModel {
   constructor() {
     super('device_master');
   }
 
-  // Get all devices with optional filters
   async getAll(filters = {}, page = 1, limit = 10) {
     const offset = (page - 1) * limit;
-    let query = `
-      SELECT d.*, 
-             mm.name as master_module_name,
-             mm.serial_number as master_module_serial,
-             c.coach_number,
-             t.number as train_number,
-             t.name as train_name,
-             dt.name as device_type_name,
-             dt.model as device_model
-      FROM devices d
-      LEFT JOIN master_modules mm ON d.master_module_id = mm.id
-      LEFT JOIN coaches c ON mm.coach_id = c.id
-      LEFT JOIN trains t ON c.train_id = t.id
-      LEFT JOIN device_types dt ON d.device_type_id = dt.id
-      WHERE 1=1
-    `;
+    let query = supabaseAdmin
+      .from('devices')
+      .select('*', { count: 'exact' });
 
-    const params = [];
-
-    // Add filters
     if (filters.master_module_id) {
-      query += ' AND d.master_module_id = ?';
-      params.push(filters.master_module_id);
+      query = query.eq('master_module_id', filters.master_module_id);
     }
 
     if (filters.device_type_id) {
-      query += ' AND d.device_type_id = ?';
-      params.push(filters.device_type_id);
+      query = query.eq('device_type_id', filters.device_type_id);
     }
 
     if (filters.status) {
-      query += ' AND d.status = ?';
-      params.push(filters.status);
+      query = query.eq('status', filters.status);
     }
 
     if (filters.search) {
-      query += ' AND (d.name LIKE ? OR d.serial_number LIKE ? OR d.mac_address LIKE ?)';
-      const searchTerm = `%${filters.search}%`;
-      params.push(searchTerm, searchTerm, searchTerm);
+      const term = `%${filters.search}%`;
+      query = query.or(`name.ilike.${term},serial_number.ilike.${term},mac_address.ilike.${term}`);
     }
 
-    // Add pagination
-    query += ' ORDER BY mm.name, d.name LIMIT ? OFFSET ?';
-    params.push(limit, offset);
+    query = query.order('name').range(offset, offset + limit - 1);
 
-    const [rows] = await this.pool.query(query, params);
-    return rows;
+    const { data: devices, error } = await query;
+    if (error) throw error;
+    if (!devices || devices.length === 0) return [];
+
+    const mmIds = [...new Set(devices.filter(d => d.master_module_id).map(d => d.master_module_id))];
+    let mmMap = {};
+    if (mmIds.length > 0) {
+      const { data: mmData } = await supabaseAdmin
+        .from('master_modules')
+        .select(`
+          *,
+          coach:coach_id(
+            coach_number,
+            train:train_id(number, name)
+          )
+        `)
+        .in('id', mmIds);
+      for (const mm of mmData || []) {
+        mmMap[mm.id] = mm;
+      }
+    }
+
+    const dtIds = [...new Set(devices.filter(d => d.device_type_id).map(d => d.device_type_id))];
+    let dtMap = {};
+    if (dtIds.length > 0) {
+      const { data: dtData } = await supabaseAdmin
+        .from('device_types')
+        .select('*')
+        .in('id', dtIds);
+      for (const dt of dtData || []) {
+        dtMap[dt.id] = dt;
+      }
+    }
+
+    return devices.map(d => {
+      const mm = d.master_module_id ? mmMap[d.master_module_id] : null;
+      const coach = mm ? mm.coach : null;
+      const train = coach ? coach.train : null;
+      const dt = d.device_type_id ? dtMap[d.device_type_id] : null;
+      return {
+        ...d,
+        master_module_name: mm ? mm.name : null,
+        master_module_serial: mm ? mm.serial_number : null,
+        master_module: undefined,
+        coach_number: coach ? coach.coach_number : null,
+        train_number: train ? train.number : null,
+        train_name: train ? train.name : null,
+        device_type_name: dt ? dt.name : null,
+        device_model: dt ? dt.model : null
+      };
+    });
   }
 
-  // Get device by ID with details
   async getById(id) {
-    const [rows] = await this.pool.query(
-      `SELECT * FROM device_master WHERE device_id = ?`,
-      [id]
-    );
-    return rows[0] || null;
+    const { data, error } = await supabaseAdmin
+      .from('device_master')
+      .select('*')
+      .eq('device_id', id)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
   }
 
   async getByMasterModuleId(master_module_id) {
-    const [rows] = await this.pool.query(
-      `
-      SELECT 
-        d.*,  
-        mm.seriel_number AS master_module_serial,  
-        c.coach_unique_id,  
-        t.train_number,  
-        t.train_name,  
-        dt.full_name AS device_type_name,  
-        dt.short_name AS device_model,  
-        u1.first_name AS created_by,  
-        u2.first_name AS updated_by
-  
-      FROM device_master d  
-        LEFT JOIN master_module mm ON d.master_module_id = mm.module_id  
-        LEFT JOIN coach_master c ON mm.coach_id = c.coach_id  
-        LEFT JOIN train_master t ON c.train_id = t.train_id  
-        LEFT JOIN device_master dt ON d.device_id = dt.device_id  
-        LEFT JOIN user_master u1 ON d.created_by = u1.user_id  
-        LEFT JOIN user_master u2 ON d.updated_by = u2.user_id  
-  
-      WHERE d.master_module_id = ?
-      `,
-      [master_module_id]
-    );
-  
-    return rows; // returns all devices under that master_module_id
-  }
-  
+    const { data: devices, error } = await supabaseAdmin
+      .from('device_master')
+      .select('*')
+      .eq('master_module_id', master_module_id);
+    if (error) throw error;
+    if (!devices || devices.length === 0) return [];
 
-  // Check if serial number already exists
-  async serialNumberExists(serialNumber, excludeId = null) {
-    let query = 'SELECT id FROM devices WHERE serial_number = ?';
-    const params = [serialNumber];
-
-    if (excludeId) {
-      query += ' AND id != ?';
-      params.push(excludeId);
+    const mmIds = [...new Set(devices.filter(d => d.master_module_id).map(d => d.master_module_id))];
+    let mmMap = {};
+    if (mmIds.length > 0) {
+      const { data: mmData } = await supabaseAdmin
+        .from('master_module')
+        .select(`
+          *,
+          coach:coach_id(
+            coach_unique_id,
+            train:train_id(train_number, train_name)
+          )
+        `)
+        .in('module_id', mmIds);
+      for (const mm of mmData || []) {
+        mmMap[mm.module_id] = mm;
+      }
     }
 
-    const [rows] = await this.pool.query(query, params);
-    return rows.length > 0;
+    const userIds = [...new Set(devices.filter(d => d.created_by || d.updated_by).flatMap(d => [d.created_by, d.updated_by].filter(Boolean)))];
+    let userMap = {};
+    if (userIds.length > 0) {
+      const { data: userData } = await supabaseAdmin
+        .from('user_master')
+        .select('user_id, first_name')
+        .in('user_id', userIds);
+      for (const u of userData || []) {
+        userMap[u.user_id] = u;
+      }
+    }
+
+    return devices.map(d => {
+      const mm = d.master_module_id ? mmMap[d.master_module_id] : null;
+      const coach = mm ? mm.coach : null;
+      const train = coach ? coach.train : null;
+      return {
+        ...d,
+        master_module_serial: mm ? mm.seriel_number : null,
+        coach_unique_id: coach ? coach.coach_unique_id : null,
+        train_number: train ? train.train_number : null,
+        train_name: train ? train.train_name : null,
+        full_name: d.full_name || null,
+        short_name: d.short_name || null,
+        created_by: d.created_by || null,
+        created_by_name: d.created_by ? (userMap[d.created_by] ? userMap[d.created_by].first_name : null) : null,
+        updated_by: d.updated_by || null,
+        updated_by_name: d.updated_by ? (userMap[d.updated_by] ? userMap[d.updated_by].first_name : null) : null
+      };
+    });
   }
 
-  // Check if MAC address already exists
+  async serialNumberExists(serialNumber, excludeId = null) {
+    let query = supabaseAdmin.from('devices').select('id').eq('serial_number', serialNumber);
+    if (excludeId) {
+      query = query.neq('id', excludeId);
+    }
+    const { data, error } = await query;
+    if (error) throw error;
+    return (data || []).length > 0;
+  }
+
   async macAddressExists(macAddress, excludeId = null) {
     if (!macAddress) return false;
 
-    let query = 'SELECT id FROM devices WHERE mac_address = ?';
-    const params = [macAddress];
-
+    let query = supabaseAdmin.from('devices').select('id').eq('mac_address', macAddress);
     if (excludeId) {
-      query += ' AND id != ?';
-      params.push(excludeId);
+      query = query.neq('id', excludeId);
+    }
+    const { data, error } = await query;
+    if (error) throw error;
+    return (data || []).length > 0;
+  }
+
+  async getSensors(deviceId) {
+    const { data, error } = await supabaseAdmin
+      .from('sensors')
+      .select('*')
+      .eq('device_id', deviceId)
+      .order('name');
+    if (error) throw error;
+    return data || [];
+  }
+
+  async getLatestReadings(deviceId, limit = 10) {
+    const { data: sensors, error: sensError } = await supabaseAdmin
+      .from('sensors')
+      .select('id, name')
+      .eq('device_id', deviceId)
+      .order('name')
+      .limit(limit);
+    if (sensError) throw sensError;
+    if (!sensors || sensors.length === 0) return [];
+
+    const sensorIds = sensors.map(s => s.id);
+
+    const { data: readings, error: readError } = await supabaseAdmin
+      .from('sensor_readings')
+      .select('*')
+      .in('sensor_id', sensorIds)
+      .eq('device_id', deviceId)
+      .order('reading_time', { ascending: false });
+    if (readError) throw readError;
+
+    const latestBySensor = {};
+    for (const r of readings || []) {
+      if (!latestBySensor[r.sensor_id]) {
+        latestBySensor[r.sensor_id] = r;
+      }
     }
 
-    const [rows] = await this.pool.query(query, params);
-    return rows.length > 0;
+    return sensors.map(s => ({
+      sensor_id: s.id,
+      sensor_name: s.name,
+      ...latestBySensor[s.id] || {}
+    }));
   }
 
-  // Get all sensors for a device
-  async getSensors(deviceId) {
-    const [rows] = await this.pool.query(
-      'SELECT * FROM sensors WHERE device_id = ? ORDER BY name',
-      [deviceId]
-    );
-    return rows;
-  }
-
-  // Get latest readings for a device's sensors
-  async getLatestReadings(deviceId, limit = 10) {
-    const [rows] = await this.pool.query(
-      `SELECT s.id as sensor_id, s.name as sensor_name, sr.* 
-       FROM sensors s
-       LEFT JOIN (
-         SELECT sensor_id, MAX(reading_time) as latest_reading
-         FROM sensor_readings
-         WHERE device_id = ?
-         GROUP BY sensor_id
-       ) latest ON s.id = latest.sensor_id
-       LEFT JOIN sensor_readings sr ON latest.sensor_id = sr.sensor_id 
-         AND latest.latest_reading = sr.reading_time
-         AND sr.device_id = ?
-       WHERE s.device_id = ?
-       ORDER BY s.name
-       LIMIT ?`,
-      [deviceId, deviceId, deviceId, limit]
-    );
-    return rows;
-  }
-
-  // delete a device
   async delete(id) {
-    // Delete the device
-    await this.pool.query('DELETE FROM device_master WHERE device_id = ?', [id]);
-    return { status: true, message: 'Device deleted successfully'};
+    const { error } = await supabaseAdmin
+      .from('device_master')
+      .delete()
+      .eq('device_id', id);
+    if (error) throw error;
+    return { status: true, message: 'Device deleted successfully' };
   }
 }
 

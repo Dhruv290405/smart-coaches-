@@ -1,101 +1,96 @@
-const { pool } = require("../config/db");
+const supabaseAdmin = require("../config/supabaseAdmin");
 
 class PressureModel {
     async saveDynamicLog(data) {
-        const keysArray = Object.keys(data);
-        const valuesArray = Object.values(data);
-
-        const columns = keysArray.join(", ");
-        const placeholders = keysArray.map(() => "?").join(", ");
-
-        const query = `INSERT INTO pressure_logs (${columns}) VALUES (${placeholders})`;
-
         try {
-            const [result] = await pool.query(query, valuesArray);
-            return result.insertId;
+            const { data: inserted, error } = await supabaseAdmin
+                .from('pressure_logs')
+                .insert([data])
+                .select();
+
+            if (error) throw error;
+            return inserted[0].id;
         } catch (err) {
             console.error("Pressure Model Save Error:", err.message);
             throw err;
         }
     }
 
-    // 2. Function to fetch raw data (Latest readings for history/logs)
     async getLatestData(deviceId = null, limit = 30) {
         try {
-            let query = `SELECT * FROM pressure_logs`;
-            let params = [];
+            let query = supabaseAdmin
+                .from('pressure_logs')
+                .select('*');
 
             if (deviceId) {
-                query += ` WHERE device_id = ?`;
-                params.push(deviceId);
+                query = query.eq('device_id', deviceId);
             }
 
-            query += ` ORDER BY timestamp DESC LIMIT ?`;
-            params.push(limit);
+            const { data, error } = await query
+                .order('timestamp', { ascending: false })
+                .limit(limit);
 
-            const [rows] = await pool.query(query, params);
-            return rows;
+            if (error) throw error;
+            return data;
         } catch (err) {
             console.error("Pressure Model Fetch Error:", err.message);
             throw err;
         }
     }
 
-    // 3. Dashboard Status - OPTIMIZED FOR ALL DEVICES (NO BLOCKLIST)
     async getDashboardStatus() {
-        const query = `
-            SELECT 
-                p.*
-            FROM pressure_logs p
-            INNER JOIN (
-                SELECT coach_number, MAX(id) as latest_id 
-                FROM pressure_logs 
-                WHERE coach_number IS NOT NULL AND coach_number != ''
-                GROUP BY coach_number
-            ) latest_logs ON p.id = latest_logs.latest_id
-            ORDER BY p.timestamp DESC
-        `;
-
         try {
-            const [rows] = await pool.query(query);
-            return rows;
+            const { data, error } = await supabaseAdmin
+                .from('pressure_logs')
+                .select('*')
+                .not('coach_number', 'is', null)
+                .neq('coach_number', '')
+                .order('id', { ascending: false });
+
+            if (error) throw error;
+
+            const latestMap = new Map();
+            for (const row of data) {
+                if (!latestMap.has(row.coach_number)) {
+                    latestMap.set(row.coach_number, row);
+                }
+            }
+            return Array.from(latestMap.values());
         } catch (err) {
             console.error("Pressure Dashboard Model Error:", err.message);
             throw err;
         }
     }
 
-    // 4. Filtered History - FIXED ALL CRASH BUGS & DYNAMIC COUNT
     async getFilteredHistory(filters) {
         const { coachNumber, startDate, endDate, limit = 10, offset = 0 } = filters;
-        
-        let conditions = ` WHERE 1=1`;
-        let params = [];
 
-        if (coachNumber) {
-            conditions += ` AND coach_number = ?`;
-            params.push(coachNumber);
-        }
-
-        if (startDate && endDate) {
-            conditions += ` AND timestamp BETWEEN ? AND ?`;
-            params.push(`${startDate} 00:00:00`, `${endDate} 23:59:59`);
-        } else if (startDate) {
-            conditions += ` AND timestamp >= ?`;
-            params.push(`${startDate} 00:00:00`);
-        }
-
-        const query = `SELECT * FROM pressure_logs ${conditions} ORDER BY timestamp DESC LIMIT ${parseInt(limit)} OFFSET ${parseInt(offset)}`;
-        
-        const countQuery = `SELECT COUNT(*) as total FROM pressure_logs ${conditions}`;
-        
         try {
-            const [rows] = await pool.query(query, params);
-            const [countResult] = await pool.query(countQuery, params); // Same params pass kiye taaki query match kare
-            
+            let query = supabaseAdmin
+                .from('pressure_logs')
+                .select('*', { count: 'exact' });
+
+            if (coachNumber) {
+                query = query.eq('coach_number', coachNumber);
+            }
+
+            if (startDate && endDate) {
+                query = query
+                    .gte('timestamp', `${startDate} 00:00:00`)
+                    .lte('timestamp', `${endDate} 23:59:59`);
+            } else if (startDate) {
+                query = query.gte('timestamp', `${startDate} 00:00:00`);
+            }
+
+            const { data, count, error } = await query
+                .order('timestamp', { ascending: false })
+                .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);
+
+            if (error) throw error;
+
             return {
-                data: rows,
-                total: countResult[0]?.total || 0
+                data,
+                total: count || 0
             };
         } catch (err) {
             console.error("Pressure History Filter Error:", err.message);
