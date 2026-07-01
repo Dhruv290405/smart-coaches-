@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import 'package:smart_coach_new/core/utils/color_constants.dart';
-import 'package:smart_coach_new/features/reports_and_alerts/acp_screen/data/models/acp_model.dart';
+import 'package:smart_coach_new/features/reports_and_alerts/fsds_screen/data/models/fsds_model.dart';
 import 'package:smart_coach_new/features/reports_and_alerts/fsds_screen/fsds_history_screen.dart';
 
 
 class FireDetectedModal extends StatelessWidget {
-  final AcpCoachModel coach;
+  final FsdsBypassModel sensor;
 
-  const FireDetectedModal({super.key, required this.coach});
+  const FireDetectedModal({super.key, required this.sensor});
 
   @override
   Widget build(BuildContext context) {
@@ -79,7 +80,7 @@ class FireDetectedModal extends StatelessWidget {
                 const SizedBox(width: 10),
 
                 Text(
-                  coach.coachNumber,
+                  sensor.assetName.isNotEmpty ? sensor.assetName : sensor.deviceId,
                   style: GoogleFonts.poppins(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
@@ -109,7 +110,7 @@ class FireDetectedModal extends StatelessWidget {
                       ),
                       const SizedBox(width: 5),
                       Text(
-                        coach.status,
+                        sensor.statusText,
                         style: GoogleFonts.poppins(
                           fontSize: 11,
                           fontWeight: FontWeight.w500,
@@ -128,11 +129,12 @@ class FireDetectedModal extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Column(
               children: [
-                _buildDividerRow('Sensor ID', coach.sensorId),
-                _buildDividerRow('Last pull', coach.lastPull),
-                _buildDividerRow('Reset', coach.reset),
-                _buildDividerRow('Train Speed', coach.trainSpeed),
-                _buildDividerRow('Location', coach.location, isLast: true),
+                _buildDividerRow('Device ID', sensor.deviceId),
+                _buildDividerRow('Asset Name', sensor.assetName),
+                _buildDividerRow('Fire Status', sensor.fireStatus.toString()),
+                _buildDividerRow('Smoke Level', sensor.smokeLevel.toString()),
+                _buildDividerRow('Location', sensor.locName, isLast: true),
+                _buildDividerRow('Time', _fmtTimestamp(sensor.timestamp), isLast: true),
               ],
             ),
           ),
@@ -173,7 +175,7 @@ class FireDetectedModal extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => FsdsHistoryScreen(coach: coach),
+                          builder: (_) => FsdsHistoryScreen(sensor: sensor),
                         ),
                       );
                     },
@@ -235,5 +237,14 @@ class FireDetectedModal extends StatelessWidget {
         if (!isLast) const Divider(height: 1, color: ColorConstants.divider),
       ],
     );
+  }
+
+  String _fmtTimestamp(String ts) {
+    try {
+      final date = DateTime.parse(ts.contains('T') ? ts : ts.replaceFirst(' ', 'T'));
+      return DateFormat('dd/MM/yyyy HH:mm:ss').format(date);
+    } catch (_) {
+      return ts;
+    }
   }
 }

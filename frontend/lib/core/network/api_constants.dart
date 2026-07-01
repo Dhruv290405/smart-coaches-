@@ -26,12 +26,12 @@ class ApiConstants {
   static const String coachMakesApiEndpoint = '/coach-makes';
   static const String coachTypesApiEndpoint = '/coach-types';
   static const String sensorMakesApiEndpoint = '/sensors-make';
-  static const String odourReceiveDataApiEndpoint = '/odour/logs/receive-data';
+  static const String odourReceiveDataApiEndpoint = '/odour-logs/receive-data';
   static const String odourCoachesApiEndpoint = '/odour-logs/coaches';
   static const String fsdsReceiveDataApiEndpoint = '/fsds/receive-data';
   static const String fsdsGetDataApiEndpoint = '/fsds/get-data';
   static const String coachConfigApiEndpoint = '/coach-config';
-  static const String hotAxleReceiveDataApiEndpoint = '/hotaxle/receive-data';
+  static const String hotAxleReceiveDataApiEndpoint = '/hot-axle/receive-data';
   static const String hotAxleGetDataApiEndpoint = '/hot-axle/get-data';
   static const String hotAxleDashboardApiEndpoint = '/hot-axle/dashboard-status';
   static const String hotAxleHistoryApiEndpoint = '/hot-axle/history';

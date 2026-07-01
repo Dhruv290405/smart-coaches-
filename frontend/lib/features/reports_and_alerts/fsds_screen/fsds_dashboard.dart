@@ -13,10 +13,11 @@ import 'package:smart_coach_new/core/widgets/action_button.dart';
 import 'package:smart_coach_new/core/widgets/filter_dropdown.dart';
 import 'package:smart_coach_new/core/widgets/status_chip.dart';
 import 'package:smart_coach_new/core/widgets/view_type_selector.dart';
-import 'package:smart_coach_new/features/reports_and_alerts/acp_screen/data/repository/acp_repository.dart';
 import '../../../../core/di/inject.dart';
+import '../../../../core/network/api_client.dart';
 import 'presentation/widgets/fsds_report_generator.dart';
 import 'data/models/fsds_model.dart';
+import 'data/repository/fsds_repository.dart' show FsdsRepository;
 
 class FsdsDashboard extends StatefulWidget {
   final String? title;
@@ -28,8 +29,7 @@ class FsdsDashboard extends StatefulWidget {
 
 class _FsdsDashboardState extends State<FsdsDashboard> {
   String selectedTrainNumber = 'All Trains';
-  String selectedCoachType = 'All Types';
-  String selectedCoachNumber = 'All Coach Numbers';
+  String selectedCoach = 'All Coaches';
   String selectedStatus = 'All';
   String selectedViewType = 'Coaches';
   String lastUpdated = 'Never';
@@ -38,8 +38,7 @@ class _FsdsDashboardState extends State<FsdsDashboard> {
   Timer? _refreshTimer;
 
   List<String> trainNumbers = ['All Trains'];
-  List<String> coachTypes = ['All Types'];
-  List<String> coachNumbers = ['All Coach Numbers'];
+  List<String> coachNumbers = ['All Coaches'];
 
   List<FsdsBypassModel> _allAssets = [];
   List<FsdsBypassModel> _filteredAssets = [];
@@ -68,8 +67,7 @@ class _FsdsDashboardState extends State<FsdsDashboard> {
   void _clearFilters() {
     setState(() {
       selectedTrainNumber = 'All Trains';
-      selectedCoachType = 'All Types';
-      selectedCoachNumber = 'All Coach Numbers';
+      selectedCoach = 'All Coaches';
       selectedStatus = 'All';
       showRecentOnly = false;
     });
@@ -80,7 +78,7 @@ class _FsdsDashboardState extends State<FsdsDashboard> {
     setState(() {
       _filteredAssets = _allAssets.where((asset) {
         final matchesTrain = selectedTrainNumber == 'All Trains' || asset.trainNo == selectedTrainNumber;
-        final matchesCoach = selectedCoachNumber == 'All Coach Numbers' || asset.coachNo == selectedCoachNumber;
+        final matchesCoach = selectedCoach == 'All Coaches' || asset.assetName == selectedCoach || asset.deviceId == selectedCoach;
         final matchesStatus = selectedStatus == 'All' ||
                              (selectedStatus == 'ON' && asset.isBypassed) ||
                              (selectedStatus == 'OFF' && !asset.isBypassed);
@@ -90,50 +88,13 @@ class _FsdsDashboardState extends State<FsdsDashboard> {
     });
   }
 
-  Future<void> _loadAllTrains() async {
-    try {
-      final response = await getIt<AcpRepository>().getAcpFilters();
-      if (response.success == true && mounted) {
-        setState(() {
-          final data = response.data ?? [];
-          trainNumbers = ['All Trains', ...data.map((e) => e.trainNo).where((e) => e != null).cast<String>().toSet()];
-        });
-      }
-    } catch (e) {
-      log('Error loading trains: $e');
-    }
-  }
-
-  Future<void> _loadCoachTypes(String trainNo) async {
-    try {
-      final response = await getIt<AcpRepository>().getAcpFilters(trainNo: trainNo);
-      if (response.success == true && mounted) {
-        setState(() {
-          final data = response.data ?? [];
-          coachTypes = ['All Types', ...data.map((e) => e.commCoachNo).where((e) => e != null).cast<String>().toSet()];
-          selectedCoachType = 'All Types';
-          coachNumbers = ['All Coach Numbers'];
-          selectedCoachNumber = 'All Coach Numbers';
-        });
-      }
-    } catch (e) {
-      log('Error loading coach types: $e');
-    }
-  }
-
-  Future<void> _loadCoachNumbers(String trainNo, String coachType) async {
-    try {
-      final response = await getIt<AcpRepository>().getAcpFilters(trainNo: trainNo, coachType: coachType);
-      if (response.success == true && mounted) {
-        setState(() {
-          final data = response.data ?? [];
-          coachNumbers = ['All Coach Numbers', ...data.map((e) => e.techCoachNo).where((e) => e != null).cast<String>().toSet()];
-          selectedCoachNumber = 'All Coach Numbers';
-        });
-      }
-    } catch (e) {
-      log('Error loading coach numbers: $e');
-    }
+  void _populateFilters() {
+    final trains = _allAssets.map((a) => a.trainNo).where((t) => t.isNotEmpty).toSet().toList()..sort();
+    final coaches = _allAssets.map((a) => a.assetName.isNotEmpty ? a.assetName : a.deviceId).where((c) => c.isNotEmpty).toSet().toList()..sort();
+    setState(() {
+      trainNumbers = ['All Trains', ...trains];
+      coachNumbers = ['All Coaches', ...coaches];
+    });
   }
 
   Future<void> _refreshData({bool isBackgroundRefresh = false}) async {
@@ -141,35 +102,13 @@ class _FsdsDashboardState extends State<FsdsDashboard> {
       if (mounted) setState(() => isRefreshing = true);
     }
 
-    if (trainNumbers.length <= 1 && selectedTrainNumber == 'All Trains') {
-      _loadAllTrains();
-    }
-
     try {
-      List<FsdsBypassModel> assets = [];
-
-      final logs = await getIt<AcpRepository>().getAcpSummary();
-
-      for (var logEntry in logs) {
-        final isBypassed = logEntry.acpStatus == '1';
-        final timestamp = logEntry.lastHeartbeat ?? DateTime.now().toIso8601String();
-        assets.add(FsdsBypassModel(
-          assetId: logEntry.logId?.toString() ?? '',
-          assetName: logEntry.commCoachNo ?? logEntry.techCoachNo ?? 'Unknown',
-          timestamp: timestamp,
-          isBypassed: isBypassed,
-          sensorId: logEntry.techCoachNo ?? '',
-          locName: logEntry.trainLocation ?? '',
-          locId: '',
-          trainNo: logEntry.trainNo ?? '',
-          coachNo: logEntry.commCoachNo ?? logEntry.techCoachNo ?? '',
-          deviceId: logEntry.deviceId ?? '',
-        ));
-      }
+      final assets = await FsdsRepository(getIt<ApiClient>()).getFsdsData(limit: 500);
 
       if (mounted) {
         setState(() {
           _allAssets = assets;
+          _populateFilters();
           _applyFilters();
           lastUpdated = DateFormat('HH:mm:ss').format(DateTime.now());
           if (!isBackgroundRefresh) isRefreshing = false;
@@ -287,49 +226,19 @@ class _FsdsDashboardState extends State<FsdsDashboard> {
                 items: trainNumbers,
                 onChanged: (v) {
                   setState(() => selectedTrainNumber = v!);
-                  if (v! != 'All Trains') {
-                    _loadCoachTypes(v);
-                  } else {
-                    setState(() {
-                      coachTypes = ['All Types'];
-                      selectedCoachType = 'All Types';
-                      coachNumbers = ['All Coach Numbers'];
-                      selectedCoachNumber = 'All Coach Numbers';
-                    });
-                  }
-                  _refreshData();
+                  _applyFilters();
                 },
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: FilterDropdown(
-                label: 'Coach Type',
-                value: selectedCoachType,
-                items: coachTypes,
-                onChanged: (v) {
-                  setState(() => selectedCoachType = v!);
-                  if (v! != 'All Types' && selectedTrainNumber != 'All Trains') {
-                    _loadCoachNumbers(selectedTrainNumber, v);
-                  } else {
-                    setState(() {
-                      coachNumbers = ['All Coach Numbers'];
-                      selectedCoachNumber = 'All Coach Numbers';
-                    });
-                  }
-                  _refreshData();
-                },
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: FilterDropdown(
-                label: 'Coach Number',
-                value: selectedCoachNumber,
+                label: 'Coach / Device',
+                value: selectedCoach,
                 items: coachNumbers,
                 onChanged: (v) {
-                  setState(() => selectedCoachNumber = v!);
-                  _refreshData();
+                  setState(() => selectedCoach = v!);
+                  _applyFilters();
                 },
               ),
             ),
@@ -436,7 +345,7 @@ class _FsdsDashboardState extends State<FsdsDashboard> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(color: ColorConstants.primary, borderRadius: BorderRadius.circular(12)),
-              child: Text('${_filteredAssets.length} Assets', style: AppTextStyles.badge),
+              child: Text('${_filteredAssets.length} Sensors', style: AppTextStyles.badge),
             ),
           ],
         ),
@@ -474,14 +383,14 @@ class _FsdsDashboardState extends State<FsdsDashboard> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(asset.coachNo.isNotEmpty ? asset.coachNo : asset.assetName, style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 14)),
+                Text(asset.assetName.isNotEmpty ? asset.assetName : asset.deviceId, style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 14)),
                 const SizedBox(height: 4),
-                if (asset.trainNo.isNotEmpty)
-                  Text('Train: ${asset.trainNo}', style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey)),
                 if (asset.locName.isNotEmpty)
                   Text('Location: ${asset.locName}', style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey)),
                 if (asset.deviceId.isNotEmpty)
                   Text('Device: ${asset.deviceId}', style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey)),
+                if (asset.timestamp.isNotEmpty)
+                  Text('Time: ${_fmtTimestamp(asset.timestamp)}', style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey)),
               ],
             ),
           ),
@@ -519,37 +428,100 @@ class _FsdsDashboardState extends State<FsdsDashboard> {
       children: [
         Text('Bypass Status Overview', style: AppTextStyles.header2),
         const SizedBox(height: 16),
-        if (true) _buildPieChart(),
+        _buildBarChart(),
+        const SizedBox(height: 16),
+        _buildSummaryTable(),
       ],
     );
   }
 
-  Widget _buildPieChart() {
-    final bypassedCount = _filteredAssets.where((a) => a.isBypassed).length;
-    final normalCount = _filteredAssets.where((a) => !a.isBypassed).length;
+  Widget _buildBarChart() {
+    final bypassed = _filteredAssets.where((a) => a.isBypassed).length;
+    final normal = _filteredAssets.where((a) => !a.isBypassed).length;
     final total = _filteredAssets.length;
+    final bypassPct = total > 0 ? bypassed / total : 0.0;
+    final normalPct = total > 0 ? normal / total : 0.0;
 
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _legend(const Color(0xFFD32F2F), 'Bypassed ($bypassedCount)'),
-            const SizedBox(width: 20),
-            _legend(const Color(0xFF2E7D32), 'Normal ($normalCount)'),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(12)),
-          child: Column(children: [
-            _statRow('Total Assets', '$total'),
-            _statRow('Bypassed', '$bypassedCount', const Color(0xFFD32F2F)),
-            _statRow('Normal', '$normalCount', const Color(0xFF2E7D32)),
-          ]),
-        ),
-      ],
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(12)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Total Sensors: $total', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: SizedBox(
+              height: 28,
+              child: Row(
+                children: [
+                  if (bypassed > 0)
+                    Expanded(
+                      flex: (bypassed * 100).round(),
+                      child: Container(
+                        alignment: Alignment.center,
+                        color: const Color(0xFFD32F2F),
+                        child: bypassPct > 0.08 ? Text('Bypassed ${(bypassPct * 100).toStringAsFixed(0)}%', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)) : null,
+                      ),
+                    ),
+                  if (normal > 0)
+                    Expanded(
+                      flex: (normal * 100).round(),
+                      child: Container(
+                        alignment: Alignment.center,
+                        color: const Color(0xFF2E7D32),
+                        child: normalPct > 0.08 ? Text('Normal ${(normalPct * 100).toStringAsFixed(0)}%', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)) : null,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _legend(const Color(0xFFD32F2F), 'Bypassed ($bypassed)'),
+              const SizedBox(width: 20),
+              _legend(const Color(0xFF2E7D32), 'Normal ($normal)'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryTable() {
+    final bypassed = _filteredAssets.where((a) => a.isBypassed).toList();
+    final normal = _filteredAssets.where((a) => !a.isBypassed).toList();
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(12)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Bypassed Sensors', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFFD32F2F))),
+          const SizedBox(height: 8),
+          if (bypassed.isEmpty)
+            Text('None', style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey))
+          else
+            ...bypassed.map((a) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: Text('${a.deviceId} - ${a.locName} [${_fmtTimestamp(a.timestamp)}]', style: GoogleFonts.poppins(fontSize: 11)),
+            )),
+          const SizedBox(height: 12),
+          Text('Normal Sensors', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFF2E7D32))),
+          const SizedBox(height: 8),
+          if (normal.isEmpty)
+            Text('None', style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey))
+          else
+            ...normal.map((a) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: Text('${a.deviceId} - ${a.locName}', style: GoogleFonts.poppins(fontSize: 11)),
+            )),
+        ],
+      ),
     );
   }
 
@@ -558,20 +530,6 @@ class _FsdsDashboardState extends State<FsdsDashboard> {
     const SizedBox(width: 6),
     Text(label, style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w500)),
   ]);
-
-  Widget _statRow(String l, String v, [Color? c]) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 4),
-    child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-      Row(children: [
-        if (c != null) ...{
-          Container(width: 10, height: 10, decoration: BoxDecoration(color: c, shape: BoxShape.circle)),
-          const SizedBox(width: 6),
-        },
-        Text(l, style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey)),
-      ]),
-      Text(v, style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600)),
-    ]),
-  );
 
   Widget _buildAlertsView() {
     final alerts = _filteredAssets.where((a) => a.isBypassed).toList();
@@ -598,11 +556,7 @@ class _FsdsDashboardState extends State<FsdsDashboard> {
         ]),
         const SizedBox(height: 16),
         ...alerts.map((alert) {
-          String timeStr = 'Unknown';
-          try {
-            final date = DateTime.parse(alert.timestamp);
-            timeStr = DateFormat('MMM dd, HH:mm:ss').format(date);
-          } catch (_) {}
+          final timeStr = _fmtTimestamp(alert.timestamp);
           return Container(
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.all(14),
@@ -619,7 +573,7 @@ class _FsdsDashboardState extends State<FsdsDashboard> {
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text('FSDS BYPASS ACTIVE', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w700, color: const Color(0xFFD32F2F))),
                   const SizedBox(height: 4),
-                  Text('${alert.coachNo}  |  $timeStr', style: GoogleFonts.poppins(fontSize: 11, color: const Color(0xFFE53935))),
+                  Text('${alert.assetName}  |  $timeStr', style: GoogleFonts.poppins(fontSize: 11, color: const Color(0xFFE53935))),
                   if (alert.locName.isNotEmpty)
                     Text('Location: ${alert.locName}', style: GoogleFonts.poppins(fontSize: 10, color: ColorConstants.textSecondary)),
                   if (alert.deviceId.isNotEmpty)
@@ -631,5 +585,14 @@ class _FsdsDashboardState extends State<FsdsDashboard> {
         }),
       ],
     );
+  }
+
+  String _fmtTimestamp(String ts) {
+    try {
+      final date = DateTime.parse(ts.contains('T') ? ts : ts.replaceFirst(' ', 'T'));
+      return DateFormat('MMM dd, HH:mm:ss').format(date);
+    } catch (_) {
+      return ts;
+    }
   }
 }

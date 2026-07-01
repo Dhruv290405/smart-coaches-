@@ -1,19 +1,19 @@
+import 'dart:developer';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import 'package:smart_coach_new/features/reports_and_alerts/acp_screen/data/repository/acp_repository.dart';
-import 'package:smart_coach_new/features/reports_and_alerts/acp_screen/data/models/acp_model.dart';
+import 'package:smart_coach_new/features/reports_and_alerts/fsds_screen/data/models/fsds_model.dart';
 import '../../../../core/di/inject.dart';
+import '../../../../core/network/api_client.dart';
 import '../../../../core/utils/app_dimensions.dart';
-import '../../../../core/utils/app_icons.dart';
 import '../../../../core/utils/app_text_styles.dart';
 import '../../../../core/utils/color_constants.dart';
 import '../../../../core/widgets/period_filter.dart';
+import 'data/repository/fsds_repository.dart' show FsdsRepository;
 
 class FsdsHistoryScreen extends StatefulWidget {
-  final AcpCoachModel coach;
-  const FsdsHistoryScreen({super.key, required this.coach});
+  final FsdsBypassModel sensor;
+  const FsdsHistoryScreen({super.key, required this.sensor});
 
   @override
   State<FsdsHistoryScreen> createState() => _FsdsHistoryScreenState();
@@ -22,7 +22,7 @@ class FsdsHistoryScreen extends StatefulWidget {
 class _FsdsHistoryScreenState extends State<FsdsHistoryScreen> {
   String selectedPeriod = '7 Days';
   DateTimeRange? customRange;
-  List<AcpHistoryEntry> _historyEntries = [];
+  List<FsdsBypassModel> _historyEntries = [];
   bool _isLoading = true;
 
   @override
@@ -34,73 +34,36 @@ class _FsdsHistoryScreenState extends State<FsdsHistoryScreen> {
   Future<void> _fetchHistory() async {
     setState(() => _isLoading = true);
     try {
-      final logs = await getIt<AcpRepository>().getAcpFilteredLogs(
-        trainNo: widget.coach.trainNo != 'N/A' ? widget.coach.trainNo : null,
-        techCoachNo: widget.coach.sensorId,
-      );
-      
-      logs.sort((a, b) {
-        final da = DateTime.tryParse(a.lastUpdated ?? '') ?? DateTime(0);
-        final db = DateTime.tryParse(b.lastUpdated ?? '') ?? DateTime(0);
+      final logs = await FsdsRepository(getIt<ApiClient>()).getFsdsData(limit: 500);
+
+      final filtered = logs.where((e) =>
+        e.deviceId == widget.sensor.deviceId ||
+        e.assetName == widget.sensor.assetName
+      ).toList();
+
+      filtered.sort((a, b) {
+        final da = DateTime.tryParse(a.timestamp) ?? DateTime(0);
+        final db = DateTime.tryParse(b.timestamp) ?? DateTime(0);
         return da.compareTo(db);
       });
 
-      final List<AcpHistoryEntry> entriesList = [];
-      int? lastCount;
-      
-      for (var logEntry in logs) {
-        final currentCount = logEntry.totalCount ?? 0;
-        
-        bool isTrigger = false;
-        if (lastCount != null && currentCount > lastCount) {
-          isTrigger = true;
-        } else if (lastCount == null && currentCount > 0) {
-          isTrigger = true;
-        }
-
-        if (isTrigger) {
-          String time24h = 'N/A';
-          DateTime logDate = DateTime.now();
-          if (logEntry.lastUpdated != null && logEntry.lastUpdated!.isNotEmpty) {
-            try {
-              logDate = DateTime.parse(logEntry.lastUpdated!);
-              time24h = DateFormat('dd/MM/yyyy HH:mm:ss').format(logDate);
-            } catch (_) {}
-          }
-          
-          entriesList.add(AcpHistoryEntry(
-            sensorId: logEntry.techCoachNo ?? 'N/A',
-            lastPull: time24h,
-            reset: 'N/A',
-            trainSpeed: 'N/A',
-            location: logEntry.trainLocation ?? 'N/A',
-            date: logDate,
-            status: logEntry.acpStatus ?? '0',
-            totalCount: logEntry.totalCount ?? 0,
-            powerCarNo: logEntry.powerCarNo ?? 'N/A',
-            rawAssetName: logEntry.rawAssetName ?? '',
-            deviceId: (logEntry.deviceId != null && logEntry.deviceId != 'N/A') ? logEntry.deviceId! : widget.coach.deviceId,
-          ));
-        }
-        lastCount = currentCount;
-      }
-
       if (mounted) {
         setState(() {
-          _historyEntries = entriesList.reversed.toList();
+          _historyEntries = filtered.reversed.toList();
           _isLoading = false;
         });
       }
     } catch (e) {
+      log('FSDS history error: $e');
       if (mounted) {
         setState(() => _isLoading = false);
       }
     }
   }
 
-  List<AcpHistoryEntry> get entries {
+  List<FsdsBypassModel> get entries {
     if (selectedPeriod == 'All') return _historyEntries;
-    
+
     DateTime now = DateTime.now();
     DateTime? startDate;
     DateTime? endDate;
@@ -117,8 +80,9 @@ class _FsdsHistoryScreenState extends State<FsdsHistoryScreen> {
     if (startDate == null) return _historyEntries;
 
     return _historyEntries.where((entry) {
-      bool afterStart = entry.date.isAfter(startDate!);
-      bool beforeEnd = endDate == null || entry.date.isBefore(endDate);
+      final entryDate = DateTime.tryParse(entry.timestamp) ?? DateTime(0);
+      bool afterStart = entryDate.isAfter(startDate!);
+      bool beforeEnd = endDate == null || entryDate.isBefore(endDate);
       return afterStart && beforeEnd;
     }).toList();
   }
@@ -127,10 +91,10 @@ class _FsdsHistoryScreenState extends State<FsdsHistoryScreen> {
     final range = await showDateRangePicker(
       context: context,
       firstDate: DateTime(2026, 1, 1),
-      lastDate: DateTime(2026, 3, 12),
+      lastDate: DateTime.now(),
       initialDateRange: DateTimeRange(
-        start: DateTime(2026, 2, 10),
-        end: DateTime(2026, 3, 12),
+        start: DateTime.now().subtract(const Duration(days: 30)),
+        end: DateTime.now(),
       ),
       builder: (ctx, child) => Theme(
         data: Theme.of(ctx).copyWith(
@@ -172,14 +136,14 @@ class _FsdsHistoryScreenState extends State<FsdsHistoryScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildTrainInfoCard(),
+                    _buildSensorInfoCard(),
                     const SizedBox(height: 16),
                     _buildSectionCard(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            '${widget.coach.coachNumber} (FSDS Alert History)',
+                            '${widget.sensor.assetName} (FSDS Alert History)',
                             style: AppTextStyles.header2,
                           ),
                           const SizedBox(height: 16),
@@ -213,12 +177,7 @@ class _FsdsHistoryScreenState extends State<FsdsHistoryScreen> {
                           ],
                           const SizedBox(height: 16),
 
-                          if (_isLoading)
-                            const Center(child: Padding(
-                              padding: EdgeInsets.all(20.0),
-                              child: CircularProgressIndicator(),
-                            ))
-                          else if (entries.isEmpty)
+                          if (entries.isEmpty)
                             Center(
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(vertical: 32),
@@ -255,7 +214,8 @@ class _FsdsHistoryScreenState extends State<FsdsHistoryScreen> {
     );
   }
 
-  Widget _buildTrainInfoCard() {
+  Widget _buildSensorInfoCard() {
+    final sensor = widget.sensor;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -269,35 +229,49 @@ class _FsdsHistoryScreenState extends State<FsdsHistoryScreen> {
         children: [
           Row(
             children: [
-              SvgPicture.asset(AppIcons.train, width: 18, height: 18, colorFilter: const ColorFilter.mode(ColorConstants.primary, BlendMode.srcIn)),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: sensor.isBypassed ? const Color(0xFFFFEBEE) : const Color(0xFFE8F5E9),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  sensor.isBypassed ? Icons.warning_amber_rounded : Icons.check_circle_outline,
+                  color: sensor.isBypassed ? const Color(0xFFD32F2F) : const Color(0xFF2E7D32),
+                  size: 20,
+                ),
+              ),
               const SizedBox(width: 8),
-              Text(widget.coach.rawAssetName.isNotEmpty ? widget.coach.rawAssetName : widget.coach.location, style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: ColorConstants.textPrimary)),
+              Text(sensor.assetName.isNotEmpty ? sensor.assetName : sensor.deviceId,
+                style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: ColorConstants.textPrimary)),
             ],
           ),
           const SizedBox(height: 6),
           Row(
             children: [
+              if (sensor.locName.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(color: ColorConstants.cardBackground, borderRadius: BorderRadius.circular(4)),
+                  child: Text('Location: ${sensor.locName}', style: AppTextStyles.bodySmall),
+                ),
+              if (sensor.locName.isNotEmpty) const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(color: ColorConstants.cardBackground, borderRadius: BorderRadius.circular(4)),
-                child: Text('Last Alert: ${widget.coach.lastPull}', style: AppTextStyles.bodySmall),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(color: ColorConstants.cardBackground, borderRadius: BorderRadius.circular(4)),
-                child: Text('Device ID: ${widget.coach.deviceId}', style: AppTextStyles.bodySmall),
+                child: Text('Device: ${sensor.deviceId}', style: AppTextStyles.bodySmall),
               ),
               const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: widget.coach.isOn ? const Color(0xFFE8F5E9) : const Color(0xFFFFEBEE),
+                  color: sensor.isBypassed ? const Color(0xFFFFEBEE) : const Color(0xFFE8F5E9),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
-                  widget.coach.status,
-                  style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600, color: widget.coach.isOn ? const Color(0xFF2E7D32) : const Color(0xFFD32F2F)),
+                  sensor.statusText,
+                  style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600,
+                    color: sensor.isBypassed ? const Color(0xFFD32F2F) : const Color(0xFF2E7D32)),
                 ),
               ),
             ],
@@ -307,7 +281,7 @@ class _FsdsHistoryScreenState extends State<FsdsHistoryScreen> {
     );
   }
 
-  Widget _buildHistoryCard(AcpHistoryEntry entry, int index) {
+  Widget _buildHistoryCard(FsdsBypassModel entry, int index) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -327,25 +301,23 @@ class _FsdsHistoryScreenState extends State<FsdsHistoryScreen> {
             ),
             child: Text(
               index.toString().padLeft(2, '0'),
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: ColorConstants.primary,
-              ),
+              style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold, color: ColorConstants.primary),
             ),
           ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               children: [
-                _buildRow('Tech Coach #', entry.sensorId),
                 _buildRow('Device ID', entry.deviceId),
+                _buildRow('Asset', entry.assetName),
                 const Divider(color: ColorConstants.divider),
-                _buildRow('COUNT', '${entry.status} nos'),
-                _buildRow('TOTAL', '${entry.totalCount} nos'),
+                _buildRow('Status', entry.statusText,
+                    valueColor: entry.isBypassed ? const Color(0xFFD32F2F) : const Color(0xFF2E7D32)),
+                _buildRow('Fire Status', entry.fireStatus.toString()),
+                _buildRow('Smoke Level', entry.smokeLevel.toString()),
                 const Divider(color: ColorConstants.divider),
-                _buildRow('Location', entry.location),
-                _buildRow('Updated At', entry.lastPull),
+                _buildRow('Location', entry.locName),
+                _buildRow('Timestamp', _fmtTimestamp(entry.timestamp)),
               ],
             ),
           ),
@@ -364,7 +336,7 @@ class _FsdsHistoryScreenState extends State<FsdsHistoryScreen> {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              value, 
+              value,
               textAlign: TextAlign.right,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
@@ -374,6 +346,15 @@ class _FsdsHistoryScreenState extends State<FsdsHistoryScreen> {
         ],
       ),
     );
+  }
+
+  String _fmtTimestamp(String ts) {
+    try {
+      final date = DateTime.parse(ts.contains('T') ? ts : ts.replaceFirst(' ', 'T'));
+      return DateFormat('dd/MM/yyyy HH:mm:ss').format(date);
+    } catch (_) {
+      return ts;
+    }
   }
 
   String _fmt(DateTime d) => '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';

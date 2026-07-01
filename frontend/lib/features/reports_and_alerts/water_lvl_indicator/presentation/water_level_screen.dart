@@ -251,7 +251,30 @@ class _WaterLevelScreenState extends State<WaterLevelScreen> {
                 const SizedBox(height: 8),
                 _buildSectionCard(child: _buildViewTypeSection()),
                 const SizedBox(height: 8),
-                _buildSectionCard(child: _buildContent()),
+                if (_errorMessage != null)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    margin: const EdgeInsets.only(bottom: 8),
+                    decoration: BoxDecoration(
+                      color: ColorConstants.statusCritical.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: ColorConstants.statusCritical.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.error_outline, color: ColorConstants.statusCritical, size: 18),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(_errorMessage!, style: GoogleFonts.poppins(fontSize: 12, color: ColorConstants.statusCritical)),
+                        ),
+                      ],
+                    ),
+                  ),
+                if (_isLoading)
+                  const Center(child: CircularProgressIndicator())
+                else
+                  _buildSectionCard(child: _buildContent()),
               ],
             ),
           ),

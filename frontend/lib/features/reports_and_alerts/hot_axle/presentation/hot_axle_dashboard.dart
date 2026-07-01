@@ -121,6 +121,7 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
           'coach': coach.coachNumber,
           'deviceId': coach.deviceId,
           'trainNo': coach.trainNo,
+          'time': _formatTimestamp(coach.timestamp),
           'detail': 'Coach: ${coach.coachNumber}  |  Device: ${coach.deviceId}  |  Train: ${coach.trainNo}',
           'note': 'Immediate inspection required',
         });
@@ -131,6 +132,7 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
           'coach': coach.coachNumber,
           'deviceId': coach.deviceId,
           'trainNo': coach.trainNo,
+          'time': _formatTimestamp(coach.timestamp),
           'detail': 'Coach: ${coach.coachNumber}  |  Device: ${coach.deviceId}  |  Train: ${coach.trainNo}',
           'note': 'Monitor closely',
         });
@@ -139,9 +141,11 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
     return alerts.take(20).toList();
   }
 
-  String _formatTimestamp(String ts) {
+  static String _formatTimestamp(String ts) {
+    if (ts.isEmpty) return 'N/A';
     try {
-      return DateFormat('dd MMM yyyy HH:mm').format(DateTime.parse(ts).toLocal());
+      final normalized = ts.contains('T') ? ts : ts.replaceFirst(' ', 'T');
+      return DateFormat('dd MMM yyyy HH:mm').format(DateTime.parse(normalized).toLocal());
     } catch (_) {
       return ts;
     }

@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'package:smart_coach_new/core/network/api_client.dart';
 import 'package:smart_coach_new/core/network/api_constants.dart';
 import '../models/fsds_model.dart';
@@ -22,10 +23,12 @@ class FsdsRepository {
       );
 
       if (response['success'] == true && response['data'] is List) {
-        return (response['data'] as List).map((e) => FsdsBypassModel.fromJson(e)).toList();
+        return (response['data'] as List).map((e) => FsdsBypassModel.fromJson(e as Map<String, dynamic>)).toList();
       }
+      log('FSDS get-data: unexpected response format: $response');
       return [];
     } catch (e) {
+      log('FSDS get-data error: $e');
       return [];
     }
   }

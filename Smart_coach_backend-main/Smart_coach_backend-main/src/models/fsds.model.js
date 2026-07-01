@@ -1,6 +1,26 @@
 const { pool } = require("../config/db");
 
 class FsdsModel {
+    constructor() {
+        this._ensureTable();
+    }
+
+    async _ensureTable() {
+        try {
+            await pool.query(`CREATE TABLE IF NOT EXISTS fsds_logs (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                device_id VARCHAR(100), loc_id VARCHAR(100), loc_name VARCHAR(255),
+                asset_id VARCHAR(100), asset_name VARCHAR(255),
+                fire_status INT DEFAULT 0, smoke_level INT DEFAULT 0,
+                timestamp VARCHAR(50),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_device_id (device_id), INDEX idx_timestamp (timestamp)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+        } catch (err) {
+            console.error("FSDS ensure table error:", err.message);
+        }
+    }
+
     async saveDynamicLog(data) {
         const keysArray = Object.keys(data);
         const valuesArray = Object.values(data);

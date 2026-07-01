@@ -31,7 +31,76 @@ class _HotAxleChartViewState extends State<HotAxleChartView> {
         const SizedBox(height: 16),
         _buildStatsGrid(good, warning, critical, total),
         const SizedBox(height: 16),
+        _buildTemperatureTrends(),
+        const SizedBox(height: 16),
         _buildSummaryTable(),
+      ],
+    );
+  }
+
+  Widget _buildTemperatureTrends() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Temperature Trends', style: AppTextStyles.header2),
+        const SizedBox(height: 8),
+        PeriodFilter(
+          selected: selectedPeriod,
+          periods: const ['7 Days', '15 Days', '30 Days'],
+          onChanged: (val) => setState(() => selectedPeriod = val),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: ColorConstants.cardBackground,
+            borderRadius: BorderRadius.circular(AppDimensions.radiusLarge),
+            border: Border.all(color: ColorConstants.divider),
+          ),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Period: $selectedPeriod', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500, color: ColorConstants.textSecondary)),
+                  Text('${widget.coaches.length} coaches tracked', style: GoogleFonts.poppins(fontSize: 11, color: ColorConstants.textTertiary)),
+                ],
+              ),
+              const SizedBox(height: 12),
+              ...widget.coaches.take(5).map((c) => Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  children: [
+                    Expanded(flex: 2, child: Text(c.coachNumber, style: GoogleFonts.poppins(fontSize: 10, color: ColorConstants.textPrimary))),
+                    Expanded(
+                      flex: 3,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: (c.maxTemp / 100).clamp(0.0, 1.0),
+                          backgroundColor: Colors.grey[200],
+                          color: c.maxTemp > 80 ? const Color(0xFFD32F2F) : (c.maxTemp > 60 ? const Color(0xFFBE8B22) : Colors.green),
+                          minHeight: 8,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      width: 50,
+                      child: Text('${c.maxTemp.toStringAsFixed(1)}°C', textAlign: TextAlign.right, style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w600, color: c.maxTemp > 60 ? const Color(0xFFD32F2F) : ColorConstants.textSecondary)),
+                    ),
+                  ],
+                ),
+              )),
+              if (widget.coaches.length > 5)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text('+ ${widget.coaches.length - 5} more', style: GoogleFonts.poppins(fontSize: 10, color: ColorConstants.textTertiary)),
+                ),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -80,7 +149,7 @@ class _HotAxleChartViewState extends State<HotAxleChartView> {
       ),
       child: Column(
         children: [
-          _summaryRow('Coach', 'Max Temp', 'Status'),
+          _summaryRow('Coach', 'Max Temp', 'Status', isHeader: true),
           const Divider(height: 20),
           ...widget.coaches.map((c) => Padding(
             padding: const EdgeInsets.only(bottom: 6),
@@ -98,21 +167,48 @@ class _HotAxleChartViewState extends State<HotAxleChartView> {
     );
   }
 
-  Widget _summaryRow(String coach, String temp, String status, {Color? statusColor, String? deviceId, String? trainNo}) {
+  Widget _summaryRow(String coach, String temp, String status, {Color? statusColor, String? deviceId, String? trainNo, bool isHeader = false}) {
+    if (isHeader) {
+      return Row(
+        children: [
+          Expanded(flex: 2, child: Text('Coach / Device', style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w600, color: ColorConstants.textSecondary))),
+          Expanded(flex: 1, child: Text('Train', textAlign: TextAlign.center, style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w600, color: ColorConstants.textSecondary))),
+          Expanded(flex: 1, child: Text('Max Temp', textAlign: TextAlign.center, style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w600, color: ColorConstants.textSecondary))),
+          Expanded(flex: 1, child: Text('Status', textAlign: TextAlign.center, style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w600, color: ColorConstants.textSecondary))),
+        ],
+      );
+    }
     return Row(
       children: [
-        Expanded(flex: 2, child: Text(coach, style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w500))),
-        Expanded(flex: 1, child: Text(temp, textAlign: TextAlign.center, style: GoogleFonts.poppins(fontSize: 11)),
-        ),
         Expanded(
           flex: 2,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(coach, style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w500)),
+              if (deviceId != null && deviceId != 'Unknown')
+                Text(deviceId, style: GoogleFonts.poppins(fontSize: 8, color: ColorConstants.textTertiary)),
+            ],
+          ),
+        ),
+        Expanded(
+          flex: 1,
+          child: Text(
+            (trainNo != null && trainNo.isNotEmpty) ? trainNo : '-',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(fontSize: 10, color: ColorConstants.textSecondary),
+          ),
+        ),
+        Expanded(flex: 1, child: Text(temp, textAlign: TextAlign.center, style: GoogleFonts.poppins(fontSize: 11))),
+        Expanded(
+          flex: 1,
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
             decoration: BoxDecoration(
               color: (statusColor ?? Colors.grey).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(4),
             ),
-            child: Text(status, textAlign: TextAlign.center, style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w600, color: statusColor ?? Colors.grey)),
+            child: Text(status, textAlign: TextAlign.center, style: GoogleFonts.poppins(fontSize: 9, fontWeight: FontWeight.w600, color: statusColor ?? Colors.grey)),
           ),
         ),
       ],

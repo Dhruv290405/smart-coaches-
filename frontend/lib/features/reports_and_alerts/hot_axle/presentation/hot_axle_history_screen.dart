@@ -135,7 +135,8 @@ class _HotAxleHistoryScreenState extends State<HotAxleHistoryScreen> {
   static String _formatTimestamp(String? raw) {
     if (raw == null || raw.isEmpty) return 'N/A';
     try {
-      return DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.parse(raw).toLocal());
+      final normalized = raw.contains('T') ? raw : raw.replaceFirst(' ', 'T');
+      return DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.parse(normalized).toLocal());
     } catch (_) {
       return raw;
     }

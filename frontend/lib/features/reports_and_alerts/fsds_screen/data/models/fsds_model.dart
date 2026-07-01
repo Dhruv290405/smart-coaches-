@@ -1,4 +1,5 @@
 class FsdsBypassModel {
+  final int id;
   final String assetId;
   final String assetName;
   final String timestamp;
@@ -9,18 +10,23 @@ class FsdsBypassModel {
   final String trainNo;
   final String coachNo;
   final String deviceId;
+  final int fireStatus;
+  final int smokeLevel;
 
   FsdsBypassModel({
+    this.id = 0,
     required this.assetId,
     required this.assetName,
     required this.timestamp,
     required this.isBypassed,
-    required this.sensorId,
-    required this.locName,
-    required this.locId,
+    this.sensorId = '',
+    this.locName = '',
+    this.locId = '',
     this.trainNo = '',
     this.coachNo = '',
     this.deviceId = '',
+    this.fireStatus = 0,
+    this.smokeLevel = 0,
   });
 
   bool get isRecent {
@@ -35,29 +41,39 @@ class FsdsBypassModel {
   String get statusCode => isBypassed ? '1' : '0';
 
   factory FsdsBypassModel.fromJson(Map<String, dynamic> json) {
-    final metrics = json['metrics'] ?? {};
-    final timestamp = metrics['timestamp'] ?? json['timestamp'] ?? '';
-    final values = metrics['values'] as List? ?? [];
-    
-    bool bypassed = false;
-    for (var v in values) {
-      if (v['value'] == 1 || v['value'] == true) {
-        bypassed = true;
-        break;
-      }
-    }
+    final ts = _normalizeTimestamp(json['timestamp'] ?? '');
+
+    final fStatus = _parseInt(json['fire_status']);
+    final sLevel = _parseInt(json['smoke_level']);
 
     return FsdsBypassModel(
-      assetId: json['assetId'] ?? '',
-      assetName: json['assetName'] ?? '',
-      timestamp: timestamp,
-      isBypassed: bypassed,
-      sensorId: json['sensorId'] ?? '',
-      locName: json['locName'] ?? json['loc_name'] ?? '',
-      locId: json['locId'] ?? json['loc_id'] ?? '',
-      trainNo: json['trainNo'] ?? json['train_no'] ?? '',
-      coachNo: json['coachNo'] ?? json['coach_no'] ?? '',
-      deviceId: json['deviceId'] ?? json['device_id'] ?? '',
+      id: _parseInt(json['id']),
+      assetId: (json['asset_id'] ?? json['assetId'] ?? '').toString(),
+      assetName: (json['asset_name'] ?? json['assetName'] ?? '').toString(),
+      timestamp: ts,
+      isBypassed: fStatus == 1,
+      sensorId: (json['sensorId'] ?? '').toString(),
+      locName: (json['loc_name'] ?? json['locName'] ?? '').toString(),
+      locId: (json['loc_id'] ?? json['locId'] ?? '').toString(),
+      trainNo: (json['train_no'] ?? json['trainNo'] ?? '').toString(),
+      coachNo: (json['asset_name'] ?? json['coachNo'] ?? '').toString(),
+      deviceId: (json['device_id'] ?? json['deviceId'] ?? '').toString(),
+      fireStatus: fStatus,
+      smokeLevel: sLevel,
     );
+  }
+
+  static int _parseInt(dynamic v) {
+    if (v == null) return 0;
+    if (v is int) return v;
+    if (v is double) return v.toInt();
+    if (v is String) return int.tryParse(v) ?? 0;
+    return 0;
+  }
+
+  static String _normalizeTimestamp(String ts) {
+    if (ts.isEmpty) return DateTime.now().toIso8601String();
+    if (ts.contains('T')) return ts;
+    return ts.replaceFirst(' ', 'T');
   }
 }

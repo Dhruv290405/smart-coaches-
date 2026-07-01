@@ -44,9 +44,15 @@ class WaterTankModel {
   factory WaterTankModel.fromFlatJson(Map<String, dynamic> json) {
     final deviceId = json['device_id']?.toString() ?? '';
     final coachName = json['coach_name']?.toString() ?? json['tech_coach_no']?.toString() ?? '';
-    final percentFull = (json['percent_full'] ?? 0.0).toDouble();
-    final levelCm = (json['level_cm'] ?? 0.0).toDouble();
-    final volumeLiters = (json['volume_liters'] ?? 0.0).toDouble();
+    final percentFull = (json['percent_full'] is double)
+        ? json['percent_full'] as double
+        : double.tryParse(json['percent_full']?.toString() ?? '') ?? 0.0;
+    final levelCm = (json['level_cm'] is double)
+        ? json['level_cm'] as double
+        : double.tryParse(json['level_cm']?.toString() ?? '') ?? 0.0;
+    final volumeLiters = (json['volume_liters'] is double)
+        ? json['volume_liters'] as double
+        : double.tryParse(json['volume_liters']?.toString() ?? '') ?? 0.0;
     final placementType = json['placement_type']?.toString() ?? 'UNDERSLUNG';
     final rawTimestamp = json['timestamp']?.toString() ?? '';
     final trainNo = json['train_no']?.toString() ?? '';

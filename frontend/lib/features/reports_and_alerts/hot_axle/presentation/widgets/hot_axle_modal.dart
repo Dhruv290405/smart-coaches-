@@ -164,10 +164,11 @@ class HotAxleModal extends StatelessWidget {
     );
   }
 
-  String _formatTimestamp(String raw) {
+  static String _formatTimestamp(String raw) {
     if (raw.isEmpty) return 'N/A';
     try {
-      return DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.parse(raw).toLocal());
+      final normalized = raw.contains('T') ? raw : raw.replaceFirst(' ', 'T');
+      return DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.parse(normalized).toLocal());
     } catch (_) {
       return raw;
     }

@@ -284,6 +284,24 @@ app.post('/migrate-all', (req, res) => {
   })();
 });
 
+// Manual FSDS table creation (for Railway where auto-migration may not run)
+app.get('/create-fsds-table', async (req, res) => {
+  try {
+    await pool.query(`CREATE TABLE IF NOT EXISTS fsds_logs (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      device_id VARCHAR(100), loc_id VARCHAR(100), loc_name VARCHAR(255),
+      asset_id VARCHAR(100), asset_name VARCHAR(255),
+      fire_status INT DEFAULT 0, smoke_level INT DEFAULT 0,
+      timestamp VARCHAR(50),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_device_id (device_id), INDEX idx_timestamp (timestamp)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+    res.json({ success: true, message: 'fsds_logs table ready' });
+  } catch (e) {
+    res.json({ success: false, error: e.message });
+  }
+});
+
 // Global error handler
 app.use((err, req, res, next) => {
   console.error('Global error handler:', err);
@@ -412,6 +430,15 @@ const startServer = async () => {
           timestamp VARCHAR(50), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           INDEX idx_device_id (device_id), INDEX idx_timestamp (timestamp)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4` },
+        { name: 'fsds_logs', sql: `CREATE TABLE IF NOT EXISTS fsds_logs (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          device_id VARCHAR(100), loc_id VARCHAR(100), loc_name VARCHAR(255),
+          asset_id VARCHAR(100), asset_name VARCHAR(255),
+          fire_status INT DEFAULT 0, smoke_level INT DEFAULT 0,
+          timestamp VARCHAR(50),
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_device_id (device_id), INDEX idx_timestamp (timestamp)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4` },
       ];
       for (const t of tableDefs) {
         try { await pool.query(t.sql); console.log(` ${t.name} table ready`); }
@@ -456,7 +483,53 @@ const startServer = async () => {
     } else {
       console.error(' Critical: Database connection failed. Simulation skipped.');
     }
-    
+
+    // 4. Start WLI Bridge: poll old backend IoT data → new backend
+    const OLD_API = 'https://smart-coach-api-production.up.railway.app/smart_coach_api/api';
+    const NEW_API = 'http://localhost:' + PORT + '/smart_coach_api/api';
+    let wliLastId = 0;
+
+    const runWliBridge = async () => {
+      try {
+        for (let sid = 1; sid <= 50; sid++) {
+          const r = await fetch(OLD_API + `/iot_water_level/get_water_level_data?sensor_id=${sid}`);
+          if (!r.ok) continue;
+          const body = await r.json();
+          const data = body && body.data;
+          if (!data || !data.id || data.id <= wliLastId) continue;
+          const payload = {
+            source: { deviceId: `WLI-${sid}`, systemType: 'WLI' },
+            location: { coachId: String(sid), coachName: `Coach ${sid}` },
+            placement: { type: 'UNDERSLUNG' },
+            timestamp: data.timestamp || new Date().toISOString(),
+            assets: [{
+              assetId: `TANK-${sid}-1`, assetName: 'Water Tank Sensor',
+              rawValue: data.water_level,
+              levelCm: Math.round((data.water_level / 100) * 35 * 10) / 10,
+              volumeLiters: Math.round((data.water_level / 100) * 35 * 4.5 * 10) / 10,
+              percentFull: data.water_level
+            }]
+          };
+          try {
+            const res = await fetch(NEW_API + '/wli/receive-data', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+              console.log(`  WLI sensor ${sid}: id=${data.id} water_level=${data.water_level}`);
+              wliLastId = data.id;
+            }
+          } catch (_e) { /* local POST failed */ }
+        }
+      } catch (e) {
+        console.error('WLI Bridge error:', e.message);
+      }
+    };
+
+    runWliBridge();
+    setInterval(runWliBridge, 60000);
+    console.log(' WLI Bridge started (polls every 60s)');
+
     // 3. Start Express Server
     const server = httpServer.listen(PORT, () => {
       console.log(`\nServer live: http://localhost:${PORT}`);

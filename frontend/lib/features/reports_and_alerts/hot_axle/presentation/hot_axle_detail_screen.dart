@@ -40,8 +40,8 @@ class _HotAxleDetailScreenState extends State<HotAxleDetailScreen> {
   static Color _statusColor(String status) {
     switch (status.toLowerCase()) {
       case 'good':     return Colors.green;
-      case 'warning':  return ColorConstants.statusCritical;
-      case 'critical': return ColorConstants.statusWarning;
+      case 'warning':  return const Color(0xFFBE8B22);
+      case 'critical': return const Color(0xFFD32F2F);
       default:         return ColorConstants.iconGrey;
     }
   }
@@ -236,10 +236,11 @@ class _HotAxleDetailScreenState extends State<HotAxleDetailScreen> {
 
   String _fmt(DateTime d) => '${d.day.toString().padLeft(2,'0')}/${d.month.toString().padLeft(2,'0')}/${d.year}';
 
-  String _formatTimestamp(String raw) {
+  static String _formatTimestamp(String raw) {
     if (raw.isEmpty) return 'N/A';
     try {
-      return DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.parse(raw).toLocal());
+      final normalized = raw.contains('T') ? raw : raw.replaceFirst(' ', 'T');
+      return DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.parse(normalized).toLocal());
     } catch (_) {
       return raw;
     }

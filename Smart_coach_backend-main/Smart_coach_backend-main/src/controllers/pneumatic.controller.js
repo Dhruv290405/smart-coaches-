@@ -1,8 +1,27 @@
 const Pneumatic = require('../models/pneumatic.model');
 const supabase = require('../config/supabase');
 const NotificationService = require('../services/notificationService');
+const OLD_BACKEND = 'https://smart-coach-api-production.up.railway.app';
+
+async function forwardToOldBackend(req, res, path) {
+    try {
+        const queryString = req.url.split('?')[1] || '';
+        const url = `${OLD_BACKEND}/smart_coach_api/api${path}${queryString ? '?' + queryString : ''}`;
+        const headers = {};
+        if (req.headers.authorization) headers['Authorization'] = req.headers.authorization;
+        const response = await fetch(url, { headers });
+        const data = await response.json();
+        return res.status(response.status).json(data);
+    } catch (err) {
+        console.error(`Forward to old backend failed for ${path}:`, err.message);
+        return res.status(502).json({ success: false, error: 'Backend fallback failed' });
+    }
+}
 
 exports.getBreakBindingData = async (req, res) => {
+    if (!supabase) {
+        return forwardToOldBackend(req, res, '/pneumatic/status');
+    }
     try {
         const filterDeviceId = req.query.deviceId || null; 
         const historyLimit = Math.min(parseInt(req.query.limit) || 10, 1000); 
@@ -254,6 +273,29 @@ exports.getBreakBindingData = async (req, res) => {
 };
 
 exports.getCoachesByLocation = async (req, res) => {
+    if (!supabase) {
+        const deviceMapping = {
+            'Raspberry4_4': { technical_id: '231035', coach_no: 'M3', Train_no: '13071', location: 'Kolkatta' },
+            'Raspberry4_1': { technical_id: '231545', coach_no: 'S4', Train_no: '13277', location: 'Jaipur' },
+            'Raspberry4_2': { technical_id: '234534', coach_no: 'S3', Train_no: '12578', location: 'Jaipur' },
+            'Raspberry4_3': { technical_id: '211245', coach_no: 'S2', Train_no: '65214', location: 'Jaipur' }
+        };
+        const data = Object.entries(deviceMapping).map(([deviceId, info], idx) => ({
+            id: idx + 1,
+            technical_id: info.technical_id,
+            coach_no: info.coach_no,
+            device_id: deviceId,
+            Train_no: info.Train_no,
+            Location: info.location,
+            Actual_id: info.technical_id
+        }));
+        return res.status(200).json({
+            success: true,
+            message: "Coaches fetched (fallback)",
+            count: data.length,
+            data
+        });
+    }
     try {
         // 1. Check karo ki middleware ne user data parse kiya ya nahi
         if (!req.user) {

@@ -15,7 +15,8 @@ class HotAxleCoachCard extends StatelessWidget {
   static String _formatTimestamp(String raw) {
     if (raw.isEmpty) return 'N/A';
     try {
-      return DateFormat('dd MMM HH:mm').format(DateTime.parse(raw).toLocal());
+      final normalized = raw.contains('T') ? raw : raw.replaceFirst(' ', 'T');
+      return DateFormat('dd MMM HH:mm').format(DateTime.parse(normalized).toLocal());
     } catch (_) {
       return raw;
     }
@@ -52,11 +53,13 @@ class HotAxleCoachCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Coach: ${coach.coachNumber}', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: ColorConstants.primary)),
+                    Text('Coach: ${coach.coachNumber}', overflow: TextOverflow.ellipsis, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: ColorConstants.primary)),
                     if (coach.trainNo.isNotEmpty)
-                      Text('Train: ${coach.trainNo}', style: GoogleFonts.poppins(fontSize: 10, color: ColorConstants.textSecondary)),
+                      Text('Train: ${coach.trainNo}', overflow: TextOverflow.ellipsis, style: GoogleFonts.poppins(fontSize: 10, color: ColorConstants.textSecondary)),
                     if (coach.deviceId != 'Unknown')
-                      Text('Device: ${coach.deviceId}', style: GoogleFonts.poppins(fontSize: 9, color: ColorConstants.textTertiary)),
+                      Text('Device: ${coach.deviceId}', overflow: TextOverflow.ellipsis, style: GoogleFonts.poppins(fontSize: 9, color: ColorConstants.textTertiary)),
+                    if (coach.trainNo.isEmpty)
+                      Text('Train: No data', style: GoogleFonts.poppins(fontSize: 10, color: ColorConstants.textTertiary)),
                   ],
                 ),
               ),
