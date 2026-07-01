@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:smart_coach_new/core/services/socket_service.dart';
 import 'package:smart_coach_new/core/utils/app_dimensions.dart';
 import 'package:smart_coach_new/core/utils/app_icons.dart';
 import 'package:smart_coach_new/core/utils/app_strings.dart';
@@ -37,6 +38,8 @@ class _FsdsDashboardState extends State<FsdsDashboard> {
   bool showRecentOnly = false;
   Timer? _refreshTimer;
 
+  StreamSubscription<Map<String, dynamic>>? _fsdsSocketSub;
+
   List<String> trainNumbers = ['All Trains'];
   List<String> coachNumbers = ['All Coaches'];
 
@@ -48,11 +51,15 @@ class _FsdsDashboardState extends State<FsdsDashboard> {
     super.initState();
     _refreshData();
     _startAutoRefresh();
+    _fsdsSocketSub = SocketService().fsdsStream.listen((_) {
+      if (mounted) _refreshData(isBackgroundRefresh: true);
+    });
   }
 
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    _fsdsSocketSub?.cancel();
     super.dispose();
   }
 

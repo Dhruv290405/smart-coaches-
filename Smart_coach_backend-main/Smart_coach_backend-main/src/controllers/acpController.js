@@ -56,12 +56,16 @@ const receiveAcpData = async (req, res) => {
                 train_no: payload.trainNo || "Unknown"
             };
 
+            const result = { ...assetData, timestamp: new Date().toISOString(), coachNo: rawAssetName };
+
             if (currentCount > 0) {
                 await AcpModel.saveCriticalEvent(assetData);
                 await AcpModel.updateLiveStatus(assetData, 'TRIGGER');
             } else {
                 await AcpModel.updateLiveStatus(assetData, 'HEARTBEAT');
             }
+
+            try { if (global._io) global._io.emit('acp:update', result); } catch (_) {}
             return "OK";
         };
 

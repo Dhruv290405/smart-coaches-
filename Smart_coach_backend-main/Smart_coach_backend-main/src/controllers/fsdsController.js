@@ -31,7 +31,10 @@ const fsdsController = {
                     timestamp: formattedTime
                 };
 
-                return await FsdsModel.saveDynamicLog(dataToSave);
+                const insertId = await FsdsModel.saveDynamicLog(dataToSave);
+                const emitted = { ...dataToSave, id: insertId };
+                try { if (global._io) global._io.emit('fsds:update', emitted); } catch (_) {}
+                return insertId;
             });
 
             const ids = await Promise.all(savePromises);

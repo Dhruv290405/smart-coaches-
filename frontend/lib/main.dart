@@ -7,6 +7,7 @@ import 'package:get_it/get_it.dart';
 import 'package:sizer/sizer.dart';
 import 'package:smart_coach_new/core/di/inject.dart';
 import 'package:smart_coach_new/core/permissions/bloc/permission_bloc.dart';
+import 'package:smart_coach_new/core/services/socket_service.dart';
 import 'package:smart_coach_new/features/notifications/presentation/bloc/notification_bloc.dart';
 import 'package:smart_coach_new/features/notifications/presentation/bloc/notification_event.dart';
 import 'package:smart_coach_new/services/fcm_service.dart';
@@ -73,8 +74,13 @@ class _AppBootstrapState extends State<_AppBootstrap> {
     super.initState();
     // First frame render ke baad FCM setup karo
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initSocketIo();
       _initFcm();
     });
+  }
+
+  void _initSocketIo() {
+    SocketService().connect();
   }
 
   Future<void> _initFcm() async {

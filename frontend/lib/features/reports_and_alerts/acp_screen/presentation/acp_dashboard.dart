@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:smart_coach_new/core/services/socket_service.dart';
 import 'package:smart_coach_new/features/reports_and_alerts/acp_screen/data/repository/acp_repository.dart';
 import 'package:smart_coach_new/features/reports_and_alerts/acp_screen/presentation/widgets/acp_report_generator.dart';
 import '../../../../core/di/inject.dart';
@@ -41,6 +42,7 @@ class _AcpDashboardState extends State<AcpDashboard> {
   Timer? _refreshTimer;
 
   bool _isApiCallInProgress = false;
+  StreamSubscription<Map<String, dynamic>>? _acpSocketSub;
 
   List<String> trainNumbers = ['All Trains'];
   List<String> coachTypes = ['All Types'];
@@ -54,11 +56,15 @@ class _AcpDashboardState extends State<AcpDashboard> {
     super.initState();
     _refreshData();
     _startAutoRefresh();
+    _acpSocketSub = SocketService().acpStream.listen((_) {
+      if (mounted) _refreshData(isBackgroundRefresh: true);
+    });
   }
 
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    _acpSocketSub?.cancel();
     super.dispose();
   }
 
