@@ -226,7 +226,9 @@ const AcpModel = {
                 CASE 
                     WHEN COALESCE(dls.today_count, 0) = 0 THEN 'Not Pulled'
                     ELSE COALESCE(dls.status, 'Not Pulled')
-                END AS status
+                END AS status,
+                (SELECT fire_status FROM fsds_logs WHERE device_id = dm.device_id ORDER BY id DESC LIMIT 1) AS fsds_status,
+                (SELECT timestamp FROM fsds_logs WHERE device_id = dm.device_id ORDER BY id DESC LIMIT 1) AS fsds_timestamp
             FROM device_master dm
             LEFT JOIN device_live_summary dls ON dm.tech_coach_no = dls.tech_coach_no
             LEFT JOIN train_master tm ON dm.train_no = tm.train_number
@@ -291,7 +293,7 @@ const AcpModel = {
         }
     },
 
-  getFilteredLogs: async (trainNo, techCoachNo) => {
+    getFilteredLogs: async (trainNo, techCoachNo) => {
     try {
         const query = `
             SELECT 
@@ -309,7 +311,9 @@ const AcpModel = {
                 CASE 
                     WHEN COALESCE(dls.today_count, 0) = 0 THEN 'Not Pulled'
                     ELSE COALESCE(dls.status, 'Not Pulled')
-                END AS status
+                END AS status,
+                (SELECT fire_status FROM fsds_logs WHERE device_id = dm.device_id ORDER BY id DESC LIMIT 1) AS fsds_status,
+                (SELECT timestamp FROM fsds_logs WHERE device_id = dm.device_id ORDER BY id DESC LIMIT 1) AS fsds_timestamp
             FROM device_master dm
             LEFT JOIN device_live_summary dls ON dm.tech_coach_no = dls.tech_coach_no
             LEFT JOIN train_master tm ON dm.train_no = tm.train_number

@@ -48,6 +48,8 @@ class AcpLogData {
   final int? totalCount;
   @JsonKey(name: 'device_id')
   final String? deviceId;
+  final String? fsdsStatus;
+  final String? fsdsTimestamp;
 
   String? get lastUpdated => lastHeartbeat;
 
@@ -66,6 +68,8 @@ class AcpLogData {
     this.powerCarNo,
     this.totalCount,
     this.deviceId,
+    this.fsdsStatus,
+    this.fsdsTimestamp,
   });
 
   factory AcpLogData.fromJson(Map<String, dynamic> json) {
@@ -88,6 +92,8 @@ class AcpLogData {
       powerCarNo: _safeString(json['power_car_no']),
       totalCount: (json['total_count'] as num?)?.toInt(),
       deviceId: _safeString(json['device_id']),
+      fsdsStatus: json['fsds_status']?.toString(),
+      fsdsTimestamp: _safeString(json['fsds_timestamp']),
     );
   }
 
@@ -107,6 +113,8 @@ class AcpLogData {
       'total_count': totalCount,
       'today_count': todayCount,
       'device_id': deviceId,
+      'fsds_status': fsdsStatus,
+      'fsds_timestamp': fsdsTimestamp,
     };
   }
 }

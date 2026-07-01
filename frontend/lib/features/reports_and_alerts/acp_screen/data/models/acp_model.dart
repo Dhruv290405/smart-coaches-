@@ -17,6 +17,8 @@ class AcpCoachModel {
   final String deviceId;
   final String? lastTrigger;
   final String statusLabel;
+  final String fsdsStatus;
+  final String fsdsRecent;
 
   const AcpCoachModel({
     required this.coachNumber,
@@ -37,6 +39,8 @@ class AcpCoachModel {
     this.deviceId = 'N/A',
     this.lastTrigger,
     this.statusLabel = 'Not Pulled',
+    this.fsdsStatus = 'OFF',
+    this.fsdsRecent = 'NO',
   });
 }
 

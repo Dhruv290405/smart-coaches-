@@ -31,6 +31,7 @@ import 'package:smart_coach_new/features/reports_and_alerts/fsds_screen/fsds_das
 import 'package:smart_coach_new/features/reports_and_alerts/hot_axle/presentation/hot_axle_dashboard.dart';
 import 'package:smart_coach_new/features/reports_and_alerts/level_indicator/presentation/bloc/train_list_bloc.dart';
 import 'package:smart_coach_new/features/reports_and_alerts/level_indicator/presentation/level_indicator_screen.dart';
+import 'package:smart_coach_new/features/reports_and_alerts/water_lvl_indicator/presentation/water_level_screen.dart';
 import 'package:smart_coach_new/features/splash/presentation/splash_screen.dart';
 import 'package:smart_coach_new/features/reports_and_alerts/alerts_screen.dart';
 import 'package:smart_coach_new/features/user_management/presentation/bloc/user_management_bloc.dart';
@@ -229,10 +230,7 @@ class AppRouter {
       ),
       GoRoute(
         path: waterTankMonitoringRoute,
-        builder: (context, state) => BlocProvider(
-          create: (_) => GetIt.I<TrainListBloc>(),
-          child: const LevelIndicatorScreen(),
-        ),
+        builder: (context, state) => const WaterLevelScreen(),
       ),
       GoRoute(
         path: profileRoute,
