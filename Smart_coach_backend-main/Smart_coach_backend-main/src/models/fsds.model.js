@@ -1,36 +1,15 @@
-const { pool } = require("../config/db");
+const supabaseAdmin = require("../config/supabaseAdmin");
 
 class FsdsModel {
-    constructor() {
-        this._ensureTable();
-    }
-
-    async _ensureTable() {
-        try {
-            await pool.query(`CREATE TABLE IF NOT EXISTS fsds_logs (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                device_id VARCHAR(100), loc_id VARCHAR(100), loc_name VARCHAR(255),
-                asset_id VARCHAR(100), asset_name VARCHAR(255),
-                fire_status INT DEFAULT 0, smoke_level INT DEFAULT 0,
-                timestamp VARCHAR(50),
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                INDEX idx_device_id (device_id), INDEX idx_timestamp (timestamp)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
-        } catch (err) {
-            console.error("FSDS ensure table error:", err.message);
-        }
-    }
-
     async saveDynamicLog(data) {
-        const keysArray = Object.keys(data);
-        const valuesArray = Object.values(data);
-        const columns = keysArray.join(", ");
-        const placeholders = keysArray.map(() => "?").join(", ");
-
-        const query = `INSERT INTO fsds_logs (${columns}) VALUES (${placeholders})`;
         try {
-            const [result] = await pool.query(query, valuesArray);
-            return result.insertId;
+            const { data: inserted, error } = await supabaseAdmin
+                .from('fsds_logs')
+                .insert([data])
+                .select();
+
+            if (error) throw error;
+            return inserted?.[0]?.id;
         } catch (err) {
             console.error("FSDS Model Error:", err.message);
             throw err;
@@ -38,32 +17,26 @@ class FsdsModel {
     }
 
     async getLogs({ limit, offset, trainNo, locName } = {}) {
-        let query = `SELECT * FROM fsds_logs WHERE 1=1`;
-        const params = [];
-
-        if (trainNo) {
-            query += ` AND loc_name LIKE ?`;
-            params.push(`%${trainNo}%`);
-        }
-        if (locName) {
-            query += ` AND loc_name LIKE ?`;
-            params.push(`%${locName}%`);
-        }
-
-        query += ` ORDER BY timestamp DESC`;
-
-        if (limit) {
-            query += ` LIMIT ?`;
-            params.push(limit);
-        }
-        if (offset) {
-            query += ` OFFSET ?`;
-            params.push(offset);
-        }
-
         try {
-            const [rows] = await pool.query(query, params);
-            return rows;
+            let query = supabaseAdmin
+                .from('fsds_logs')
+                .select('*', { count: 'exact' });
+
+            if (trainNo) {
+                query = query.ilike('loc_name', `%${trainNo}%`);
+            }
+            if (locName) {
+                query = query.ilike('loc_name', `%${locName}%`);
+            }
+
+            query = query.order('timestamp', { ascending: false });
+
+            if (limit) query = query.limit(limit);
+            if (offset) query = query.range(offset, offset + (limit || 100) - 1);
+
+            const { data, error } = await query;
+            if (error) throw error;
+            return data || [];
         } catch (err) {
             console.error("FSDS Model Get Logs Error:", err.message);
             throw err;
