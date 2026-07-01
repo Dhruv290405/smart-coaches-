@@ -195,12 +195,9 @@ class WliModal extends StatelessWidget {
 
   Widget _buildSensorSection(Color statusColor) {
     if (!_isOverhead) {
-      // Single sensor for underslung
       final asset = coach.assets.first;
       return _buildInfoSection(asset.assetName, [
         _buildDetailRow('Water Level', '${asset.percentFull.toStringAsFixed(1)}%', showTopBorder: false),
-        _buildDetailRow('Volume', '${asset.volumeLiters.toStringAsFixed(1)} L'),
-        _buildDetailRow('Level (cm)', '${asset.levelCm.toStringAsFixed(1)} cm'),
       ]);
     }
 
@@ -211,8 +208,6 @@ class WliModal extends StatelessWidget {
           padding: const EdgeInsets.only(bottom: 12),
           child: _buildInfoSection(label, [
             _buildDetailRow('Water Level', '${asset.percentFull.toStringAsFixed(1)}%', showTopBorder: false),
-            _buildDetailRow('Volume', '${asset.volumeLiters.toStringAsFixed(1)} L'),
-            _buildDetailRow('Level (cm)', '${asset.levelCm.toStringAsFixed(1)} cm'),
           ]),
         );
       }).toList(),

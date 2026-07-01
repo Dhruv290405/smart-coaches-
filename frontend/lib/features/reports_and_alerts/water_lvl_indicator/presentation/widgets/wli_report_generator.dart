@@ -7,7 +7,6 @@ import 'package:open_file/open_file.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../../../../core/utils/color_constants.dart';
 import '../../data/models/water_tank_model.dart';

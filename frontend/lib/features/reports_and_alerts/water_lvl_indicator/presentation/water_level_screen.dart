@@ -12,7 +12,6 @@ import '../../../../core/utils/app_text_styles.dart';
 import '../../../../core/utils/color_constants.dart';
 import '../../../../core/widgets/action_button.dart';
 import '../../../../core/widgets/filter_dropdown.dart';
-import '../../../../core/widgets/status_chip.dart';
 import '../../../../core/widgets/view_type_selector.dart';
 import '../data/datasources/wli_data_service.dart';
 import '../data/models/water_tank_model.dart';
@@ -84,11 +83,10 @@ class _WaterLevelScreenState extends State<WaterLevelScreen> {
   void _applyFilters() {
     setState(() {
       _filteredCoaches = _allCoaches.where((coach) {
-        // Match train by checking device_id start OR coachName start (trainNo_coachName format)
-        final coachName = coach.location.coachName;
         final matchesTrain = selectedTrainNumber == 'All Trains' ||
+            coach.trainNo == selectedTrainNumber ||
             coach.source.deviceId.startsWith(selectedTrainNumber) ||
-            coachName.startsWith('${selectedTrainNumber}_');
+            coach.location.coachName.startsWith('${selectedTrainNumber}_');
         final matchesType = selectedCoachType == 'All Types' || coach.coachType == selectedCoachType;
         final matchesCoach = selectedCoachNumber == 'All Coach Numbers' || coach.coachNumber == selectedCoachNumber;
         final matchesStatus = selectedStatus == 'All' || coach.status.toUpperCase() == selectedStatus.toUpperCase();
@@ -134,6 +132,11 @@ class _WaterLevelScreenState extends State<WaterLevelScreen> {
   Future<void> _loadTrains() async {
     final Set<String> trains = {};
     for (final c in _allCoaches) {
+      // Try train_no from API first
+      if (c.trainNo.isNotEmpty) {
+        trains.add(c.trainNo);
+        continue;
+      }
       // Extract train prefix from device_id (format: TRAINNUM_XXXX)
       final deviceParts = c.source.deviceId.split('_');
       if (deviceParts.length > 1 && deviceParts[0].isNotEmpty) {

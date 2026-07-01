@@ -159,31 +159,12 @@ class _FullTankHistoryState extends State<FullTankHistory> {
             ],
           ),
           const SizedBox(height: 8),
-          Row(
-            children: [
-              _infoChip('${_currentAsset.volumeLiters.toStringAsFixed(1)} L'),
-              const SizedBox(width: 8),
-              _infoChip('${_currentAsset.levelCm.toStringAsFixed(1)} cm'),
-            ],
-          ),
-          const SizedBox(height: 8),
           Text(
             '${widget.coach.location.coachName} | ${widget.coach.placement.type}',
             style: AppTextStyles.bodyMedium,
           ),
         ],
       ),
-    );
-  }
-
-  Widget _infoChip(String text) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: ColorConstants.divider,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(text, style: AppTextStyles.bodySmall),
     );
   }
 
@@ -432,23 +413,9 @@ class _FullTankHistoryState extends State<FullTankHistory> {
 
   Widget _buildStatsCards() {
     final percent = _currentAsset.percentFull;
-    return Column(
+    return Row(
       children: [
-        Row(
-          children: [
-            _buildStatItem('Current Level', '${percent.toStringAsFixed(1)}%', _getStatusColor(percent)),
-            const SizedBox(width: 12),
-            _buildStatItem('Volume', '${_currentAsset.volumeLiters.toStringAsFixed(1)} L', ColorConstants.primary),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            _buildStatItem('Level (cm)', '${_currentAsset.levelCm.toStringAsFixed(1)} cm', ColorConstants.statusGood),
-            const SizedBox(width: 12),
-            _buildStatItem('Volume', '${_currentAsset.volumeLiters.toStringAsFixed(1)} L', ColorConstants.primary),
-          ],
-        ),
+        _buildStatItem('Current Level', '${percent.toStringAsFixed(1)}%', _getStatusColor(percent)),
       ],
     );
   }

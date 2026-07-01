@@ -178,24 +178,7 @@ class WliCard extends StatelessWidget {
             ),
           ],
         ),
-        if (coach.assets.isNotEmpty)
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                '${coach.assets.first.volumeLiters.toStringAsFixed(1)} L',
-                style: GoogleFonts.poppins(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: ColorConstants.primary,
-                ),
-              ),
-              Text(
-                '${coach.assets.first.levelCm.toStringAsFixed(1)} cm',
-                style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey),
-              ),
-            ],
-          ),
+        _buildStatusBadge(coach.status, statusColor),
       ],
     );
   }
@@ -235,10 +218,6 @@ class WliCard extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                       color: color,
                     ),
-                  ),
-                  Text(
-                    '${asset.volumeLiters.toStringAsFixed(0)} L',
-                    style: GoogleFonts.poppins(fontSize: 9, color: Colors.grey),
                   ),
                 ],
               ),

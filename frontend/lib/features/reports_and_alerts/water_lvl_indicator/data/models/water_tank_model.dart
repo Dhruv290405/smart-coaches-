@@ -6,6 +6,7 @@ class WaterTankModel {
   final WliPlacement placement;
   final List<WliAsset> assets;
   final String coachType;
+  final String trainNo;
 
   WaterTankModel({
     required this.source,
@@ -15,6 +16,7 @@ class WaterTankModel {
     required this.placement,
     required this.assets,
     this.coachType = '',
+    this.trainNo = '',
   });
 
   String get coachNumber => location.coachId;
@@ -44,17 +46,12 @@ class WaterTankModel {
   factory WaterTankModel.fromFlatJson(Map<String, dynamic> json) {
     final deviceId = json['device_id']?.toString() ?? '';
     final coachName = json['coach_name']?.toString() ?? json['tech_coach_no']?.toString() ?? '';
-    final percentFull = (json['percent_full'] is double)
+    final rawPercent = (json['percent_full'] is double)
         ? json['percent_full'] as double
         : double.tryParse(json['percent_full']?.toString() ?? '') ?? 0.0;
-    final levelCm = (json['level_cm'] is double)
-        ? json['level_cm'] as double
-        : double.tryParse(json['level_cm']?.toString() ?? '') ?? 0.0;
-    final volumeLiters = (json['volume_liters'] is double)
-        ? json['volume_liters'] as double
-        : double.tryParse(json['volume_liters']?.toString() ?? '') ?? 0.0;
-    final placementType = json['placement_type']?.toString() ?? 'UNDERSLUNG';
+    final percentFull = rawPercent <= 1.0 ? rawPercent * 100 : rawPercent;
     final rawTimestamp = json['timestamp']?.toString() ?? '';
+    final placementType = json['placement_type']?.toString() ?? 'UNDERSLUNG';
     final trainNo = json['train_no']?.toString() ?? '';
     final coachIdRaw = json['coach_id'];
 
@@ -65,26 +62,24 @@ class WaterTankModel {
       coachIdStr = coachIdRaw?.toString() ?? '';
     }
 
-    // Extract train prefix from device_id for filtering
-    final deviceIdParts = deviceId.split('_');
-    final trainPrefix = deviceIdParts.length > 1 ? deviceIdParts[0] : trainNo;
-
-    // Format timestamp properly
+    // Format timestamp from MySQL format (YYYY-MM-DD HH:MM:SS) or ISO
     String formattedTimestamp = rawTimestamp;
     try {
-      final parsed = DateTime.parse(rawTimestamp);
-      formattedTimestamp = parsed.toLocal().toIso8601String();
+      final rawTs = rawTimestamp.contains('T')
+          ? rawTimestamp
+          : rawTimestamp.replaceFirst(' ', 'T');
+      final parsed = DateTime.parse(rawTs).toLocal();
+      formattedTimestamp = parsed.toIso8601String();
     } catch (_) {
-      // keep original if parsing fails
     }
 
-    final coachNameStr = trainNo.isNotEmpty ? '${trainNo}_${coachName}' : coachName;
+    final coachNameStr = trainNo.isNotEmpty ? '${trainNo}_$coachName' : coachName;
 
     return WaterTankModel(
       source: WliSource(
         companyName: 'VASP Rails Tech',
         systemType: 'WLI',
-        deviceId: deviceId.isNotEmpty ? deviceId : 'WLI-${trainNo}-${coachIdStr}',
+        deviceId: deviceId.isNotEmpty ? deviceId : 'WLI-$trainNo-$coachIdStr',
       ),
       location: WliLocation(
         coachId: coachIdStr,
@@ -94,12 +89,13 @@ class WaterTankModel {
       timestamp: formattedTimestamp,
       placement: WliPlacement(type: placementType, sensorCount: 1, position: ['CENTER']),
       coachType: json['coach_type']?.toString() ?? '',
+      trainNo: trainNo,
       assets: [
         WliAsset(
-          assetId: 'WLI-${deviceId}',
+          assetId: 'WLI-$deviceId',
           assetName: 'Water Tank Sensor',
-          levelCm: levelCm,
-          volumeLiters: volumeLiters,
+          levelCm: 0.0,
+          volumeLiters: 0.0,
           percentFull: percentFull,
         ),
       ],
