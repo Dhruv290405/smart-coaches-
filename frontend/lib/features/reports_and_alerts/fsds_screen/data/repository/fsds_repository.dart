@@ -20,6 +20,7 @@ class FsdsRepository {
       final response = await apiClient.get(
         ApiConstants.fsdsGetDataApiEndpoint,
         queryParams: params,
+        baseUrlOverride: ApiConstants.fsdsBaseUrl,
       );
 
       if (response['success'] == true && response['data'] is List) {

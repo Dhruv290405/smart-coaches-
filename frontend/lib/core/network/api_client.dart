@@ -29,24 +29,27 @@ class ApiClient {
     return headers;
   }
 
-  Uri _buildUri(String endpoint, [Map<String, dynamic>? queryParams]) {
-    return Uri.parse('$baseUrl$endpoint').replace(
+  Uri _buildUri(String endpoint, [Map<String, dynamic>? queryParams, String? baseOverride]) {
+    final base = baseOverride ?? baseUrl;
+    return Uri.parse('$base$endpoint').replace(
       queryParameters: queryParams?.map((k, v) => MapEntry(k, v.toString())),
     );
   }
 
   Future<dynamic> get(String endpoint,
       {Map<String, dynamic>? queryParams,
-      bool includeAuthHeaders = true}) async {
-    final uri = _buildUri(endpoint, queryParams);
+      bool includeAuthHeaders = true,
+      String? baseUrlOverride}) async {
+    final uri = _buildUri(endpoint, queryParams, baseUrlOverride);
     final response = await http.get(uri,
         headers: await _getHeaders(includeAuth: includeAuthHeaders));
     return _processResponse(response);
   }
 
   Future<dynamic> post(String endpoint, Map<String, dynamic> data,
-      {bool includeAuthHeaders = true}) async {
-    final uri = Uri.parse('$baseUrl$endpoint');
+      {bool includeAuthHeaders = true, String? baseUrlOverride}) async {
+    final base = baseUrlOverride ?? baseUrl;
+    final uri = Uri.parse('$base$endpoint');
     final response = await http.post(uri,
         headers: await _getHeaders(includeAuth: includeAuthHeaders),
         body: jsonEncode(data));
