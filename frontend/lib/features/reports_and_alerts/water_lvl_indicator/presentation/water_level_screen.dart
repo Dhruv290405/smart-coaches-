@@ -120,13 +120,71 @@ class _WaterLevelScreenState extends State<WaterLevelScreen> {
     } catch (e) {
       log('Error refreshing data from API: $e');
       if (mounted) {
+        _loadMockData();
         setState(() {
           _isLoading = false;
-          _errorMessage = 'Failed to load WLI data.';
+          _errorMessage = 'API unavailable. Showing sample data.';
           isRefreshing = false;
         });
       }
     }
+  }
+
+  void _loadMockData() {
+    final now = DateTime.now();
+    _allCoaches = [
+      WaterTankModel(
+        source: WliSource(companyName: 'VASP Rails Tech', systemType: 'WLI', deviceId: '12615_SLR1'),
+        location: WliLocation(coachId: 'WC001', coachName: '12615_SLR 1'),
+        messageType: 'METRICS',
+        timestamp: now.toIso8601String(),
+        placement: WliPlacement(type: 'UNDERSLUNG', sensorCount: 1, position: ['CENTER']),
+        coachType: '3 TIER',
+        trainNo: '12615',
+        assets: [WliAsset(assetId: 'WLI-12615-1', assetName: 'Water Tank Sensor', levelCm: 0.0, volumeLiters: 0.0, percentFull: 75.0)],
+      ),
+      WaterTankModel(
+        source: WliSource(companyName: 'VASP Rails Tech', systemType: 'WLI', deviceId: '12615_SLR2'),
+        location: WliLocation(coachId: 'WC002', coachName: '12615_SLR 2'),
+        messageType: 'METRICS',
+        timestamp: now.subtract(const Duration(minutes: 10)).toIso8601String(),
+        placement: WliPlacement(type: 'UNDERSLUNG', sensorCount: 1, position: ['CENTER']),
+        coachType: 'SLEEPER',
+        trainNo: '12615',
+        assets: [WliAsset(assetId: 'WLI-12615-2', assetName: 'Water Tank Sensor', levelCm: 0.0, volumeLiters: 0.0, percentFull: 45.0)],
+      ),
+      WaterTankModel(
+        source: WliSource(companyName: 'VASP Rails Tech', systemType: 'WLI', deviceId: '12615_GS1'),
+        location: WliLocation(coachId: 'WC003', coachName: '12615_GS 1'),
+        messageType: 'METRICS',
+        timestamp: now.subtract(const Duration(minutes: 5)).toIso8601String(),
+        placement: WliPlacement(type: 'ROOF', sensorCount: 1, position: ['CENTER']),
+        coachType: 'GENERAL',
+        trainNo: '12615',
+        assets: [WliAsset(assetId: 'WLI-12615-3', assetName: 'Water Tank Sensor', levelCm: 0.0, volumeLiters: 0.0, percentFull: 15.0)],
+      ),
+      WaterTankModel(
+        source: WliSource(companyName: 'VASP Rails Tech', systemType: 'WLI', deviceId: '12301_H1'),
+        location: WliLocation(coachId: 'WC004', coachName: '12301_H1'),
+        messageType: 'METRICS',
+        timestamp: now.subtract(const Duration(minutes: 15)).toIso8601String(),
+        placement: WliPlacement(type: 'UNDERSLUNG', sensorCount: 1, position: ['CENTER']),
+        coachType: 'AC',
+        trainNo: '12301',
+        assets: [WliAsset(assetId: 'WLI-12301-1', assetName: 'Water Tank Sensor', levelCm: 0.0, volumeLiters: 0.0, percentFull: 85.0)],
+      ),
+      WaterTankModel(
+        source: WliSource(companyName: 'VASP Rails Tech', systemType: 'WLI', deviceId: '12301_H2'),
+        location: WliLocation(coachId: 'WC005', coachName: '12301_H2'),
+        messageType: 'METRICS',
+        timestamp: now.subtract(const Duration(minutes: 20)).toIso8601String(),
+        placement: WliPlacement(type: 'UNDERFRAME', sensorCount: 1, position: ['CENTER']),
+        coachType: 'AC',
+        trainNo: '12301',
+        assets: [WliAsset(assetId: 'WLI-12301-2', assetName: 'Water Tank Sensor', levelCm: 0.0, volumeLiters: 0.0, percentFull: 60.0)],
+      ),
+    ];
+    _applyFilters();
   }
 
   Future<void> _loadTrains() async {
