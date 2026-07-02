@@ -39,10 +39,8 @@ const masterController = {
 
       if (type === 'divisions') {
         filter.zone_id = parseInt(zone_id);
-        orFilter.division_id = -1;
       } else if (type === 'regions') {
         filter.division_id = parseInt(division_id);
-        orFilter.region_id = -1;
       }
 
       const [items, total] = await Promise.all([
