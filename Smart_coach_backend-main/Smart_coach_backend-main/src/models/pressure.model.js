@@ -41,21 +41,10 @@ class PressureModel {
     async getDashboardStatus() {
         try {
             const { data, error } = await supabaseAdmin
-                .from('pressure_logs')
-                .select('*')
-                .not('coach_number', 'is', null)
-                .neq('coach_number', '')
-                .order('id', { ascending: false });
+                .rpc('get_latest_per_coach');
 
             if (error) throw error;
-
-            const latestMap = new Map();
-            for (const row of data) {
-                if (!latestMap.has(row.coach_number)) {
-                    latestMap.set(row.coach_number, row);
-                }
-            }
-            return Array.from(latestMap.values());
+            return data || [];
         } catch (err) {
             console.error("Pressure Dashboard Model Error:", err.message);
             throw err;

@@ -73,19 +73,10 @@ class HotAxleModel {
     async getLatestStatusForAllCoaches() {
         try {
             const { data, error } = await supabaseAdmin
-                .from('hot_axle_logs')
-                .select('*')
-                .order('id', { ascending: false });
+                .rpc('get_latest_per_device');
 
             if (error) throw error;
-
-            const latestMap = new Map();
-            for (const row of data) {
-                if (!latestMap.has(row.device_id)) {
-                    latestMap.set(row.device_id, row);
-                }
-            }
-            return Array.from(latestMap.values());
+            return data || [];
         } catch (err) {
             console.error("Dashboard Status Error:", err.message);
             throw err;
