@@ -228,6 +228,56 @@ app.get('/create-fsds-table', async (req, res) => {
   }
 });
 
+app.get('/migrate-odour-wli-fsds', async (req, res) => {
+  const mysql = require('mysql2/promise');
+  const results = {};
+  let conn;
+  try {
+    conn = await mysql.createConnection({
+      host: '103.227.176.27',
+      port: 3306,
+      user: 'smartcoachadmin',
+      password: 'miDf5k8P8Y5',
+      database: 'railway',
+      connectTimeout: 30000
+    });
+    results.mysql = 'connected';
+
+    const tables = ['odour_logs', 'wli_logs', 'fsds_logs'];
+    for (const table of tables) {
+      try {
+        const [cols] = await conn.query('SHOW COLUMNS FROM `' + table + '`');
+        const colNames = cols.map(c => c.Field);
+        const [rows] = await conn.query('SELECT * FROM `' + table + '`');
+        results[table] = { columns: colNames, count: rows.length };
+
+        if (rows.length > 0) {
+          const clean = rows.map(r => {
+            const o = {};
+            for (const [k,v] of Object.entries(r)) {
+              if (k === 'id') continue;
+              if (typeof v === 'object' && v !== null) continue;
+              if (typeof v === 'boolean') o[k] = v ? 1 : 0;
+              else if (v === 'true' || v === 'false') o[k] = v === 'true' ? 1 : 0;
+              else o[k] = v;
+            }
+            return o;
+          });
+          const { error } = await supabaseAdmin.from(table).insert(clean);
+          results[table].inserted = clean.length;
+          results[table].error = error ? error.message : null;
+        }
+      } catch (e) {
+        results[table] = { error: e.message };
+      }
+    }
+    await conn.end();
+  } catch (e) {
+    results.mysql = 'FAILED: ' + e.message;
+  }
+  res.json(results);
+});
+
 app.use((err, req, res, next) => {
   console.error('Global error handler:', err);
   if (err.name === 'JsonWebTokenError') {
