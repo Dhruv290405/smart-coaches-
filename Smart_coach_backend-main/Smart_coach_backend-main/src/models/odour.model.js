@@ -17,22 +17,11 @@ class OdourModel {
 
     async getLatestStatusForAllCoaches() {
         try {
-            const { data: allRows, error } = await supabaseAdmin
-                .from('odour_logs')
-                .select('id, device_id, master_sensor_id, train_number, coach_number, coach_type, toilet_position, odour_reading, device_status, voc, h2s, nh3, smoke, temperature, humidity, timestamp')
-                .order('id', { ascending: false });
+            const { data, error } = await supabaseAdmin
+                .rpc('get_latest_odour_per_device');
 
             if (error) throw error;
-
-            const seen = new Set();
-            const result = [];
-            for (const row of allRows || []) {
-                if (row.device_id && !seen.has(row.device_id)) {
-                    seen.add(row.device_id);
-                    result.push(row);
-                }
-            }
-            return result;
+            return data || [];
         } catch (err) {
             console.error("Odour Dashboard Error:", err.message);
             throw err;
