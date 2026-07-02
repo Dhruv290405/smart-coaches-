@@ -4,15 +4,14 @@ const BaseModel = require('./base.model');
 
 class StationModel extends BaseModel {
     constructor() {
-        super('region_master');
+        super('stations');
     }
 
     async getAllStations() {
         const { data: rows, error } = await supabaseAdmin
-            .from('region_master')
+            .from('stations')
             .select('*')
-            .eq('is_station', 1)
-            .neq('region_id', -1);
+            .eq('is_station', 1);
         if (error) throw error;
         return rows;
     }
