@@ -12,7 +12,7 @@ class RoleModel extends BaseModel {
       .from('role_master')
       .select('name')
       .eq('role_id', roleId)
-      .eq('is_active', true);
+      .eq('is_active', 1);
     if (error) throw error;
     console.log('Role name query result:', data);
     return data.length > 0 ? data[0].name : null;
@@ -34,7 +34,7 @@ class RoleModel extends BaseModel {
       .from('role_master')
       .select('role_id')
       .eq('name', roleName)
-      .eq('is_active', true);
+      .eq('is_active', 1);
     if (error) throw error;
     return data.length > 0 ? data[0].role_id : null;
   }

@@ -10,7 +10,7 @@ class RolesModel extends BaseModel {
     const { data: rows, error } = await supabaseAdmin
         .from('role_master')
         .select('role_id, name')
-        .eq('is_active', true);
+        .eq('is_active', 1);
     if (error) throw error;
     return rows;
 }

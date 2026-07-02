@@ -11,7 +11,7 @@ class MasterModel extends BaseModel {
       .from(this.tableName)
       .select('*');
 
-    query = query.eq('is_active', true);
+    query = query.eq('is_active', 1);
 
     for (const [key, value] of Object.entries(filter)) {
       query = query.eq(key, value);
@@ -34,7 +34,7 @@ class MasterModel extends BaseModel {
       .from(this.tableName)
       .select('*', { count: 'exact', head: true });
 
-    query = query.eq('is_active', true);
+    query = query.eq('is_active', 1);
 
     for (const [key, value] of Object.entries(filter)) {
       query = query.eq(key, value);
@@ -55,7 +55,7 @@ class MasterModel extends BaseModel {
 
     const { error: updateError } = await supabaseAdmin
       .from(this.tableName)
-      .update({ is_active: !current.is_active })
+      .update({ is_active: current.is_active === 1 ? 0 : 1 })
       .eq('id', id);
     if (updateError) throw updateError;
     return true;
