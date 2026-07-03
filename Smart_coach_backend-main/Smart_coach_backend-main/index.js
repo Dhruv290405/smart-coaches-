@@ -12,6 +12,7 @@ const hotAxleRoutes = require('./src/routes/hotAxle.routes');
 const pressureRoutes = require('./src/routes/pressure.routes');
 const acpRoutes = require('./src/routes/ACP.routes'); 
 const notificationRoutes = require('./src/routes/notification.routes');
+const { startSupabaseListener } = require('./src/services/supabaseListener');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -529,6 +530,9 @@ const startServer = async () => {
     runWliBridge();
     setInterval(runWliBridge, 60000);
     console.log(' WLI Bridge started (polls every 60s)');
+
+    // Start Supabase Realtime Listener for AWS IoT ACP Data
+    startSupabaseListener();
 
     // 3. Start Express Server
     const server = httpServer.listen(PORT, () => {
