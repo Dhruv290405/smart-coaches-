@@ -26,7 +26,7 @@ exports.getSensorData = async ({ sensor_id, from_date, to_date, limit }) => {
 
 exports.getTrainsForUser = async (userId) => {
   const { data: rows, error } = await supabaseAdmin
-    .from('trains_master')
+    .from('train_master')
     .select('train_id, train_number, train_name');
   if (error) throw error;
   return rows || [];
