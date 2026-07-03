@@ -13,12 +13,15 @@ const pressureRoutes = require('./src/routes/pressure.routes');
 const acpRoutes = require('./src/routes/ACP.routes'); 
 const notificationRoutes = require('./src/routes/notification.routes');
 
+const { apiLimiter } = require('./src/middleware/rateLimiter');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true, parameterLimit: 50000 }));
+app.use('/smart_coach_api/api', apiLimiter);
 
 if (process.env.NODE_ENV !== 'test') {
   app.use(morgan('dev'));
@@ -30,6 +33,13 @@ const io = new Server(httpServer, {
 });
 
 global._io = io;
+
+io.on('connection', (socket) => {
+  console.log('Client connected:', socket.id);
+  socket.on('disconnect', () => {
+    console.log('Client disconnected:', socket.id);
+  });
+});
 
 app.use('/smart_coach_api/api/auth', require('./src/routes/auth.routes'));
 app.use('/smart_coach_api/api/masters', require('./src/routes/master.routes'));
@@ -60,6 +70,7 @@ app.use("/smart_coach_api/api/fsds", require("./src/routes/fsds.routes"));
 app.use("/smart_coach_api/api/coach-config", require("./src/routes/coachConfig.routes.js"));
 app.use('/smart_coach_api/api/notifications', notificationRoutes);
 app.use('/smart_coach_api/api/diesel', require('./src/routes/diesel.routes'));
+app.use('/smart_coach_api/api/sim-cards', require('./src/routes/sim-card.routes'));
 
 app.get('/test', async (req, res) => {
   let dbStatus = 'not checked';
@@ -68,8 +79,9 @@ app.get('/test', async (req, res) => {
   let tables = [];
   let userCount = 0;
   try {
-    const { count: wliCount, error: wliErr } = await supabaseAdmin.from('wli_logs').select('*', { count: 'exact', head: true });
+    const { count: wliCnt, error: wliErr } = await supabaseAdmin.from('wli_logs').select('*', { count: 'exact', head: true });
     if (wliErr) throw wliErr;
+    wliCount = wliCnt;
     const { count: userCnt, error: userErr } = await supabaseAdmin.from('user_master').select('*', { count: 'exact', head: true });
     if (userErr) throw userErr;
     userCount = userCnt + ' users';

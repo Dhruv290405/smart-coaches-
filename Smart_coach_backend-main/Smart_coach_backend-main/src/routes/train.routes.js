@@ -47,23 +47,4 @@ router.get(
   trainController.getTrainById
 );
 
-// Create new train (Admin only)
-router.post(
-  '/',
-  authenticate,
-  authorizeByToken(['Master Admin', 'Super Admin', 'Admin', 'Manager', 'Editor']),
-  trainController.createTrain
-);
-
-// Delete train (Admin only)
-router.delete(
-  '/:id',
-  authenticate,
-  authorize(['admin']),
-  [
-    param('id').isInt().withMessage('Train ID must be an integer')
-  ],
-  trainController.deleteTrain
-);
-
 module.exports = router;

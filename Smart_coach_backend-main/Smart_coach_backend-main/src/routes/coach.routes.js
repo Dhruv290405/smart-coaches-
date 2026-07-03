@@ -8,6 +8,7 @@ const router = express.Router();
 router.get('/unmapped', coachController.getUnmappedCoaches);
 router.get('/', authenticate, coachController.getAllCoaches);
 router.get('/coachfortrain', authenticate, coachController.getCoachForTrain);
+router.get('/:id', authenticate, coachController.getCoachById);
 router.post(
   '/',
   authenticate,
