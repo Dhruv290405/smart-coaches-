@@ -1,3 +1,4 @@
+const supabaseAdmin = require('../config/supabaseAdmin');
 const BaseModel = require('./base.model');
 
 class MasterModel extends BaseModel {
@@ -6,66 +7,61 @@ class MasterModel extends BaseModel {
   }
 
   async getAllActive(filter = {}, orFilter = {}) {
-    const andConditions = ['is_active = TRUE'];
-    const orConditions = [];
-    const params = [];
+    let query = supabaseAdmin
+      .from(this.tableName)
+      .select('*');
+
+    query = query.eq('is_active', 1);
 
     for (const [key, value] of Object.entries(filter)) {
-      andConditions.push(`${key} = ?`);
-      params.push(value);
+      query = query.eq(key, value);
     }
 
-    for (const [key, value] of Object.entries(orFilter)) {
-      orConditions.push(`${key} = ?`);
-      params.push(value);
+    if (Object.keys(orFilter).length > 0) {
+      const orConditions = Object.entries(orFilter).map(([key, value]) => `${key}.eq.${value}`);
+      query = query.or(orConditions.join(','));
     }
 
-    let whereClause = '';
-    if (orConditions.length > 0) {
-      whereClause = `WHERE ${andConditions.join(' AND ')} OR (${orConditions.join(' OR ')})`;
-    } else if (andConditions.length > 0) {
-      whereClause = `WHERE ${andConditions.join(' AND ')}`;
-    }
+    query = query.order('name');
 
-    const [rows] = await this.pool.query(
-      `SELECT * FROM ${this.tableName} ${whereClause} ORDER BY name`,
-      params
-    );
-
+    const { data: rows, error } = await query;
+    if (error) throw error;
     return rows;
   }
 
-
   async getActiveCount(filter = {}) {
-    const conditions = ['is_active = TRUE'];
-    const params = [];
+    let query = supabaseAdmin
+      .from(this.tableName)
+      .select('*', { count: 'exact', head: true });
+
+    query = query.eq('is_active', 1);
 
     for (const [key, value] of Object.entries(filter)) {
-      conditions.push(`${key} = ?`);
-      params.push(value);
+      query = query.eq(key, value);
     }
 
-    const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
-
-    const [rows] = await this.pool.query(
-      `SELECT COUNT(*) as count FROM ${this.tableName} ${whereClause}`,
-      params
-    );
-
-    return rows[0].count;
+    const { count, error } = await query;
+    if (error) throw error;
+    return count;
   }
 
-  // Toggle active status
   async toggleStatus(id) {
-    const [result] = await this.pool.query(
-      `UPDATE ${this.tableName} SET is_active = !is_active WHERE id = ?`,
-      [id]
-    );
-    return result.affectedRows > 0;
+    const { data: current, error: fetchError } = await supabaseAdmin
+      .from(this.tableName)
+      .select('is_active')
+      .eq('id', id)
+      .single();
+    if (fetchError) throw fetchError;
+
+    const { error: updateError } = await supabaseAdmin
+      .from(this.tableName)
+      .update({ is_active: current.is_active === 1 ? 0 : 1 })
+      .eq('id', id);
+    if (updateError) throw updateError;
+    return true;
   }
 }
 
-// Export instances for each master table
 module.exports = {
   zoneModel: new MasterModel('zone_master'),
   divisionModel: new MasterModel('division_master'),

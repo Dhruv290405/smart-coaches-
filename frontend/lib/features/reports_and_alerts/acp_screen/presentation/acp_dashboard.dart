@@ -238,17 +238,11 @@ class _AcpDashboardState extends State<AcpDashboard> {
         // FSDS: fire_status=0 means normal (ON), fire_status=1 means bypassed (OFF)
         final fsdsStatusStr = logEntry.fsdsStatus?.toString() ?? '';
         final fsdsOn = fsdsStatusStr.isNotEmpty && fsdsStatusStr != '1';
-        final bool isFsdsRecent;
-        if (logEntry.fsdsTimestamp != null) {
-          try {
-            final fsdsDt = DateTime.parse(logEntry.fsdsTimestamp!);
-            isFsdsRecent = DateTime.now().difference(fsdsDt).inMinutes < 60;
-          } catch (_) {
-            isFsdsRecent = false;
-          }
-        } else {
-          isFsdsRecent = false;
-        }
+        final bool isFsdsRecent = logEntry.fsdsTimestamp != null
+            ? DateTime.tryParse(logEntry.fsdsTimestamp!) != null
+                ? DateTime.now().difference(DateTime.parse(logEntry.fsdsTimestamp!)).inMinutes < 60
+                : false
+            : false;
 
         coaches.add(AcpCoachModel(
           coachNumber: coachName,

@@ -1,16 +1,14 @@
-const { pool } = require("../config/db");
+const supabaseAdmin = require("../config/supabaseAdmin");
 
 class OdourModel {
     async saveDynamicLog(data) {
-        const keysArray = Object.keys(data);
-        const valuesArray = Object.values(data);
-        const columns = keysArray.join(", ");
-        const placeholders = keysArray.map(() => "?").join(", ");
-
-        const query = `INSERT INTO odour_logs (${columns}) VALUES (${placeholders})`;
         try {
-            const [result] = await pool.query(query, valuesArray);
-            return result.insertId;
+            const { data: inserted, error } = await supabaseAdmin
+                .from('odour_logs')
+                .insert([data])
+                .select();
+            if (error) throw error;
+            return inserted[0].id;
         } catch (err) {
             console.error("Odour Model Error:", err.message);
             throw err;
@@ -18,25 +16,12 @@ class OdourModel {
     }
 
     async getLatestStatusForAllCoaches() {
-        const query = `
-            SELECT 
-                l.id, l.device_id, l.master_sensor_id,
-                l.train_number, l.coach_number, l.coach_type,
-                l.toilet_position, l.odour_reading, l.device_status,
-                l.voc, l.h2s, l.nh3, l.smoke,
-                l.temperature, l.humidity, l.timestamp
-            FROM odour_logs l
-            INNER JOIN (
-                SELECT MAX(id) as latest_id 
-                FROM odour_logs 
-                GROUP BY device_id
-            ) latest ON l.id = latest.latest_id
-            ORDER BY l.timestamp DESC
-        `;
-
         try {
-            const [rows] = await pool.query(query);
-            return rows;
+            const { data, error } = await supabaseAdmin
+                .rpc('get_latest_odour_per_device');
+
+            if (error) throw error;
+            return data || [];
         } catch (err) {
             console.error("Odour Dashboard Error:", err.message);
             throw err;

@@ -2,7 +2,7 @@ const { validationResult } = require('express-validator');
 const { successResponse, errorResponse } = require('../utils/response');
 const sensorModel = require('../models/sensor.model');
 const deviceModel = require('../models/device.model');
-const { pool } = require('../config/db');
+const supabaseAdmin = require('../config/supabaseAdmin');
 const { toMySQLDatetime } = require('../middleware/datetime');
 
 const sensorController = {
@@ -59,88 +59,86 @@ const sensorController = {
       } = req.body;
 
       // Validate value_type/category exists
-      const [catRow] = await pool.execute(
-        `SELECT value_type_id FROM value_type_master WHERE value_type_id = ?`,
-        [category]
-      );
-      if (catRow.length === 0) {
+      const { data: catRow, error: catErr } = await supabaseAdmin
+        .from('value_type_master')
+        .select('value_type_id')
+        .eq('value_type_id', category)
+        .limit(1);
+
+      if (catErr) throw catErr;
+      if (!catRow || catRow.length === 0) {
         return errorResponse(res, 'Invalid category (value type)', 400);
       }
 
       // Validate all units exist
       if (unit_ids.length > 0) {
-        const [unitRows] = await pool.query(
-          `SELECT unit_id FROM unit_master WHERE unit_id IN (?)`,
-          [unit_ids]
-        );
-        if (unitRows.length !== unit_ids.length) {
+        const { data: unitRows, error: unitErr } = await supabaseAdmin
+          .from('unit_master')
+          .select('unit_id')
+          .in('unit_id', unit_ids);
+
+        if (unitErr) throw unitErr;
+        if (!unitRows || unitRows.length !== unit_ids.length) {
           return errorResponse(res, 'One or more unit IDs are invalid', 400);
         }
       }
 
       // Validate all devices exist
       if (device_ids.length > 0) {
-        const [deviceRows] = await pool.query(
-          `SELECT device_id FROM device_master WHERE device_id IN (?)`,
-          [device_ids]
-        );
-        if (deviceRows.length !== device_ids.length) {
+        const { data: deviceRows, error: devErr } = await supabaseAdmin
+          .from('device_master')
+          .select('device_id')
+          .in('device_id', device_ids);
+
+        if (devErr) throw devErr;
+        if (!deviceRows || deviceRows.length !== device_ids.length) {
           return errorResponse(res, 'One or more device IDs are invalid', 400);
         }
       }
 
       // Insert into sensor_master
-      const insertSensorSql = `
-      INSERT INTO sensor_master (
-        sensor_type_name,
-        category,
-        name,
-        description,
-        value_format,
-        min_expected_value,
-        max_expected_value,
-        sampling_frequency,
-        time_interval,
-        is_active,
-        created_at,
-        created_by
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-
       const created_at = toMySQLDatetime();
 
-      const [result] = await pool.execute(insertSensorSql, [
-        sensor_type_name,
-        category,
-        name,
-        description || null,
-        value_format,
-        min_expected_value || null,
-        max_expected_value || null,
-        sampling_frequency,
-        time_interval,
-        is_active,
-        created_at,
-        created_by
-      ]);
+      const { data: result, error: insertErr } = await supabaseAdmin
+        .from('sensor_master')
+        .insert([{
+          sensor_type_name,
+          category,
+          name,
+          description: description || null,
+          value_format,
+          min_expected_value: min_expected_value || null,
+          max_expected_value: max_expected_value || null,
+          sampling_frequency,
+          time_interval,
+          is_active,
+          created_at,
+          created_by
+        }])
+        .select();
 
-      const sensor_id = result.insertId;
+      if (insertErr) throw insertErr;
+
+      const sensor_id = result[0].sensor_type_id;
 
       // Map units (sensor_mapping)
       if (unit_ids.length > 0) {
-        const unitInsertSql = `
-        INSERT INTO sensor_unit_mapping (sensor_id, unit_id) VALUES ?
-      `;
-        const unitValues = unit_ids.map((unit_id) => [sensor_id, unit_id]);
-        await pool.query(unitInsertSql, [unitValues]);
+        const unitValues = unit_ids.map((unit_id) => ({ sensor_id, unit_id }));
+        const { error: mapUnitErr } = await supabaseAdmin
+          .from('sensor_unit_mapping')
+          .insert(unitValues);
+
+        if (mapUnitErr) throw mapUnitErr;
       }
 
       // Map devices (sensor_device_mapping)
       if (device_ids.length > 0) {
-        const deviceInsertSql = `
-        INSERT INTO sensor_device_mapping (sensor_id, device_id) VALUES ?
-      `;
-        const deviceValues = device_ids.map((device_id) => [sensor_id, device_id]);
-        await pool.query(deviceInsertSql, [deviceValues]);
+        const deviceValues = device_ids.map((device_id) => ({ sensor_id, device_id }));
+        const { error: mapDevErr } = await supabaseAdmin
+          .from('sensor_device_mapping')
+          .insert(deviceValues);
+
+        if (mapDevErr) throw mapDevErr;
       }
 
       return successResponse(
@@ -240,92 +238,109 @@ const sensorController = {
       } = req.body;
 
       // ✅ Check if sensor exists
-      const [existingRows] = await pool.query(
-        `SELECT * FROM sensor_master WHERE sensor_type_id = ?`,
-        [sensor_type_id]
-      );
-      if (existingRows.length === 0) {
+      const { data: existingRows, error: existErr } = await supabaseAdmin
+        .from('sensor_master')
+        .select('*')
+        .eq('sensor_type_id', sensor_type_id);
+
+      if (existErr) throw existErr;
+      if (!existingRows || existingRows.length === 0) {
         return errorResponse(res, 'Sensor not found', 404);
       }
 
       // ✅ Validate category
-      const [catRow] = await pool.query(
-        `SELECT value_type_id FROM value_type_master WHERE value_type_id = ?`,
-        [category]
-      );
-      if (catRow.length === 0) {
+      const { data: catRow, error: catErr } = await supabaseAdmin
+        .from('value_type_master')
+        .select('value_type_id')
+        .eq('value_type_id', category)
+        .limit(1);
+
+      if (catErr) throw catErr;
+      if (!catRow || catRow.length === 0) {
         return errorResponse(res, 'Invalid category (value type)', 400);
       }
 
       // ✅ Validate all unit_ids
       if (unit_ids.length > 0) {
-        const [unitRows] = await pool.query(
-          `SELECT unit_id FROM unit_master WHERE unit_id IN (?)`,
-          [unit_ids]
-        );
-        if (unitRows.length !== unit_ids.length) {
+        const { data: unitRows, error: unitErr } = await supabaseAdmin
+          .from('unit_master')
+          .select('unit_id')
+          .in('unit_id', unit_ids);
+
+        if (unitErr) throw unitErr;
+        if (!unitRows || unitRows.length !== unit_ids.length) {
           return errorResponse(res, 'One or more unit IDs are invalid', 400);
         }
       }
 
       // ✅ Validate all device_ids
       if (device_ids.length > 0) {
-        const [deviceRows] = await pool.query(
-          `SELECT device_id FROM device_master WHERE device_id IN (?)`,
-          [device_ids]
-        );
-        if (deviceRows.length !== device_ids.length) {
+        const { data: deviceRows, error: devErr } = await supabaseAdmin
+          .from('device_master')
+          .select('device_id')
+          .in('device_id', device_ids);
+
+        if (devErr) throw devErr;
+        if (!deviceRows || deviceRows.length !== device_ids.length) {
           return errorResponse(res, 'One or more device IDs are invalid', 400);
         }
       }
 
       // ✅ Update sensor_master
-      const updateSensorSql = `
-        UPDATE sensor_master SET
-          sensor_type_name = ?,
-          category = ?,
-          name = ?,
-          description = ?,
-          value_format = ?,
-          min_expected_value = ?,
-          max_expected_value = ?,
-          sampling_frequency = ?,
-          time_interval = ?,
-          is_active = ?,
-          updated_at = ?,
-          updated_by = ?
-        WHERE sensor_type_id = ?
-      `;
-
       const updated_at = toMySQLDatetime();
-      await pool.execute(updateSensorSql, [
-        sensor_type_name,
-        category,
-        name,
-        description || null,
-        value_format,
-        min_expected_value || null,
-        max_expected_value || null,
-        sampling_frequency,
-        time_interval,
-        is_active,
-        updated_at,
-        updated_by,
-        sensor_type_id
-      ]);
+
+      const { error: updateErr } = await supabaseAdmin
+        .from('sensor_master')
+        .update({
+          sensor_type_name,
+          category,
+          name,
+          description: description || null,
+          value_format,
+          min_expected_value: min_expected_value || null,
+          max_expected_value: max_expected_value || null,
+          sampling_frequency,
+          time_interval,
+          is_active,
+          updated_at,
+          updated_by
+        })
+        .eq('sensor_type_id', sensor_type_id);
+
+      if (updateErr) throw updateErr;
 
       // ✅ Replace unit mappings
-      await pool.query(`DELETE FROM sensor_unit_mapping WHERE sensor_id = ?`, [sensor_type_id]);
+      const { error: delUnitErr } = await supabaseAdmin
+        .from('sensor_unit_mapping')
+        .delete()
+        .eq('sensor_id', sensor_type_id);
+
+      if (delUnitErr) throw delUnitErr;
+
       if (unit_ids.length > 0) {
-        const unitValues = unit_ids.map(unit_id => [sensor_type_id, unit_id]);
-        await pool.query(`INSERT INTO sensor_unit_mapping (sensor_id, unit_id) VALUES ?`, [unitValues]);
+        const unitValues = unit_ids.map(unit_id => ({ sensor_id: sensor_type_id, unit_id }));
+        const { error: insUnitErr } = await supabaseAdmin
+          .from('sensor_unit_mapping')
+          .insert(unitValues);
+
+        if (insUnitErr) throw insUnitErr;
       }
 
       // ✅ Replace device mappings
-      await pool.query(`DELETE FROM sensor_device_mapping WHERE sensor_id = ?`, [sensor_type_id]);
+      const { error: delDevErr } = await supabaseAdmin
+        .from('sensor_device_mapping')
+        .delete()
+        .eq('sensor_id', sensor_type_id);
+
+      if (delDevErr) throw delDevErr;
+
       if (device_ids.length > 0) {
-        const deviceValues = device_ids.map(device_id => [sensor_type_id, device_id]);
-        await pool.query(`INSERT INTO sensor_device_mapping (sensor_id, device_id) VALUES ?`, [deviceValues]);
+        const deviceValues = device_ids.map(device_id => ({ sensor_id: sensor_type_id, device_id }));
+        const { error: insDevErr } = await supabaseAdmin
+          .from('sensor_device_mapping')
+          .insert(deviceValues);
+
+        if (insDevErr) throw insDevErr;
       }
 
       return successResponse(res, 'Sensor updated successfully', {
@@ -469,16 +484,20 @@ const sensorController = {
       // If no start_date provided, default to last 24 hours
       const startDate = start_date || new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-      let query = 'SELECT * FROM sensor_readings WHERE sensor_id = ? AND reading_time BETWEEN ? AND ?';
-      const params = [id, startDate, end_date];
+      let dbQuery = supabaseAdmin
+        .from('sensor_readings')
+        .select('*')
+        .eq('sensor_id', id)
+        .gte('reading_time', startDate)
+        .lte('reading_time', end_date)
+        .order('reading_time', { ascending: false });
 
-      // Add limit if provided
       if (limit) {
-        query += ' ORDER BY reading_time DESC LIMIT ?';
-        params.push(parseInt(limit));
+        dbQuery = dbQuery.limit(parseInt(limit));
       }
 
-      const [readings] = await sensorModel.pool.query(query, params);
+      const { data: readings, error } = await dbQuery;
+      if (error) throw error;
 
       return successResponse(res, 'Readings retrieved successfully', {
         sensor_id: id,
@@ -537,25 +556,23 @@ const sensorController = {
         return errorResponse(res, 'Sensor not found', 404);
       }
 
-      let query = 'SELECT * FROM sensor_alerts WHERE sensor_id = ?';
-      const params = [id];
+      let dbQuery = supabaseAdmin
+        .from('sensor_alerts')
+        .select('*')
+        .eq('sensor_id', id)
+        .order('created_at', { ascending: false })
+        .limit(parseInt(limit));
 
-      // Add filters
       if (resolved !== undefined) {
-        query += ' AND resolved = ?';
-        params.push(resolved === 'true');
+        dbQuery = dbQuery.eq('resolved', resolved === 'true');
       }
 
       if (start_date) {
-        query += ' AND created_at BETWEEN ? AND ?';
-        params.push(start_date, end_date);
+        dbQuery = dbQuery.gte('created_at', start_date).lte('created_at', end_date);
       }
 
-      // Add limit and order
-      query += ' ORDER BY created_at DESC LIMIT ?';
-      params.push(parseInt(limit));
-
-      const [alerts] = await sensorModel.pool.query(query, params);
+      const { data: alerts, error } = await dbQuery;
+      if (error) throw error;
 
       return successResponse(res, 'Alerts retrieved successfully', {
         sensor_id: id,
@@ -636,12 +653,15 @@ const sensorController = {
       }
 
       // Check if alert exists
-      const [alerts] = await sensorModel.pool.query(
-        'SELECT * FROM sensor_alerts WHERE id = ? AND sensor_id = ?',
-        [alertId, id]
-      );
+      const { data: alerts, error: alertErr } = await supabaseAdmin
+        .from('sensor_alerts')
+        .select('*')
+        .eq('id', alertId)
+        .eq('sensor_id', id);
 
-      if (alerts.length === 0) {
+      if (alertErr) throw alertErr;
+
+      if (!alerts || alerts.length === 0) {
         return errorResponse(res, 'Alert not found', 404);
       }
 
@@ -655,16 +675,17 @@ const sensorController = {
         resolved_notes: resolved_notes !== undefined ? resolved_notes : alert.resolved_notes
       };
 
-      await sensorModel.pool.query(
-        'UPDATE sensor_alerts SET resolved = ?, resolved_by = ?, resolved_at = ?, resolved_notes = ? WHERE id = ?',
-        [
-          updateData.resolved,
-          updateData.resolved_by,
-          updateData.resolved_at,
-          updateData.resolved_notes,
-          alertId
-        ]
-      );
+      const { error: updErr } = await supabaseAdmin
+        .from('sensor_alerts')
+        .update({
+          resolved: updateData.resolved,
+          resolved_by: updateData.resolved_by,
+          resolved_at: updateData.resolved_at,
+          resolved_notes: updateData.resolved_notes
+        })
+        .eq('id', alertId);
+
+      if (updErr) throw updErr;
 
       return successResponse(res, 'Alert updated successfully', { id: alertId });
     } catch (error) {

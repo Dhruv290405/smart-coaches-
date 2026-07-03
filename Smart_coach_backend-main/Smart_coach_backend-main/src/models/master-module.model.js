@@ -1,3 +1,4 @@
+const supabaseAdmin = require('../config/supabaseAdmin');
 const BaseModel = require('./base.model');
 
 class MasterModuleModel extends BaseModel {
@@ -6,305 +7,303 @@ class MasterModuleModel extends BaseModel {
   }
 
   async createWithDevices(data, deviceIds) {
-    const conn = await this.pool.getConnection();
+    const { data: coachRows } = await supabaseAdmin
+      .from('coach_master')
+      .select('no_of_master_module')
+      .eq('coach_id', data.coach_id);
 
-    try {
-      await conn.beginTransaction();
-
-      // Step 1: Check if coach_id is valid and within limit
-      const [coachRows] = await conn.query(
-        `SELECT no_of_master_module FROM coach_master WHERE coach_id = ?`,
-        [data.coach_id]
-      );
-
-      if (coachRows.length === 0) {
-        await conn.rollback();
-        return { error: true, message: 'Invalid coach_id provided.' };
-      }
-
-      const noOfAllowedModules = coachRows[0].no_of_master_module;
-
-      const [existingModules] = await conn.query(
-        `SELECT COUNT(*) as count FROM master_module WHERE coach_id = ?`,
-        [data.coach_id]
-      );
-
-      const currentCount = existingModules[0].count;
-
-      if (currentCount >= noOfAllowedModules) {
-        await conn.rollback();
-        return {
-          error: true,
-          message: `Module limit reached for this coach (allowed: ${noOfAllowedModules}, current: ${currentCount})`
-        };
-      }
-
-      // Step 2: Insert into master_module
-      const [moduleResult] = await conn.query(
-        `INSERT INTO master_module (
-        coach_id, module_unique_id, make_model, firmware_version, seriel_number,
-        installation_date, location, placement_type, sim_no, recharge_date,
-        service_provider_primary, service_provider_secondary, activation_date, sim_status,
-        battery_replacement_date, dual_profile_supported, lora_enabled, esim_enabled,
-        battery_capacity, battery_type, battery_recharge_date, power_supply_available,
-        created_by, created_date
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          data.coach_id,
-          data.module_unique_id,
-          data.make_model,
-          data.firmware_version,
-          data.seriel_number,
-          data.installation_date,
-          data.location,
-          data.placement_type,
-          data.sim_no,
-          data.recharge_date,
-          data.service_provider_primary,
-          data.service_provider_secondary || null,
-          data.activation_date,
-          data.sim_status,
-          data.battery_replacement_date,
-          data.dual_profile_supported,
-          data.lora_enabled,
-          data.esim_enabled,
-          data.battery_capacity || null,
-          data.battery_type || null,
-          data.battery_recharge_date,
-          data.power_supply_available,
-          data.created_by,
-          data.created_date
-        ]
-      );
-
-      const moduleId = moduleResult.insertId;
-
-      // Step 3: Validate device IDs
-      if (deviceIds.length > 0) {
-        const [validDevices] = await conn.query(
-          `SELECT device_id FROM device_master WHERE device_id IN (?)`,
-          [deviceIds]
-        );
-
-        const validDeviceIds = validDevices.map(d => d.device_id);
-
-        if (validDeviceIds.length !== deviceIds.length) {
-          await conn.rollback();
-          return { error: true, message: 'Some device_ids are invalid or do not exist in device_master' };
-        }
-
-        // Step 4: Insert mappings using INSERT IGNORE to avoid duplicates
-        const values = validDeviceIds.map(deviceId => [moduleId, deviceId]);
-
-        await conn.query(
-          `INSERT IGNORE INTO module_device_mapping (module_id, device_id) VALUES ?`,
-          [values]
-        );
-      }
-
-      await conn.commit();
-      return { error: false, moduleId };
-
-    } catch (error) {
-      await conn.rollback();
-      throw error;
-    } finally {
-      conn.release();
+    if (!coachRows || coachRows.length === 0) {
+      return { error: true, message: 'Invalid coach_id provided.' };
     }
+
+    const noOfAllowedModules = coachRows[0].no_of_master_module;
+
+    const { data: existingModules } = await supabaseAdmin
+      .from('master_module')
+      .select('module_id')
+      .eq('coach_id', data.coach_id);
+
+    const currentCount = existingModules ? existingModules.length : 0;
+
+    if (currentCount >= noOfAllowedModules) {
+      return {
+        error: true,
+        message: `Module limit reached for this coach (allowed: ${noOfAllowedModules}, current: ${currentCount})`
+      };
+    }
+
+    const { data: moduleResult, error: insError } = await supabaseAdmin
+      .from('master_module')
+      .insert([{
+        coach_id: data.coach_id,
+        module_unique_id: data.module_unique_id,
+        make_model: data.make_model,
+        firmware_version: data.firmware_version,
+        seriel_number: data.seriel_number,
+        installation_date: data.installation_date,
+        location: data.location,
+        placement_type: data.placement_type,
+        sim_no: data.sim_no,
+        recharge_date: data.recharge_date,
+        service_provider_primary: data.service_provider_primary,
+        service_provider_secondary: data.service_provider_secondary || null,
+        activation_date: data.activation_date,
+        sim_status: data.sim_status,
+        battery_replacement_date: data.battery_replacement_date,
+        dual_profile_supported: data.dual_profile_supported,
+        lora_enabled: data.lora_enabled,
+        esim_enabled: data.esim_enabled,
+        battery_capacity: data.battery_capacity || null,
+        battery_type: data.battery_type || null,
+        battery_recharge_date: data.battery_recharge_date,
+        power_supply_available: data.power_supply_available,
+        created_by: data.created_by,
+        created_date: data.created_date
+      }])
+      .select();
+    if (insError) throw insError;
+    const moduleId = moduleResult[0].module_id;
+
+    if (deviceIds.length > 0) {
+      const { data: validDevices } = await supabaseAdmin
+        .from('device_master')
+        .select('device_id')
+        .in('device_id', deviceIds);
+
+      const validDeviceIds = (validDevices || []).map(d => d.device_id);
+
+      if (validDeviceIds.length !== deviceIds.length) {
+        return { error: true, message: 'Some device_ids are invalid or do not exist in device_master' };
+      }
+
+      const values = validDeviceIds.map(deviceId => ({
+        module_id: moduleId,
+        device_id: deviceId
+      }));
+
+      await supabaseAdmin.from('module_device_mapping').insert(values);
+    }
+
+    return { error: false, moduleId };
   }
 
-  // async findByUserId(userId) {
-  //   const query = `
-  //   SELECT
-  //     c.*,
-  //     mm.*,
-  //     t.train_id,
-  //     t.train_number,
-  //     t.train_name,
-
-  //     u1.first_name AS train_created_by_name,
-  //     u2.first_name AS train_updated_by_name,
-  //     u3.first_name AS coach_created_by_name,
-  //     u4.first_name AS coach_updated_by_name,
-  //     u5.first_name AS module_created_by_name,
-  //     u6.first_name AS module_updated_by_name,
-
-  //     dm.device_id AS mapped_device_id,
-  //     dm.device_unique_id,
-  //     dm.short_name AS device_short_name,
-  //     dm.full_name AS device_full_name
-
-  //   FROM coach_master c
-
-  //   JOIN train_master t ON c.train_id = t.train_id
-  //   JOIN user_train_mapping utm ON t.train_id = utm.train_id AND utm.user_id = ?
-
-  //   LEFT JOIN master_module mm ON mm.coach_id = c.coach_id
-  //   LEFT JOIN module_device_mapping mdm ON mm.module_id = mdm.module_id
-  //   LEFT JOIN device_master dm ON mdm.device_id = dm.device_id
-
-  //   LEFT JOIN user_master u1 ON t.created_by = u1.user_id
-  //   LEFT JOIN user_master u2 ON t.updated_by = u2.user_id
-  //   LEFT JOIN user_master u3 ON c.created_by = u3.user_id
-  //   LEFT JOIN user_master u4 ON c.updated_by = u4.user_id
-  //   LEFT JOIN user_master u5 ON mm.created_by = u5.user_id
-  //   LEFT JOIN user_master u6 ON mm.updated_by = u6.user_id
-
-  //   ORDER BY t.train_id, c.position, mm.module_id;
-  // `;
-
-  //   const [rows] = await this.pool.query(query, [userId]);
-  //   return rows;
-  // }
-
-
   async findByUserId(userId) {
-    const query = `
-    SELECT
-      mm.*,
-      c.coach_id,
-      c.coach_unique_id,
-      c.coach_display_id,
-      c.position,
+    const { data: modules } = await supabaseAdmin
+      .from('master_module')
+      .select('*')
+      .order('module_id');
 
-      t.train_id,
-      t.train_number,
-      t.train_name,
+    if (!modules || modules.length === 0) return [];
 
-      u1.first_name AS module_created_by_name,
-      u2.first_name AS module_updated_by_name,
-      u3.first_name AS coach_created_by_name,
-      u4.first_name AS coach_updated_by_name,
-      u5.first_name AS train_created_by_name,
-      u6.first_name AS train_updated_by_name,
+    const coachIds = [...new Set(modules.map(m => m.coach_id).filter(Boolean))];
+    const moduleIds = modules.map(m => m.module_id);
 
-      dm.device_id AS mapped_device_id,
-      dm.device_unique_id,
-      dm.short_name AS device_short_name,
-      dm.full_name AS device_full_name,
+    let coaches = [];
+    if (coachIds.length > 0) {
+      const { data: c } = await supabaseAdmin
+        .from('coach_master')
+        .select('*')
+        .in('coach_id', coachIds);
+      coaches = c || [];
+    }
 
-      CASE WHEN utm.user_id IS NOT NULL THEN 1 ELSE 0 END AS is_train_mapped_to_user
+    const trainIds = [...new Set(coaches.map(c => c.train_id).filter(Boolean))];
 
-    FROM master_module mm
+    let trains = [];
+    if (trainIds.length > 0) {
+      const { data: t } = await supabaseAdmin
+        .from('train_master')
+        .select('*')
+        .in('train_id', trainIds);
+      trains = t || [];
+    }
 
-    LEFT JOIN coach_master c ON mm.coach_id = c.coach_id
-    LEFT JOIN train_master t ON c.train_id = t.train_id
-    LEFT JOIN user_train_mapping utm ON t.train_id = utm.train_id AND utm.user_id = ?
+    const { data: userTrainMappings } = await supabaseAdmin
+      .from('user_train_mapping')
+      .select('train_id')
+      .eq('user_id', userId);
+    const mappedTrainIds = new Set((userTrainMappings || []).map(utm => utm.train_id));
 
-    LEFT JOIN module_device_mapping mdm ON mm.module_id = mdm.module_id
-    LEFT JOIN device_master dm ON mdm.device_id = dm.device_id
+    const { data: devMappings } = await supabaseAdmin
+      .from('module_device_mapping')
+      .select('*')
+      .in('module_id', moduleIds);
+    const deviceIdsFromMapping = [...new Set((devMappings || []).map(dm => dm.device_id).filter(Boolean))];
 
-    LEFT JOIN user_master u1 ON mm.created_by = u1.user_id
-    LEFT JOIN user_master u2 ON mm.updated_by = u2.user_id
-    LEFT JOIN user_master u3 ON c.created_by = u3.user_id
-    LEFT JOIN user_master u4 ON c.updated_by = u4.user_id
-    LEFT JOIN user_master u5 ON t.created_by = u5.user_id
-    LEFT JOIN user_master u6 ON t.updated_by = u6.user_id
+    let devices = [];
+    if (deviceIdsFromMapping.length > 0) {
+      const { data: d } = await supabaseAdmin
+        .from('device_master')
+        .select('*')
+        .in('device_id', deviceIdsFromMapping);
+      devices = d || [];
+    }
 
-    ORDER BY mm.module_id;
-  `;
+    const userIds = new Set();
+    modules.forEach(m => { if (m.created_by) userIds.add(m.created_by); if (m.updated_by) userIds.add(m.updated_by); });
+    coaches.forEach(c => { if (c.created_by) userIds.add(c.created_by); if (c.updated_by) userIds.add(c.updated_by); });
+    trains.forEach(t => { if (t.created_by) userIds.add(t.created_by); if (t.updated_by) userIds.add(t.updated_by); });
 
-    const [rows] = await this.pool.query(query, [userId]);
+    let users = [];
+    if (userIds.size > 0) {
+      const { data: u } = await supabaseAdmin
+        .from('user_master')
+        .select('user_id, first_name')
+        .in('user_id', [...userIds]);
+      users = u || [];
+    }
+    const userMap = {};
+    users.forEach(u => { userMap[u.user_id] = u.first_name; });
+
+    const coachMap = {};
+    coaches.forEach(c => { coachMap[c.coach_id] = c; });
+    const trainMap = {};
+    trains.forEach(t => { trainMap[t.train_id] = t; });
+    const devMap = {};
+    devices.forEach(d => { devMap[d.device_id] = d; });
+    const moduleDeviceMap = {};
+    (devMappings || []).forEach(dm => {
+      if (!moduleDeviceMap[dm.module_id]) moduleDeviceMap[dm.module_id] = [];
+      moduleDeviceMap[dm.module_id].push(dm);
+    });
+
+    const rows = [];
+
+    for (const mm of modules) {
+      const coach = coachMap[mm.coach_id] || {};
+      const train = trainMap[coach.train_id] || {};
+      const moduleDevices = moduleDeviceMap[mm.module_id] || [];
+
+      if (moduleDevices.length === 0) {
+        rows.push({
+          ...mm,
+          coach_id: coach.coach_id,
+          coach_unique_id: coach.coach_unique_id,
+          coach_display_id: coach.coach_display_id,
+          position: coach.position,
+          train_id: train.train_id,
+          train_number: train.train_number,
+          train_name: train.train_name,
+          module_created_by_name: userMap[mm.created_by] || null,
+          module_updated_by_name: userMap[mm.updated_by] || null,
+          coach_created_by_name: userMap[coach.created_by] || null,
+          coach_updated_by_name: userMap[coach.updated_by] || null,
+          train_created_by_name: userMap[train.created_by] || null,
+          train_updated_by_name: userMap[train.updated_by] || null,
+          mapped_device_id: null,
+          device_unique_id: null,
+          device_short_name: null,
+          device_full_name: null,
+          is_train_mapped_to_user: train.train_id ? (mappedTrainIds.has(train.train_id) ? 1 : 0) : 0
+        });
+      } else {
+        for (const dm of moduleDevices) {
+          const device = devMap[dm.device_id] || {};
+          rows.push({
+            ...mm,
+            coach_id: coach.coach_id,
+            coach_unique_id: coach.coach_unique_id,
+            coach_display_id: coach.coach_display_id,
+            position: coach.position,
+            train_id: train.train_id,
+            train_number: train.train_number,
+            train_name: train.train_name,
+            module_created_by_name: userMap[mm.created_by] || null,
+            module_updated_by_name: userMap[mm.updated_by] || null,
+            coach_created_by_name: userMap[coach.created_by] || null,
+            coach_updated_by_name: userMap[coach.updated_by] || null,
+            train_created_by_name: userMap[train.created_by] || null,
+            train_updated_by_name: userMap[train.updated_by] || null,
+            mapped_device_id: device.device_id || null,
+            device_unique_id: device.device_unique_id || null,
+            device_short_name: device.short_name || null,
+            device_full_name: device.full_name || null,
+            is_train_mapped_to_user: train.train_id ? (mappedTrainIds.has(train.train_id) ? 1 : 0) : 0
+          });
+        }
+      }
+    }
+
     return rows;
   }
 
   async findByCoachId(coach_id) {
     console.log(`test: ${coach_id}`);
-    const [rows] = await this.pool.query(
-      `SELECT mm.*, cm.coach_unique_id from master_module AS mm
-      JOIN coach_master AS cm ON mm.coach_id = cm.coach_id
-      WHERE mm.coach_id = ?`,
-      [coach_id]
-   
-    );
-    return rows;
+    const { data: modules } = await supabaseAdmin
+      .from('master_module')
+      .select('*')
+      .eq('coach_id', coach_id);
+    if (!modules || modules.length === 0) return [];
+
+    const { data: coach } = await supabaseAdmin
+      .from('coach_master')
+      .select('coach_unique_id')
+      .eq('coach_id', coach_id)
+      .single();
+
+    return modules.map(m => ({ ...m, coach_unique_id: coach?.coach_unique_id || null }));
   }
 
   async noOfDevicesAttachedToModule(module_id) {
-    const [rows] = await this.pool.query(
-      `SELECT COUNT(*) AS device_count FROM module_device_mapping WHERE module_id = ?`,
-      [module_id]
-    );
-    return rows[0].device_count;
+    const { data, error } = await supabaseAdmin
+      .from('module_device_mapping')
+      .select('device_id')
+      .eq('module_id', module_id);
+    if (error) throw error;
+    return data ? data.length : 0;
   }
 
   async updateWithDevices(moduleId, data, deviceIds) {
-    const conn = await this.pool.getConnection();
+    const updateFields = Object.keys(data).map(key => `${key} = ?`).join(', ');
+    const updateValues = Object.values(data);
 
-    try {
-      await conn.beginTransaction();
+    const updateData = {};
+    for (const key of Object.keys(data)) {
+      updateData[key] = data[key];
+    }
+    const { error: updateError } = await supabaseAdmin
+      .from('master_module')
+      .update(updateData)
+      .eq('module_id', moduleId);
+    if (updateError) throw updateError;
 
-      // 1. Update master_module
-      const updateFields = Object.keys(data).map(key => `${key} = ?`).join(', ');
-      const updateValues = Object.values(data);
+    if (deviceIds.length > 0) {
+      const { data: validDevices } = await supabaseAdmin
+        .from('device_master')
+        .select('device_id')
+        .in('device_id', deviceIds);
 
-      await conn.query(
-        `UPDATE master_module SET ${updateFields} WHERE module_id = ?`,
-        [...updateValues, moduleId]
-      );
-
-      // 2. Validate devices
-      if (deviceIds.length > 0) {
-        const [validDevices] = await conn.query(
-          `SELECT device_id FROM device_master WHERE device_id IN (?)`,
-          [deviceIds]
-        );
-
-        const validDeviceIds = validDevices.map(d => d.device_id);
-        if (validDeviceIds.length !== deviceIds.length) {
-          throw new Error('Some device_ids are invalid or do not exist in device_master');
-        }
-
-        // 3. Delete old mappings
-        await conn.query(`DELETE FROM module_device_mapping WHERE module_id = ?`, [moduleId]);
-
-        // 4. Insert new mappings
-        const values = validDeviceIds.map(deviceId => [moduleId, deviceId]);
-        await conn.query(
-          `INSERT IGNORE INTO module_device_mapping (module_id, device_id) VALUES ?`,
-          [values]
-        );
-      } else {
-        // If deviceIds empty, remove all mappings
-        await conn.query(`DELETE FROM module_device_mapping WHERE module_id = ?`, [moduleId]);
+      const validDeviceIds = (validDevices || []).map(d => d.device_id);
+      if (validDeviceIds.length !== deviceIds.length) {
+        throw new Error('Some device_ids are invalid or do not exist in device_master');
       }
 
-      await conn.commit();
-    } catch (error) {
-      await conn.rollback();
-      throw error;
-    } finally {
-      conn.release();
+      await supabaseAdmin.from('module_device_mapping').delete().eq('module_id', moduleId);
+
+      const values = validDeviceIds.map(deviceId => ({
+        module_id: moduleId,
+        device_id: deviceId
+      }));
+      await supabaseAdmin.from('module_device_mapping').insert(values);
+    } else {
+      await supabaseAdmin.from('module_device_mapping').delete().eq('module_id', moduleId);
     }
   }
 
   async deleteById(moduleId) {
-    const conn = await this.pool.getConnection();
-    try {
-      await conn.beginTransaction();
-
-      // Delete from module_device_mapping first (if exists)
-      await conn.query(`DELETE FROM module_device_mapping WHERE module_id = ?`, [moduleId]);
-
-      // Then delete the module
-      await conn.query(`DELETE FROM master_module WHERE module_id = ?`, [moduleId]);
-
-      await conn.commit();
-    } catch (err) {
-      await conn.rollback();
-      throw err;
-    } finally {
-      conn.release();
-    }
+    await supabaseAdmin.from('module_device_mapping').delete().eq('module_id', moduleId);
+    const { error } = await supabaseAdmin.from('master_module').delete().eq('module_id', moduleId);
+    if (error) throw error;
   }
 
-
   async exists(moduleId) {
-    const [rows] = await this.pool.query(
-      `SELECT 1 FROM master_module WHERE module_id = ? LIMIT 1`,
-      [moduleId]
-    );
-    return rows.length > 0;
+    const { data, error } = await supabaseAdmin
+      .from('master_module')
+      .select('module_id')
+      .eq('module_id', moduleId)
+      .limit(1);
+    if (error) throw error;
+    return data.length > 0;
   }
 }
 

@@ -1,26 +1,29 @@
 const BaseModel = require("./base.model");
+const supabaseAdmin = require("../config/supabaseAdmin");
 
 class Sensor_configModel extends BaseModel {
   constructor() {
     super("sensor_config");
   }
 
-  // get sensor_type_id from sensor_device_mapping by device_id
   async getSensorTypeId(device_id) {
-    const [rows] = await this.pool.execute(
-      `SELECT sensor_id as sensor_type_id FROM sensor_device_mapping WHERE device_id = ?`,
-      [device_id]
-    );
-    return rows.length > 0 ? rows[0].sensor_type_id : null;
+    const { data, error } = await supabaseAdmin
+      .from("sensor_device_mapping")
+      .select("sensor_id")
+      .eq("device_id", device_id)
+      .maybeSingle();
+    if (error) throw error;
+    return data ? data.sensor_id : null;
   }
 
-  // get rule_id from rule_sensor_mapping by sensor_id
   async getRuleId(sensor_type_id) {
-    const [rows] = await this.pool.execute(
-      `SELECT rule_id FROM rule_sensor_mapping WHERE sensor_type_id = ?`,
-      [sensor_type_id]
-    );
-    return rows.length > 0 ? rows[0].rule_id : null;
+    const { data, error } = await supabaseAdmin
+      .from("rule_sensor_mapping")
+      .select("rule_id")
+      .eq("sensor_type_id", sensor_type_id)
+      .maybeSingle();
+    if (error) throw error;
+    return data ? data.rule_id : null;
   }
 
   async insertSensorConfig({
@@ -36,19 +39,20 @@ class Sensor_configModel extends BaseModel {
     master_module_id,
     coach_id
   }) {
-    // Check if the sensor_id already exists
-    const [existing] = await this.pool.execute(
-      `SELECT sensor_config_id FROM sensor_config WHERE sensor_id = ?`,
-      [sensor_id]
-    );
-  
-    if (existing.length > 0) {
+    const { data: existing, error: findError } = await supabaseAdmin
+      .from("sensor_config")
+      .select("sensor_config_id")
+      .eq("sensor_id", sensor_id)
+      .maybeSingle();
+    if (findError) throw findError;
+
+    if (existing) {
       throw new Error(`Sensor with ID "${sensor_id}" already exists.`);
     }
-  
-    // Insert including new fields
-    const [result] = await this.pool.execute(
-      `INSERT INTO sensor_config (
+
+    const { data: result, error: insError } = await supabaseAdmin
+      .from("sensor_config")
+      .insert([{
         sensor_id,
         device_id,
         sensor_type_id,
@@ -60,66 +64,41 @@ class Sensor_configModel extends BaseModel {
         remarks,
         master_module_id,
         coach_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        sensor_id,
-        device_id,
-        sensor_type_id,
-        rule_id,
-        sensor_make_id,
-        install_date,
-        placement,
-        location,
-        remarks,
-        master_module_id,
-        coach_id
-      ]
-    );
-  
-    return result.insertId;
+      }])
+      .select();
+
+    if (insError) throw insError;
+    return result[0].sensor_config_id;
   }
+
   async getAllSensorConfigs() {
-    const [rows] = await this.pool.execute(`
-      SELECT 
-        sc.*,                             
-        d.*,                              
-        sm.*,                             
-        mm.*,                             
-        cm.*                            
-      FROM sensor_config sc
-      LEFT JOIN device_master d ON sc.device_id = d.device_id
-      LEFT JOIN sensor_make sm ON sc.sensor_make_id = sm.sensor_make_id
-      LEFT JOIN master_module mm ON sc.master_module_id = mm.module_id
-      LEFT JOIN coach_master cm ON sc.coach_id = cm.coach_id
-    `);
-  
-    return rows;
+    const { data: rows, error } = await supabaseAdmin
+      .from("sensor_config")
+      .select(`
+        *,
+        device_master:device_id(tech_coach_no, comm_coach_no, train_no, train_location)
+      `)
+      .order("sensor_config_id", { ascending: false });
+    if (error) throw error;
+
+    return (rows || []).map(r => ({
+      ...r,
+      tech_coach_no: r.device_master ? r.device_master.tech_coach_no || '' : '',
+      comm_coach_no: r.device_master ? r.device_master.comm_coach_no || '' : '',
+      train_no: r.device_master ? r.device_master.train_no || '' : '',
+      train_location: r.device_master ? r.device_master.train_location || '' : '',
+      device_master: undefined
+    }));
   }
 
   async noOfDevicesAttachedToModule(module_id) {
-    const [rows] = await this.pool.query(
-      `SELECT COUNT(*) AS device_count FROM module_device_mapping WHERE module_id = ?`,
-      [module_id]
-    );
-    return rows[0].device_count;
+    const { count, error } = await supabaseAdmin
+      .from("module_device_mapping")
+      .select("*", { count: "exact", head: true })
+      .eq("module_id", module_id);
+    if (error) throw error;
+    return count || 0;
   }
-  
-  async getAllSensorConfigs() {
-  const [rows] = await this.pool.execute(`
-    SELECT 
-      sc.*,
-      COALESCE(d.tech_coach_no, '') AS tech_coach_no,
-      COALESCE(d.comm_coach_no, '') AS comm_coach_no,
-      COALESCE(d.train_no, '') AS train_no,
-      COALESCE(d.train_location, '') AS train_location
-    FROM sensor_config sc
-    LEFT JOIN device_master d ON sc.device_id = d.device_id
-    ORDER BY sc.sensor_config_id DESC
-  `);
-
-  return rows;
-}
-  
 
   async updateSensorConfig(sensor_config_id, {
     sensor_id,
@@ -130,61 +109,70 @@ class Sensor_configModel extends BaseModel {
     location,
     remarks
   }) {
-    // Check if the new sensor_id exists for a different record
-    const [existing] = await this.pool.execute(
-      `SELECT sensor_config_id FROM sensor_config WHERE sensor_id = ? AND sensor_config_id != ?`,
-      [sensor_id, sensor_config_id]
-    );
-  
-    if (existing.length > 0) {
+    const { data: existing, error: findError } = await supabaseAdmin
+      .from("sensor_config")
+      .select("sensor_config_id")
+      .eq("sensor_id", sensor_id)
+      .neq("sensor_config_id", sensor_config_id)
+      .maybeSingle();
+    if (findError) throw findError;
+
+    if (existing) {
       throw new Error(`Sensor ID "${sensor_id}" already exists in another config.`);
     }
-  
-    const [result] = await this.pool.execute(
-      `UPDATE sensor_config SET
-        sensor_id = ?,
-        device_id = ?,
-        sensor_make_id = ?,
-        install_date = ?,
-        placement = ?,
-        location = ?,
-        remarks = ?
-      WHERE sensor_config_id = ?`,
-      [sensor_id, device_id, sensor_make_id, install_date, placement, location, remarks, sensor_config_id]
-    );
-  
-    return result.affectedRows > 0; // true if update was successful
+
+    const { data, error: updError } = await supabaseAdmin
+      .from("sensor_config")
+      .update({
+        sensor_id,
+        device_id,
+        sensor_make_id,
+        install_date,
+        placement,
+        location,
+        remarks
+      })
+      .eq("sensor_config_id", sensor_config_id)
+      .select();
+
+    if (updError) throw updError;
+    return data && data.length > 0;
   }
-  
 
   async deleteSensorConfig(sensor_config_id) {
-    const [result] = await this.pool.execute(
-      `DELETE FROM sensor_config WHERE sensor_config_id = ?`,
-      [sensor_config_id]
-    );
+    const { data, error } = await supabaseAdmin
+      .from("sensor_config")
+      .delete()
+      .eq("sensor_config_id", sensor_config_id)
+      .select();
+
+    if (error) throw error;
 
     console.log(`Deleted sensor config with ID ${sensor_config_id}`);
 
-    return result.affectedRows > 0; // true if deletion was successful
+    return data && data.length > 0;
   }
 
   async getTrainAndCoachBySensorId(sensor_id) {
-    const [rows] = await this.pool.execute(
-      `SELECT coach_id FROM sensor_config WHERE SENSOR_ID = ?`,
-      [sensor_id]
-    );
-    
-    const coach_id = rows.length > 0 ? rows[0].coach_id : null;
-    
+    const { data: row, error } = await supabaseAdmin
+      .from("sensor_config")
+      .select("coach_id")
+      .eq("sensor_id", sensor_id)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    const coach_id = row ? row.coach_id : null;
+
     if (!coach_id) {
-      return null; // No coach found for this sensor
+      return null;
     }
 
-    const [coachRows] = await this.pool.execute(
-      `SELECT coach_id FROM coach_master WHERE coach_id = ?`,
-      [coach_id]
-    );
-    
+    await supabaseAdmin
+      .from("coach_master")
+      .select("coach_id")
+      .eq("coach_id", coach_id);
+
     const train_id = null;
 
     return { coach_id, train_id };

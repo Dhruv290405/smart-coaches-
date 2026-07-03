@@ -30,6 +30,7 @@ class ApiConstants {
   static const String odourCoachesApiEndpoint = '/odour-logs/coaches';
   static const String fsdsReceiveDataApiEndpoint = '/fsds/receive-data';
   static const String fsdsGetDataApiEndpoint = '/fsds/get-data';
+  static const String fsdsBaseUrl = 'https://smart-coaches-production.up.railway.app/smart_coach_api/api';
   static const String coachConfigApiEndpoint = '/coach-config';
   static const String hotAxleReceiveDataApiEndpoint = '/hot-axle/receive-data';
   static const String hotAxleGetDataApiEndpoint = '/hot-axle/get-data';
@@ -53,7 +54,7 @@ class ApiConstants {
   // ─── URL CONFIGURATION ────────────────────────────────────────────────────
   // PRODUCTION: deployed Railway backend
   static const String devUrl =
-      'https://smart-coaches-production.up.railway.app/smart_coach_api/api';
+      'https://smart-coaches-production.up.railway.app/smart_coach_api/api'; // Railway backend - Supabase
 
   // LOCAL: comment above and uncomment below to use local backend (port 3000)
   // static const String devUrl = 'http://10.0.2.2:3000/smart_coach_api/api';   // Android emulator

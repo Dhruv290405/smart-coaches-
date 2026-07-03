@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
-const { testConnection, pool } = require('./src/config/db');
+const supabaseAdmin = require('./src/config/supabaseAdmin');
 const { errorResponse } = require('./src/utils/response');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
@@ -14,15 +14,16 @@ const acpRoutes = require('./src/routes/ACP.routes');
 const notificationRoutes = require('./src/routes/notification.routes');
 const { startSupabaseListener } = require('./src/services/supabaseListener');
 
+const { apiLimiter } = require('./src/middleware/rateLimiter');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true, parameterLimit: 50000 }));
+app.use('/smart_coach_api/api', apiLimiter);
 
-// Logging middleware (only in development)
 if (process.env.NODE_ENV !== 'test') {
   app.use(morgan('dev'));
 }
@@ -32,10 +33,15 @@ const io = new Server(httpServer, {
   cors: { origin: "*" }
 });
 
-//  Store io instance globally
 global._io = io;
 
-// API Routes
+io.on('connection', (socket) => {
+  console.log('Client connected:', socket.id);
+  socket.on('disconnect', () => {
+    console.log('Client disconnected:', socket.id);
+  });
+});
+
 app.use('/smart_coach_api/api/auth', require('./src/routes/auth.routes'));
 app.use('/smart_coach_api/api/masters', require('./src/routes/master.routes'));
 app.use('/smart_coach_api/api/trains', require('./src/routes/train.routes'));
@@ -65,65 +71,50 @@ app.use("/smart_coach_api/api/fsds", require("./src/routes/fsds.routes"));
 app.use("/smart_coach_api/api/coach-config", require("./src/routes/coachConfig.routes.js"));
 app.use('/smart_coach_api/api/notifications', notificationRoutes);
 app.use('/smart_coach_api/api/diesel', require('./src/routes/diesel.routes'));
-// Test routes
+
 app.get('/test', async (req, res) => {
   let dbStatus = 'not checked';
-  let dbHost = process.env.MYSQLHOST || 'not set';
+  let supabaseUrl = process.env.SUPABASE_URL || 'not set';
   let wliCount = 0;
   let tables = [];
   let userCount = 0;
-  let pwExists = false;
   try {
-    const connection = await pool.getConnection();
+    const { count: wliCnt, error: wliErr } = await supabaseAdmin.from('wli_logs').select('*', { count: 'exact', head: true });
+    if (wliErr) throw wliErr;
+    wliCount = wliCnt;
+    const { count: userCnt, error: userErr } = await supabaseAdmin.from('user_master').select('*', { count: 'exact', head: true });
+    if (userErr) throw userErr;
+    userCount = userCnt + ' users';
+    const { data: tbls, error: tblErr } = await supabaseAdmin.from('information_schema.tables').select('table_name').eq('table_schema', 'public');
+    if (!tblErr && tbls) tables = tbls.map(r => r.table_name);
     dbStatus = 'connected';
-    const [rows] = await connection.query("SELECT COUNT(*) as cnt FROM wli_logs");
-    wliCount = rows[0].cnt;
-    const [tbls] = await connection.query("SHOW TABLES");
-    tables = tbls.map(r => Object.values(r)[0]);
-    try { const [u] = await connection.query("SELECT COUNT(*) as total, SUM(password_hash IS NOT NULL) as with_pw FROM user_master"); userCount = u[0].total + ' users, ' + u[0].with_pw + ' with pw'; pwExists = u[0].with_pw > 0; } catch (_) { userCount = 'err'; }
-    connection.release();
   } catch (e) {
     dbStatus = 'failed: ' + e.message;
   }
-  res.json({ status: 'Test route works!', db: dbStatus, host: dbHost, wliLogs: wliCount, tables: tables, users: userCount, pwSet: pwExists });
+  res.json({ status: 'Test route works!', db: dbStatus, supabaseUrl, wliLogs: wliCount, tables, users: userCount });
 });
 
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'Server is running' });
 });
+
 app.get('/db-data', async (req, res) => {
   try {
-    const conn = await pool.getConnection();
-    const [tbls] = await conn.query("SHOW TABLES");
-    const tables = tbls.map(r => Object.values(r)[0]);
+    const tables = ['zone_master', 'division_master', 'region_master', 'role_master', 'user_master', 'coach_make', 'coach_type', 'sensor_make', 'train_master', 'device_master', 'coach_master', 'sensor_master', 'sensor_config', 'rule_master', 'stations', 'wli_logs', 'hot_axle_logs', 'pressure_logs', 'fsds_logs', 'iot_water_level'];
     const info = {};
     for (const t of tables) {
-      const [cnt] = await conn.query(`SELECT COUNT(*) as c FROM \`${t}\``);
-      info[t] = cnt[0].c;
+      const { count, error } = await supabaseAdmin.from(t).select('*', { count: 'exact', head: true });
+      info[t] = error ? `error: ${error.message}` : count;
     }
-    conn.release();
     res.json({ tables: info });
   } catch (e) { res.json({ error: e.message }); }
 });
-// Debug endpoint that mirrors a failing query to show the real error
-app.get('/debug-query', async (req, res) => {
-  try {
-    const q = req.query.q;
-    if (!q) return res.json({ error: '?q=SQL_QUERY' });
-    const conn = await pool.getConnection();
-    const [rows] = await conn.query(q);
-    conn.release();
-    res.json({ ok: true, rows: rows.length, sample: rows[0] || null });
-  } catch (e) { res.json({ error: e.message }); }
-});
 
-// In-memory migration log (for debugging)
 let migrateLog = [];
 const logR = (msg) => { migrateLog.push('[' + new Date().toISOString().slice(11,19) + '] ' + msg); console.log('[MIGRATE] ' + msg); };
 
 app.get('/migrate-log', (req, res) => res.json(migrateLog.slice(-100)));
 
-// --- MASTER DATA MIGRATION (one-time trigger, runs async) ---
 app.post('/migrate-all', (req, res) => {
   res.json({ status: 'Migration started in background, check server logs' });
   migrateLog = [];
@@ -150,76 +141,30 @@ app.post('/migrate-all', (req, res) => {
       return data;
     };
 
-    const q = (s) => '`' + s.replace(/`/g, '') + '`';
-    const dropKeys = ['created_by_name', 'updated_by_name', 'make_of_coach_name', 'type_of_coach_code', 'master_module_ids', 'master_module_locations'];
-
     const insertData = async (table, rows) => {
       if (!rows || !rows.length) { logR(`${table}: 0 rows`); return; }
-      const cols = Object.keys(rows[0]).filter(k => !dropKeys.includes(k));
-      const ph = cols.map(() => '?').join(',');
-      const cn = cols.map(q).join(',');
       let ok = 0, fail = 0;
       for (const row of rows) {
-        const vals = cols.map(c => row[c] === undefined || row[c] === null ? null : String(row[c]));
-        try { await pool.query(`INSERT IGNORE INTO \`${table}\` (${cn}) VALUES (${ph})`, vals); ok++; }
-        catch (e) { fail++; if (fail <= 2) logR(`${table} err: ${e.message}`); }
+        try {
+          const { error } = await supabaseAdmin.from(table).insert(row).maybeSingle();
+          if (error) throw error;
+          ok++;
+        } catch (e) {
+          fail++;
+          if (fail <= 2) logR(`${table} err: ${e.message}`);
+        }
       }
       logR(`${table}: ${ok} OK, ${fail} failed`);
-    };
-
-    const createTable = async (name, sample) => {
-      if (!sample) return;
-      const cols = Object.keys(sample).filter(k => !dropKeys.includes(k)).map(k => `\`${k}\` VARCHAR(255)`).join(', ');
-      try { await pool.query(`CREATE TABLE IF NOT EXISTS \`${name}\` (${cols})`); }
-      catch (e) { logR(`${name} create err: ${e.message}`); }
     };
 
     const migrate = async (name, path) => {
       logR(`Fetching ${name}...`);
       const d = await GET(path);
-      if (d) { await createTable(name, d[0]); await insertData(name, d); }
+      if (d && d.length) { await insertData(name, d); }
     };
 
     logR('--- Starting Master Data Migration ---');
 
-    // Static schema tables (include all tables referenced by JOINs)
-    for (const [sql] of [
-      [`CREATE TABLE IF NOT EXISTS zone_master (zone_id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(100), is_active TINYINT DEFAULT 1)`],
-      [`CREATE TABLE IF NOT EXISTS division_master (division_id INT PRIMARY KEY AUTO_INCREMENT, zone_id INT, name VARCHAR(100), is_active TINYINT DEFAULT 1)`],
-      [`CREATE TABLE IF NOT EXISTS role_master (role_id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(100), is_active TINYINT DEFAULT 1)`],
-      [`CREATE TABLE IF NOT EXISTS coach_make (id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(100))`],
-      [`CREATE TABLE IF NOT EXISTS coach_type (id INT PRIMARY KEY AUTO_INCREMENT, code VARCHAR(50), name VARCHAR(100))`],
-      [`CREATE TABLE IF NOT EXISTS sensor_make (sensor_make_id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(100))`],
-      [`CREATE TABLE IF NOT EXISTS region_master (region_id INT PRIMARY KEY AUTO_INCREMENT, division_id INT, name VARCHAR(100), is_active TINYINT DEFAULT 1, code VARCHAR(50))`],
-      [`CREATE TABLE IF NOT EXISTS user_train_mapping (id INT PRIMARY KEY AUTO_INCREMENT, user_id INT, train_id INT)`],
-      [`CREATE TABLE IF NOT EXISTS user_region_mapping (id INT PRIMARY KEY AUTO_INCREMENT, user_id INT, region_id INT)`],
-      [`CREATE TABLE IF NOT EXISTS user_master (user_id INT PRIMARY KEY AUTO_INCREMENT, first_name VARCHAR(100), last_name VARCHAR(100), email VARCHAR(100), mobile_number VARCHAR(20), gender VARCHAR(20), organisation_type VARCHAR(100), organisation_name VARCHAR(100), zone_id INT, division_id INT, region_id INT, role_id INT, status VARCHAR(20) DEFAULT 'Active', approval_status VARCHAR(20) DEFAULT 'Approved', employee_id VARCHAR(50), pan_card_no VARCHAR(50), aadhar_no VARCHAR(50), company_id VARCHAR(50), created_date VARCHAR(50), updated_date VARCHAR(50), role_name VARCHAR(100), zone_name VARCHAR(100), division_name VARCHAR(100), region_name VARCHAR(100), password_hash VARCHAR(255))`],
-    ]) { try { await pool.query(sql); } catch (_) {} }
-
-    // Drop problem tables so dynamic createTable re-creates with correct columns
-    for (const t of ['zone_master', 'division_master', 'region_master', 'role_master',
-      'coach_make', 'coach_type', 'sensor_make', 'stations', 'coach_master']) {
-      try { await pool.query(`DROP TABLE IF EXISTS \`${t}\``); } catch (_) {}
-    }
-    // Create tables needed by queries but not populated from API
-    for (const sql of [
-      `CREATE TABLE IF NOT EXISTS master_module (module_id INT PRIMARY KEY AUTO_INCREMENT, coach_id INT, module_unique_id VARCHAR(255), location VARCHAR(255), seriel_number VARCHAR(255))`,
-      `CREATE TABLE IF NOT EXISTS module_device_mapping (id INT PRIMARY KEY AUTO_INCREMENT, module_id INT, device_id INT)`,
-      `CREATE TABLE IF NOT EXISTS value_type_master (value_type_id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(100))`,
-      `CREATE TABLE IF NOT EXISTS unit_master (unit_id INT PRIMARY KEY AUTO_INCREMENT, unit VARCHAR(50))`,
-      `CREATE TABLE IF NOT EXISTS sensor_unit_mapping (id INT PRIMARY KEY AUTO_INCREMENT, sensor_id INT, unit_id INT)`,
-      `CREATE TABLE IF NOT EXISTS sensor_device_mapping (id INT PRIMARY KEY AUTO_INCREMENT, sensor_id INT, device_id INT)`,
-      `CREATE TABLE IF NOT EXISTS rule_device_mapping (id INT PRIMARY KEY AUTO_INCREMENT, rule_id INT, device_id INT)`,
-      `CREATE TABLE IF NOT EXISTS rule_sensor_mapping (id INT PRIMARY KEY AUTO_INCREMENT, rule_id INT, sensor_type_id INT)`,
-      `CREATE TABLE IF NOT EXISTS rule_condition_master (condition_id INT PRIMARY KEY AUTO_INCREMENT, rule_id INT, value_type_id INT, value_format VARCHAR(50), connector VARCHAR(50), alert_message_template TEXT, si_unit_id INT, alert_type_id INT)`,
-      `CREATE TABLE IF NOT EXISTS rule_sub_condition (sub_condition_id INT PRIMARY KEY AUTO_INCREMENT, condition_id INT, field VARCHAR(100), operator VARCHAR(20), value VARCHAR(255), sort_order INT)`,
-      `CREATE TABLE IF NOT EXISTS alert_type_master (alert_type_id INT PRIMARY KEY AUTO_INCREMENT, alert_type_name VARCHAR(100))`,
-      `CREATE TABLE IF NOT EXISTS train_coach_mapping (id INT PRIMARY KEY AUTO_INCREMENT, train_id INT, coach_id INT)`,
-      `CREATE TABLE IF NOT EXISTS coaches (id INT PRIMARY KEY AUTO_INCREMENT, coach_number VARCHAR(50), train_id INT)`,
-      `CREATE TABLE IF NOT EXISTS device_type (id INT PRIMARY KEY AUTO_INCREMENT, full_name VARCHAR(100), short_name VARCHAR(50))`,
-    ]) { try { await pool.query(sql); logR('Table created: ' + (sql.split('`')[1] || '?')); } catch (e) { logR('Table creation err: ' + e.message); } }
-
-    // Fetch and insert — order matters (zones before divisions before regions)
     for (const [name, path] of [
       ['zone_master', '/masters/zones'], ['role_master', '/masters/roles'],
       ['coach_make', '/coach-makes'], ['coach_type', '/coach-types'],
@@ -229,7 +174,6 @@ app.post('/migrate-all', (req, res) => {
       ['rule_master', '/rules'], ['stations', '/stations'],
     ]) { await migrate(name, path); }
 
-    // Coaches: rename columns before insert
     try {
       const raw = await GET('/coaches');
       if (raw && raw.length) {
@@ -239,71 +183,63 @@ app.post('/migrate-all', (req, res) => {
           if ('type_of_coach_id' in o) { o.type_of_coach = o.type_of_coach_id; delete o.type_of_coach_id; }
           return o;
         });
-        await createTable('coach_master', fixed[0]);
         await insertData('coach_master', fixed);
       }
     } catch (e) { logR('coach_master err: ' + e.message); }
 
-    // Divisions: iterate zones to get all divisions
     try {
-      const [zones] = await pool.query("SELECT zone_id FROM zone_master");
+      const { data: zones } = await supabaseAdmin.from('zone_master').select('zone_id');
       const allDivs = [];
-      for (const z of zones) {
+      for (const z of (zones || [])) {
         const divs = await GET(`/masters/divisions?zone_id=${z.zone_id}`);
         if (divs) allDivs.push(...divs);
       }
-      if (allDivs.length) { await createTable('division_master', allDivs[0]); await insertData('division_master', allDivs); }
+      if (allDivs.length) { await insertData('division_master', allDivs); }
     } catch (e) { logR('division_master err: ' + e.message); }
 
-    // Regions: iterate divisions and also fetch /regions
     try {
       const allRegs = [];
       const regs = await GET('/regions');
       if (regs) allRegs.push(...regs);
-      if (!allRegs.length) { // fallback: fetch per division
-        const [divs] = await pool.query("SELECT division_id FROM division_master");
-        for (const d of divs) { const r = await GET(`/masters/regions?division_id=${d.division_id}`); if (r) allRegs.push(...r); }
+      if (!allRegs.length) {
+        const { data: divs } = await supabaseAdmin.from('division_master').select('division_id');
+        for (const d of (divs || [])) { const r = await GET(`/masters/regions?division_id=${d.division_id}`); if (r) allRegs.push(...r); }
       }
-      if (allRegs.length) { await createTable('region_master', allRegs[0]); await insertData('region_master', allRegs); }
+      if (allRegs.length) { await insertData('region_master', allRegs); }
     } catch (e) { logR('region_master err: ' + e.message); }
 
-    // Insert tester user directly (password: 123456)
     try {
-      await pool.query(`INSERT IGNORE INTO user_master (user_id, first_name, last_name, email, mobile_number, gender, organisation_type, organisation_name, zone_id, division_id, role_id, status, approval_status, employee_id, pan_card_no, aadhar_no, company_id, created_date, password_hash) VALUES (1, 'Tester', 'Backend', 'tester@example.com', '9000000000', 'Male', 'Railway', 'Indian Railways', 1, 10, 1, 'Active', 'Approved', 'EMP12345', 'ABCDE1234F', '123456789012', '1', NOW(), '\$2b\$10\$5GoOa5baUkZRMjRCAwOhbudp6n8Ww2l0DPu6vNGhMeCGg0su1cakW')`);
-      logR('user_master: tester user inserted with password_hash');
+      const { error } = await supabaseAdmin.from('user_master').insert({
+        user_id: 1, first_name: 'Tester', last_name: 'Backend',
+        email: 'tester@example.com', mobile_number: '9000000000', gender: 'Male',
+        organisation_type: 'Railway', organisation_name: 'Indian Railways',
+        zone_id: 1, division_id: 10, role_id: 1, status: 'Active',
+        approval_status: 'Approved', employee_id: 'EMP12345',
+        pan_card_no: 'ABCDE1234F', aadhar_no: '123456789012', company_id: '1',
+        created_date: new Date().toISOString(),
+        password_hash: '$2b$10$5GoOa5baUkZRMjRCAwOhbudp6n8Ww2l0DPu6vNGhMeCGg0su1cakW'
+      }).maybeSingle();
+      if (error && !error.message.includes('duplicate')) logR('user insert err: ' + error.message);
+      else logR('user_master: tester user inserted with password_hash');
     } catch (e) { logR('user insert err: ' + e.message); }
-
-    // Add missing columns on tables recreated by migration
-    for (const a of [
-      "ALTER TABLE coach_master ADD COLUMN train_id INT",
-      "ALTER TABLE master_module ADD COLUMN seriel_number VARCHAR(255)",
-    ]) { try { await pool.query(a); logR('ALTER: column added'); } catch (e) { logR('ALTER err: ' + e.message); } }
-    // Fix SQL mode for older queries
-    try { await pool.query("SET GLOBAL sql_mode = ''"); logR('sql_mode disabled'); } catch (e) { logR('sql_mode err: ' + e.message); }
 
     logR('--- Migration Complete ---');
   })();
 });
 
-// Manual FSDS table creation (for Railway where auto-migration may not run)
 app.get('/create-fsds-table', async (req, res) => {
   try {
-    await pool.query(`CREATE TABLE IF NOT EXISTS fsds_logs (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      device_id VARCHAR(100), loc_id VARCHAR(100), loc_name VARCHAR(255),
-      asset_id VARCHAR(100), asset_name VARCHAR(255),
-      fire_status INT DEFAULT 0, smoke_level INT DEFAULT 0,
-      timestamp VARCHAR(50),
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      INDEX idx_device_id (device_id), INDEX idx_timestamp (timestamp)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
-    res.json({ success: true, message: 'fsds_logs table ready' });
+    const { error } = await supabaseAdmin.from('fsds_logs').select('id').limit(1);
+    if (error) {
+      res.json({ success: false, error: error.message, message: 'fsds_logs table may not exist' });
+    } else {
+      res.json({ success: true, message: 'fsds_logs table exists' });
+    }
   } catch (e) {
     res.json({ success: false, error: e.message });
   }
 });
 
-// Global error handler
 app.use((err, req, res, next) => {
   console.error('Global error handler:', err);
   if (err.name === 'JsonWebTokenError') {
@@ -320,171 +256,17 @@ app.use((err, req, res, next) => {
   );
 });
 
-// --- SIMULATION LOGIC ---
-
-let sensorStates = {}; 
-
-async function insertSensorData(sensorId, waterLevel) {
-  try {
-    const query = `
-      INSERT INTO iot_water_level (sensor_id, water_level, timestamp) 
-      VALUES (?, ?, NOW())
-    `;
-    await pool.query(query, [sensorId, waterLevel]);
-    console.log(` Data Inserted -> ${sensorId}: ${waterLevel}`);
-  } catch (err) {
-    console.error(" DB Insertion Error:", err.message);
-  }
-}
-
-async function simulateSensor(sensorId) {
-  if (!sensorStates[sensorId]) {
-    sensorStates[sensorId] = { 
-      value: Math.floor(Math.random() * 100), 
-      direction: "up" 
-    };
-  }
-
-  let sensor = sensorStates[sensorId];
-  let change = Math.floor(Math.random() * 10);
-
-  if (sensor.direction === "up") {
-    sensor.value += change;
-    if (sensor.value >= 100) {
-      sensor.value = 100;
-      sensor.direction = "down";
-    }
-  } else {
-    sensor.value -= change;
-    if (sensor.value <= 0) {
-      sensor.value = 0;
-      sensor.direction = "up";
-    }
-  }
-
-  await insertSensorData(sensorId, sensor.value);
-}
-
-function startSensorSimulation(sensorIds) {
-  sensorIds.forEach(id => simulateSensor(id));
-  
-  setInterval(() => {
-    sensorIds.forEach(id => simulateSensor(id));
-  }, 15 * 60 * 1000); 
-}
-
-async function getSensorIds() {
-  try {
-    const [rows] = await pool.query("SELECT sensor_id FROM sensor_config WHERE sensor_type_id = 5");
-    return rows.map(row => row.sensor_id);
-  } catch (err) {
-    console.error(" Error fetching sensor IDs:", err.message);
-    return [];
-  }
-}
-
-
-
-// --- SERVER STARTUP ---
-
 const startServer = async () => {
   try {
-    // 1. Database Connection Check
-    const isConnected = await testConnection();
-    
-      if (isConnected) {
-        console.log(' Database connection verified.');
-        try { pool.query("SET sql_mode = ''"); } catch (_) {}
-
-      // Auto-create required tables
-      const tableDefs = [
-        { name: 'wli_logs', sql: `CREATE TABLE IF NOT EXISTS wli_logs (
-          id INT AUTO_INCREMENT PRIMARY KEY,
-          device_id VARCHAR(100), coach_id VARCHAR(50), coach_name VARCHAR(100),
-          placement_type VARCHAR(50), asset_id VARCHAR(100), asset_name VARCHAR(100),
-          raw_value DECIMAL(10,2), level_cm DECIMAL(10,2), volume_liters DECIMAL(10,2),
-          percent_full DECIMAL(5,2), timestamp VARCHAR(50),
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          INDEX idx_device_id (device_id), INDEX idx_timestamp (timestamp)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4` },
-        { name: 'hot_axle_logs', sql: `CREATE TABLE IF NOT EXISTS hot_axle_logs (
-          id INT AUTO_INCREMENT PRIMARY KEY,
-          device_id VARCHAR(100), coach_number VARCHAR(50), coach_type VARCHAR(50),
-          owning_rly VARCHAR(20), timestamp VARCHAR(50), alert_status VARCHAR(20),
-          a11_temp DECIMAL(10,2), a12_temp DECIMAL(10,2),
-          a21_temp DECIMAL(10,2), a22_temp DECIMAL(10,2),
-          a31_temp DECIMAL(10,2), a32_temp DECIMAL(10,2),
-          a41_temp DECIMAL(10,2), a42_temp DECIMAL(10,2),
-          battery_percentage INT, signal_strength INT,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          INDEX idx_device_id (device_id), INDEX idx_timestamp (timestamp)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4` },
-        { name: 'pressure_logs', sql: `CREATE TABLE IF NOT EXISTS pressure_logs (
-          id INT AUTO_INCREMENT PRIMARY KEY,
-          device_id VARCHAR(100), coach_number VARCHAR(50), coach_type VARCHAR(50),
-          owning_rly VARCHAR(20), train_number VARCHAR(20),
-          bp_pressure DECIMAL(10,2), current_pressure DECIMAL(10,2),
-          charging_time VARCHAR(50), discharging_time VARCHAR(50),
-          brake_applied_time VARCHAR(50), brake_released_time VARCHAR(50),
-          brake_response_time VARCHAR(50),
-          battery_percentage INT, signal_strength INT,
-          timestamp VARCHAR(50), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          INDEX idx_device_id (device_id), INDEX idx_timestamp (timestamp)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4` },
-        { name: 'fsds_logs', sql: `CREATE TABLE IF NOT EXISTS fsds_logs (
-          id INT AUTO_INCREMENT PRIMARY KEY,
-          device_id VARCHAR(100), loc_id VARCHAR(100), loc_name VARCHAR(255),
-          asset_id VARCHAR(100), asset_name VARCHAR(255),
-          fire_status INT DEFAULT 0, smoke_level INT DEFAULT 0,
-          timestamp VARCHAR(50),
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          INDEX idx_device_id (device_id), INDEX idx_timestamp (timestamp)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4` },
-      ];
-      for (const t of tableDefs) {
-        try { await pool.query(t.sql); console.log(` ${t.name} table ready`); }
-        catch (err) { console.error(` ${t.name} table creation failed:`, err.message); }
-      }
-      // Ensure pressure_logs has all columns from old system
-      const alterCols = [
-        'ALTER TABLE pressure_logs ADD COLUMN bp_pressure DECIMAL(10,2)',
-        'ALTER TABLE pressure_logs ADD COLUMN current_pressure DECIMAL(10,2)',
-        'ALTER TABLE pressure_logs ADD COLUMN charging_time VARCHAR(50)',
-        'ALTER TABLE pressure_logs ADD COLUMN discharging_time VARCHAR(50)',
-        'ALTER TABLE pressure_logs ADD COLUMN brake_response_time VARCHAR(50)',
-      ];
-      for (const a of alterCols) {
-        try { await pool.query(a); console.log(`  ALTER: column added`); } catch (_) {}
-      }
-      // Fix missing columns on tables created by migration
-      const fixCols = [
-        'ALTER TABLE master_module ADD COLUMN seriel_number VARCHAR(255)',
-        'ALTER TABLE coach_master ADD COLUMN train_id INT',
-        'ALTER TABLE device_master ADD COLUMN train_id INT',
-        'ALTER TABLE sensor_config ADD COLUMN location VARCHAR(255)',
-        'ALTER TABLE sensor_config ADD COLUMN tech_coach_no VARCHAR(100)',
-        'ALTER TABLE sensor_config ADD COLUMN comm_coach_no VARCHAR(100)',
-        'ALTER TABLE sensor_config ADD COLUMN train_no VARCHAR(100)',
-        'ALTER TABLE sensor_config ADD COLUMN status VARCHAR(50)',
-        'ALTER TABLE sensor_config ADD COLUMN is_active TINYINT DEFAULT 1',
-      ];
-      for (const a of fixCols) {
-        try { await pool.query(a); } catch (_) {}
-      }
-
-      // 2. Start Simulation only if DB is ready
-      const sensorIds = await getSensorIds();
-      if (sensorIds.length > 0) {
-        startSensorSimulation(sensorIds);
-        console.log(" Simulation started for IDs:", sensorIds);
-      } else {
-        console.log(" No active sensors found in DB for simulation.");
-      }
-
+    console.log(' Starting server with Supabase backend...');
+    const { error } = await supabaseAdmin.from('device_master').select('device_id').limit(1);
+    if (error) {
+      console.error(' Supabase connection failed:', error.message);
     } else {
-      console.error(' Critical: Database connection failed. Simulation skipped.');
+      console.log(' Supabase connection verified.');
     }
 
+<<<<<<< HEAD
     // 4. Start WLI Bridge: poll old backend IoT data → new backend
     const OLD_API = 'https://smart-coach-api-production.up.railway.app/smart_coach_api/api';
     const NEW_API = 'http://localhost:' + PORT + '/smart_coach_api/api';
@@ -535,11 +317,11 @@ const startServer = async () => {
     startSupabaseListener();
 
     // 3. Start Express Server
+=======
+>>>>>>> dhruv/main
     const server = httpServer.listen(PORT, () => {
       console.log(`\nServer live: http://localhost:${PORT}`);
       console.log(`Env: ${process.env.NODE_ENV || 'production'}`);
-      // Railway compatibility logs
-      console.log(`🔌 DB Config: ${process.env.MYSQLHOST || 'N/A'}:${process.env.MYSQLPORT || 3306}/${process.env.MYSQLDATABASE || 'N/A'}`);
     });
 
     server.on('error', (error) => {

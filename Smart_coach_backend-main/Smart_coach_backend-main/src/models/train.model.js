@@ -1,6 +1,5 @@
 const BaseModel = require('./base.model');
-const { pool } = require('../config/db');
-const { toMySQLDatetime } = require('../middleware/datetime');
+const supabaseAdmin = require('../config/supabaseAdmin');
 
 class TrainModel extends BaseModel {
   constructor() {
@@ -8,410 +7,403 @@ class TrainModel extends BaseModel {
   }
 
   async createTrain(data) {
-    const conn = await pool.getConnection();
-    try {
-      await conn.beginTransaction();
+    const created_at = new Date().toISOString();
 
-      const created_at = toMySQLDatetime();
+    const { data: trainData, error: trainError } = await supabaseAdmin
+      .from('train_master')
+      .insert([{
+        train_number: data.train_number,
+        train_name: data.train_name,
+        origination_region_id: data.origination_region_id,
+        region_id: data.region_id,
+        departure_station_id: data.departure_station_id,
+        destination_station_id: data.destination_station_id,
+        no_of_coaches: data.no_of_coaches,
+        line: data.line,
+        train_operator: data.train_operator,
+        engine_number: data.engine_number,
+        created_by: data.created_by,
+        created_at: created_at
+      }])
+      .select();
 
-      const [trainResult] = await conn.query(
-        `INSERT INTO train_master (
-        train_number,
-        train_name,
-        origination_region_id,
-        region_id,
-        departure_station_id,
-        destination_station_id,
-        no_of_coaches,
-        line,
-        train_operator,
-        engine_number,
-        created_by,
-        created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          data.train_number,
-          data.train_name,
-          data.origination_region_id,
-          data.region_id,
-          data.departure_station_id,
-          data.destination_station_id,
-          data.no_of_coaches,
-          data.line,
-          data.train_operator,
-          data.engine_number,
-          data.created_by,
-          created_at
-        ]
-      );
+    if (trainError) throw new Error('Failed to create train: ' + trainError.message);
 
-      const train_id = trainResult.insertId;
+    const train_id = trainData[0].train_id;
 
-      if (data.coaches.length > 0) {
-        for (const coach of data.coaches) {
-          const [[coachRow]] = await conn.query(
-            'SELECT coach_id FROM coach_master WHERE coach_unique_id = ?',
-            [coach.coach_unique_id]
-          );
+    if (data.coaches.length > 0) {
+      for (const coach of data.coaches) {
+        const { data: coachRow } = await supabaseAdmin
+          .from('coach_master')
+          .select('coach_id')
+          .eq('coach_unique_id', coach.coach_unique_id)
+          .maybeSingle();
 
-          if (!coachRow) {
-          await conn.query(
-              `INSERT INTO coach_master (
-              entity_type,
-              coach_unique_id,
-              coach_display_id,
-              position,
-              train_id,
-              created_by,
-              created_date
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-              [
-                coach.entity_type,
-                coach.coach_unique_id,
-              coach.coach_display_id,
-                coach.position,
-                train_id,
-                data.created_by,
-                created_at
-              ]
-            );
-          } else {
-            await conn.query(
-              `UPDATE coach_master
-             SET entity_type = ?, train_id = ?, coach_display_id = ?, position = ?, updated_by = ?, updated_date = ?
-             WHERE coach_id = ?`,
-              [
-                coach.entity_type,
-                train_id,
-                coach.coach_display_id,
-                coach.position,
-                data.created_by,
-                created_at,
-                coachRow.coach_id
-            ]
-          );
+        if (!coachRow) {
+          const { error: insError } = await supabaseAdmin
+            .from('coach_master')
+            .insert([{
+              entity_type: coach.entity_type,
+              coach_unique_id: coach.coach_unique_id,
+              coach_display_id: coach.coach_display_id,
+              position: coach.position,
+              train_id: train_id,
+              created_by: data.created_by,
+              created_date: created_at
+            }]);
+          if (insError) throw new Error('Failed to create train: ' + insError.message);
+        } else {
+          const { error: updError } = await supabaseAdmin
+            .from('coach_master')
+            .update({
+              entity_type: coach.entity_type,
+              train_id: train_id,
+              coach_display_id: coach.coach_display_id,
+              position: coach.position,
+              updated_by: data.created_by,
+              updated_date: created_at
+            })
+            .eq('coach_id', coachRow.coach_id);
+          if (updError) throw new Error('Failed to create train: ' + updError.message);
         }
       }
-      }
-
-      await conn.commit();
-      return train_id;
-    } catch (error) {
-      await conn.rollback();
-      throw new Error('Failed to create train: ' + error.message);
-    } finally {
-      conn.release();
     }
+
+    return train_id;
   }
 
   async getAllTrains() {
-    const [rows] = await pool.query(`
-    SELECT 
-      t.train_id,
-      t.train_number,
-      t.train_name,
-      t.origination_region_id,
-      t.region_id,
-      t.departure_station_id,
-      t.destination_station_id,
-      t.line,
-      t.train_operator,
-      t.engine_number,
-      t.created_at,
-      t.updated_at,
+    const { data: trains, error } = await supabaseAdmin
+      .from('train_master')
+      .select('*')
+      .order('train_id');
+    if (error) throw error;
+    if (!trains || trains.length === 0) return [];
 
-      u1.first_name AS created_by,
-      u2.first_name AS updated_by,
+    const userIds = [...new Set(trains.flatMap(t => [t.created_by, t.updated_by].filter(Boolean)))];
+    const regionIds = [...new Set(trains.flatMap(t => [t.origination_region_id, t.region_id, t.departure_station_id, t.destination_station_id].filter(Boolean)))];
 
-      r1.name AS origination_region_name,
-      r2.name AS region_name,
-      r3.name AS departure_station_name,
-      r4.name AS destination_station_name,
+    let userMap = {};
+    if (userIds.length > 0) {
+      const { data: users } = await supabaseAdmin.from('user_master').select('user_id, first_name').in('user_id', userIds);
+      for (const u of users || []) userMap[u.user_id] = u;
+    }
 
-      c.coach_id,
-      c.coach_unique_id,
-      c.coach_display_id,
-      c.entity_type,
-      c.position
+    let regionMap = {};
+    if (regionIds.length > 0) {
+      const { data: regions } = await supabaseAdmin.from('region_master').select('region_id, name').in('region_id', regionIds);
+      for (const r of regions || []) regionMap[r.region_id] = r;
+    }
 
-    FROM train_master t
-    LEFT JOIN user_master u1 ON t.created_by = u1.user_id
-    LEFT JOIN user_master u2 ON t.updated_by = u2.user_id
-    LEFT JOIN region_master r1 ON t.origination_region_id = r1.region_id
-    LEFT JOIN region_master r2 ON t.region_id = r2.region_id
-    LEFT JOIN region_master r3 ON t.departure_station_id = r3.region_id
-    LEFT JOIN region_master r4 ON t.destination_station_id = r4.region_id
-    LEFT JOIN coach_master c ON t.train_id = c.train_id
-    ORDER BY t.train_id, c.position;
-  `);
+    const trainIds = trains.map(t => t.train_id);
+    let coachesByTrain = {};
+    if (trainIds.length > 0) {
+      const { data: coaches } = await supabaseAdmin
+        .from('coach_master')
+        .select('*')
+        .in('train_id', trainIds)
+        .order('position');
+      for (const c of coaches || []) {
+        if (!coachesByTrain[c.train_id]) coachesByTrain[c.train_id] = [];
+        coachesByTrain[c.train_id].push(c);
+      }
+    }
+
+    const rows = [];
+    for (const t of trains) {
+      const coaches = coachesByTrain[t.train_id] || [];
+      for (const c of coaches) {
+        rows.push({
+          train_id: t.train_id,
+          train_number: t.train_number,
+          train_name: t.train_name,
+          origination_region_id: t.origination_region_id,
+          region_id: t.region_id,
+          departure_station_id: t.departure_station_id,
+          destination_station_id: t.destination_station_id,
+          line: t.line,
+          train_operator: t.train_operator,
+          engine_number: t.engine_number,
+          created_at: t.created_at,
+          updated_at: t.updated_at,
+          created_by: t.created_by ? (userMap[t.created_by] ? userMap[t.created_by].first_name : null) : null,
+          updated_by: t.updated_by ? (userMap[t.updated_by] ? userMap[t.updated_by].first_name : null) : null,
+          origination_region_name: t.origination_region_id ? (regionMap[t.origination_region_id] ? regionMap[t.origination_region_id].name : null) : null,
+          region_name: t.region_id ? (regionMap[t.region_id] ? regionMap[t.region_id].name : null) : null,
+          departure_station_name: t.departure_station_id ? (regionMap[t.departure_station_id] ? regionMap[t.departure_station_id].name : null) : null,
+          destination_station_name: t.destination_station_id ? (regionMap[t.destination_station_id] ? regionMap[t.destination_station_id].name : null) : null,
+          coach_id: c.coach_id,
+          coach_unique_id: c.coach_unique_id,
+          coach_display_id: c.coach_display_id,
+          entity_type: c.entity_type,
+          position: c.position
+        });
+      }
+      if (coaches.length === 0) {
+        rows.push({
+          train_id: t.train_id,
+          train_number: t.train_number,
+          train_name: t.train_name,
+          origination_region_id: t.origination_region_id,
+          region_id: t.region_id,
+          departure_station_id: t.departure_station_id,
+          destination_station_id: t.destination_station_id,
+          line: t.line,
+          train_operator: t.train_operator,
+          engine_number: t.engine_number,
+          created_at: t.created_at,
+          updated_at: t.updated_at,
+          created_by: t.created_by ? (userMap[t.created_by] ? userMap[t.created_by].first_name : null) : null,
+          updated_by: t.updated_by ? (userMap[t.updated_by] ? userMap[t.updated_by].first_name : null) : null,
+          origination_region_name: t.origination_region_id ? (regionMap[t.origination_region_id] ? regionMap[t.origination_region_id].name : null) : null,
+          region_name: t.region_id ? (regionMap[t.region_id] ? regionMap[t.region_id].name : null) : null,
+          departure_station_name: t.departure_station_id ? (regionMap[t.departure_station_id] ? regionMap[t.departure_station_id].name : null) : null,
+          destination_station_name: t.destination_station_id ? (regionMap[t.destination_station_id] ? regionMap[t.destination_station_id].name : null) : null,
+          coach_id: null,
+          coach_unique_id: null,
+          coach_display_id: null,
+          entity_type: null,
+          position: null
+        });
+      }
+    }
 
     return rows;
   }
 
-
-
-
   async updateTrain(data) {
-    const conn = await pool.getConnection();
-    try {
-      await conn.beginTransaction();
+    const updated_at = new Date().toISOString();
 
-      const updated_at = toMySQLDatetime(new Date());
+    const { error: updError } = await supabaseAdmin
+      .from('train_master')
+      .update({
+        train_number: data.train_number,
+        train_name: data.train_name,
+        origination_region_id: data.origination_region_id,
+        region_id: data.region_id,
+        departure_station_id: data.departure_station_id,
+        destination_station_id: data.destination_station_id,
+        no_of_coaches: data.no_of_coaches,
+        line: data.line,
+        train_operator: data.train_operator,
+        engine_number: data.engine_number,
+        updated_by: data.updated_by,
+        updated_at: updated_at
+      })
+      .eq('train_id', data.train_id);
+    if (updError) throw new Error('Failed to update train: ' + updError.message);
 
-      await conn.query(`
-      UPDATE train_master SET 
-        train_number = ?, train_name = ?, origination_region_id = ?, region_id = ?,
-        departure_station_id = ?, destination_station_id = ?, no_of_coaches = ?, 
-        line = ?, train_operator = ?, engine_number = ?, updated_by = ?, updated_at = ?
-      WHERE train_id = ?
-    `, [
-        data.train_number, data.train_name, data.origination_region_id, data.region_id,
-        data.departure_station_id, data.destination_station_id, data.no_of_coaches,
-        data.line, data.train_operator, data.engine_number, data.updated_by, updated_at,
-        data.train_id
-      ]);
+    const { error: delError } = await supabaseAdmin
+      .from('train_coach_mapping')
+      .delete()
+      .eq('train_id', data.train_id);
+    if (delError) throw new Error('Failed to update train: ' + delError.message);
 
-      await conn.query(`DELETE FROM train_coach_mapping WHERE train_id = ?`, [data.train_id]);
-
-      
-      if (data.coaches?.length > 0) {
-        for (const coach of data.coaches) {
-          const [rows] = await conn.query(
-            `SELECT coach_id FROM coach_master WHERE coach_unique_id = ?`,
-            [coach.coach_unique_id]
-          );
-
-          if (!rows.length) {
-            throw new Error(`Coach with unique number ${coach.coach_unique_id} not found.`);
-          }
-
-          const coach_id = rows[0].coach_id;
-
-          await conn.query(
-            `INSERT INTO train_coach_mapping 
-            (train_id, coach_id, coach_display_id, position, is_active)
-           VALUES (?, ?, ?, ?, 1)`,
-            [data.train_id, coach_id, coach.coach_display_id, coach.position]
-          );
+    if (data.coaches?.length > 0) {
+      for (const coach of data.coaches) {
+        const { data: coachRow, error: findError } = await supabaseAdmin
+          .from('coach_master')
+          .select('coach_id')
+          .eq('coach_unique_id', coach.coach_unique_id)
+          .maybeSingle();
+        if (findError) throw new Error('Failed to update train: ' + findError.message);
+        if (!coachRow) {
+          throw new Error(`Coach with unique number ${coach.coach_unique_id} not found.`);
         }
-      }
 
-      await conn.commit();
-    } catch (err) {
-      await conn.rollback();
-      throw new Error('Failed to update train: ' + err.message);
-    } finally {
-      conn.release();
+        const { error: insError } = await supabaseAdmin
+          .from('train_coach_mapping')
+          .insert([{
+            train_id: data.train_id,
+            coach_id: coachRow.coach_id,
+            coach_display_id: coach.coach_display_id,
+            position: coach.position,
+            is_active: 1
+          }]);
+        if (insError) throw new Error('Failed to update train: ' + insError.message);
+      }
     }
   }
 
   async deleteTrain(train_id, updated_by) {
-    const conn = await pool.getConnection();
-    try {
-      await conn.beginTransaction();
+    const { error: delMapError } = await supabaseAdmin
+      .from('train_coach_mapping')
+      .delete()
+      .eq('train_id', train_id);
+    if (delMapError) throw new Error('Failed to delete train: ' + delMapError.message);
 
-      const updated_at = toMySQLDatetime(new Date());
-
-      await conn.query(`
-            DELETE FROM train_coach_mapping
-            WHERE train_id = ?
-        `, [train_id]);
-
-      await conn.query(`
-            DELETE FROM train_master WHERE train_id = ?
-        `, [train_id]);
-
-      await conn.commit();
-    } catch (err) {
-      await conn.rollback();
-      throw new Error('Failed to delete train: ' + err.message);
-    } finally {
-      conn.release();
-    }
+    const { error: delTrainError } = await supabaseAdmin
+      .from('train_master')
+      .delete()
+      .eq('train_id', train_id);
+    if (delTrainError) throw new Error('Failed to delete train: ' + delTrainError.message);
   }
 
   async getAll(filters = {}) {
-    let query = `
-    SELECT t.*, 
-           orig.name as origination_region_name,
-           r.name as region_name, 
-           dep.name as departure_station_name,
-           dest.name as destination_station_name
-    FROM train_master t
-    LEFT JOIN region_master orig ON t.origination_region_id = orig.region_id
-    LEFT JOIN region_master r ON t.region_id = r.region_id
-    LEFT JOIN region_master dep ON t.departure_station_id = dep.region_id
-    LEFT JOIN region_master dest ON t.destination_station_id = dest.region_id
-    WHERE 
-  `;
-
-    const params = [];
+    let query = supabaseAdmin
+      .from('train_master')
+      .select('*');
 
     if (filters.onlyTrainIdMinusOne) {
-        query += ' t.train_id = -1';
+      query = query.eq('train_id', -1);
     } else {
-        query += ' ( (1=1';
-
-        if (Array.isArray(filters.region_ids) && filters.region_ids.length > 0) {
-            const placeholders = filters.region_ids.map(() => '?').join(',');
-            query += ` AND t.origination_region_id IN (${placeholders})`;
-            params.push(...filters.region_ids);
-        }
-
-        query += ')';
-
-        query += ' OR t.train_id = -1 )';
-
-        if (filters.search) {
-            query += ' AND (t.train_number LIKE ? OR t.train_name LIKE ?)';
-            const searchTerm = `%${filters.search}%`;
-            params.push(searchTerm, searchTerm);
-        }
-    }
-
-    console.log('Final Query:', query);
-    console.log('Params:', params);
-
-    try {
-        const [rows] = await this.pool.query(query, params);
-        return rows;
-    } catch (error) {
-        console.error('Error in getAll Trains:', error);
-        throw error;
-    }
-}
-  // Get trains mapped to a specific user
-  async getTrainsMappedToUser(userId) {
-    // Step 1: Check if user is mapped to train_id = -1
-    const [specialTrainRows] = await this.pool.query(
-      'SELECT 1 FROM user_train_mapping WHERE user_id = ? AND train_id = -1',
-      [userId]
-    );
-
-    if (specialTrainRows.length > 0) {
-      // Step 2: Fetch region_ids mapped to the user
-      const [regionRows] = await this.pool.query(
-        'SELECT region_id FROM user_region_mapping WHERE user_id = ?',
-        [userId]
-      );
-
-      const regionIds = regionRows.map(r => r.region_id);
-      if (regionIds.length === 0) return []; // No regions assigned
-
-      // Step 3: Fetch trains from those regions
-      const placeholders = regionIds.map(() => '?').join(',');
-      const [trains] = await this.pool.query(
-        `
-      SELECT t.*, r.name AS region_name
-      FROM train_master t
-      LEFT JOIN region_master r ON t.origination_region_id = r.region_id
-      WHERE t.origination_region_id IN (${placeholders})
-      ORDER BY t.train_number
-      `,
-        regionIds
-      );
-
-      return trains;
-    }
-
-    // Step 4: Fallback — fetch mapped trains as usual
-    const [rows] = await this.pool.query(
-      `
-    SELECT t.*, r.name AS region_name
-    FROM train_master t
-    LEFT JOIN region_master r ON t.origination_region_id = r.region_id
-    WHERE t.train_id IN (
-      SELECT train_id 
-      FROM user_train_mapping 
-      WHERE user_id = ?
-    )
-    ORDER BY t.train_number
-    `,
-      [userId]
-    );
-
-    return rows;
-  }
-
-  // update train user mapping
-  async updateTrainUserMapping(userId, trainIds) {
-    const conn = await this.pool.getConnection();
-    try {
-      await conn.beginTransaction();
-
-      // Remove existing mappings
-      await conn.query(
-        `DELETE FROM user_train_mapping WHERE user_id = ?`,
-        [userId]
-      );
-
-      // Add new mappings
-      const values = trainIds.map(trainId => [userId, trainId]);
-      if (values.length > 0) {
-        await conn.query(
-          `INSERT INTO user_train_mapping (user_id, train_id) VALUES ?`,
-          [values]
-        );
+      if (Array.isArray(filters.region_ids) && filters.region_ids.length > 0) {
+        query = query.or(`origination_region_id.in.(${filters.region_ids.join(',')}),train_id.eq.-1`);
       }
 
-      console.log(`Updated train user mapping for user ID: ${userId} with trains: ${trainIds.join(', ')}`);
+      if (filters.search) {
+        const term = `%${filters.search}%`;
+        query = query.or(`train_number.ilike.${term},train_name.ilike.${term}`);
+      }
+    }
 
-      await conn.commit();
-    } catch (error) {
-      console.error('Error updating train user mapping:', error);
-      await conn.rollback();
-      throw error;
-    } finally {
-      conn.release();
+    const { data: trains, error } = await query.order('train_id');
+    if (error) throw error;
+    if (!trains || trains.length === 0) return [];
+
+    const regionIds = [...new Set(trains.flatMap(t => [t.origination_region_id, t.region_id, t.departure_station_id, t.destination_station_id].filter(Boolean)))];
+
+    let regionMap = {};
+    if (regionIds.length > 0) {
+      const { data: regions } = await supabaseAdmin.from('region_master').select('region_id, name').in('region_id', regionIds);
+      for (const r of regions || []) regionMap[r.region_id] = r;
+    }
+
+    return trains.map(t => ({
+      ...t,
+      origination_region_name: t.origination_region_id ? (regionMap[t.origination_region_id] ? regionMap[t.origination_region_id].name : null) : null,
+      region_name: t.region_id ? (regionMap[t.region_id] ? regionMap[t.region_id].name : null) : null,
+      departure_station_name: t.departure_station_id ? (regionMap[t.departure_station_id] ? regionMap[t.departure_station_id].name : null) : null,
+      destination_station_name: t.destination_station_id ? (regionMap[t.destination_station_id] ? regionMap[t.destination_station_id].name : null) : null
+    }));
+  }
+
+  async getTrainsMappedToUser(userId) {
+    const { data: specialTrainRows } = await supabaseAdmin
+      .from('user_train_mapping')
+      .select('train_id')
+      .eq('user_id', userId)
+      .eq('train_id', -1);
+
+    if (specialTrainRows && specialTrainRows.length > 0) {
+      const { data: regionRows } = await supabaseAdmin
+        .from('user_region_mapping')
+        .select('region_id')
+        .eq('user_id', userId);
+
+      const regionIds = (regionRows || []).map(r => r.region_id);
+      if (regionIds.length === 0) return [];
+
+      const { data: trains, error } = await supabaseAdmin
+        .from('train_master')
+        .select('*, region_master!origination_region_id(name)')
+        .in('origination_region_id', regionIds)
+        .order('train_number');
+      if (error) throw error;
+
+      return (trains || []).map(t => ({
+        ...t,
+        region_name: t.region_master ? t.region_master.name : null,
+        region_master: undefined
+      }));
+    }
+
+    const { data: mappedTrainIds } = await supabaseAdmin
+      .from('user_train_mapping')
+      .select('train_id')
+      .eq('user_id', userId);
+
+    const allowedIds = (mappedTrainIds || []).map(r => r.train_id);
+    if (allowedIds.length === 0) return [];
+
+    const { data: rows, error } = await supabaseAdmin
+      .from('train_master')
+      .select('*, region_master!origination_region_id(name)')
+      .in('train_id', allowedIds)
+      .order('train_number');
+    if (error) throw error;
+
+    return (rows || []).map(t => ({
+      ...t,
+      region_name: t.region_master ? t.region_master.name : null,
+      region_master: undefined
+    }));
+  }
+
+  async updateTrainUserMapping(userId, trainIds) {
+    const { error: delError } = await supabaseAdmin
+      .from('user_train_mapping')
+      .delete()
+      .eq('user_id', userId);
+    if (delError) throw delError;
+
+    if (trainIds.length > 0) {
+      const values = trainIds.map(trainId => ({ user_id: userId, train_id: trainId }));
+      const { error: insError } = await supabaseAdmin
+        .from('user_train_mapping')
+        .insert(values);
+      if (insError) throw insError;
     }
   }
 
-  // Get train by ID with details
   async getById(id) {
-    const [rows] = await this.pool.query(
-      `SELECT t.*, 
-              z.name as zone_name,
-              d.name as division_name,
-              r.name as region_name
-       FROM train_master t
-       LEFT JOIN zones z ON t.zone_id = z.id
-       LEFT JOIN divisions d ON t.division_id = d.id
-       LEFT JOIN regions r ON t.origination_region_id = r.id
-       WHERE t.id = ?`,
-      [id]
-    );
-    return rows[0] || null;
-  }
+    const { data: train, error } = await supabaseAdmin
+      .from('train_master')
+      .select('*')
+      .eq('train_id', id)
+      .maybeSingle();
+    if (error) throw error;
+    if (!train) return null;
 
-  // Get coaches for a specific train
-  async getCoaches(trainId) {
-    const [rows] = await this.pool.query(
-      'SELECT * FROM coaches WHERE train_id = ? ORDER BY coach_number',
-      [trainId]
-    );
-    return rows;
-  }
+    let zone_name = null, division_name = null, region_name = null;
 
-  // Check if train number already exists
-  async trainNumberExists(train_number, excludeId = null) {
-    let query = 'SELECT train_id FROM train_master WHERE train_number = ?';
-    const params = [train_number];
-
-    if (excludeId) {
-      query += ' AND id != ?';
-      params.push(excludeId);
+    if (train.zone_id) {
+      const { data: zone } = await supabaseAdmin.from('zones').select('name').eq('id', train.zone_id).maybeSingle();
+      zone_name = zone ? zone.name : null;
+    }
+    if (train.division_id) {
+      const { data: div } = await supabaseAdmin.from('divisions').select('name').eq('id', train.division_id).maybeSingle();
+      division_name = div ? div.name : null;
+    }
+    if (train.origination_region_id) {
+      const { data: reg } = await supabaseAdmin.from('regions').select('name').eq('id', train.origination_region_id).maybeSingle();
+      region_name = reg ? reg.name : null;
     }
 
-    const [rows] = await this.pool.query(query, params);
-    return rows.length > 0;
+    return {
+      ...train,
+      zone_name,
+      division_name,
+      region_name
+    };
+  }
+
+  async getCoaches(trainId) {
+    const { data, error } = await supabaseAdmin
+      .from('coaches')
+      .select('*')
+      .eq('train_id', trainId)
+      .order('coach_number');
+    if (error) throw error;
+    return data || [];
+  }
+
+  async trainNumberExists(train_number, excludeId = null) {
+    let query = supabaseAdmin.from('train_master').select('train_id').eq('train_number', train_number);
+    if (excludeId) {
+      query = query.neq('train_id', excludeId);
+    }
+    const { data, error } = await query;
+    if (error) throw error;
+    return (data || []).length > 0;
   }
 
   async getTrainsForUsers() {
-
-    let query = 'SELECT train_id, train_number, train_name FROM train_master';
-    const [rows] = await this.pool.query(query);
-    return rows;
-    
+    const { data, error } = await supabaseAdmin
+      .from('train_master')
+      .select('train_id, train_number, train_name');
+    if (error) throw error;
+    return data || [];
   }
 }
 

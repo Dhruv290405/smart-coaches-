@@ -1,3 +1,4 @@
+const supabaseAdmin = require('../config/supabaseAdmin');
 const BaseModel = require("./base.model");
 
 class Sensor_makeModel extends BaseModel {
@@ -6,10 +7,10 @@ class Sensor_makeModel extends BaseModel {
   }
 
   async getAllSensorMake() {
-    const [rows] = await this.pool.query(
-      'SELECT * FROM sensor_make',
-   
-    );
+    const { data: rows, error } = await supabaseAdmin
+      .from('sensor_make')
+      .select('*');
+    if (error) throw error;
     return rows;
   }
 }

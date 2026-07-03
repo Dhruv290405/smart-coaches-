@@ -1,6 +1,5 @@
-const { pool } = require("../config/db");
-const { toMySQLDatetime } = require("../middleware/datetime");
 const BaseModel = require("./base.model");
+const supabaseAdmin = require("../config/supabaseAdmin");
 
 class CoachModel extends BaseModel {
   constructor() {
@@ -8,232 +7,203 @@ class CoachModel extends BaseModel {
   }
 
   async createCoach(data) {
-    const conn = await pool.getConnection();
-    try {
-      await conn.beginTransaction();
+    const created_date = new Date().toISOString();
 
-      const created_date = toMySQLDatetime();
+    const { data: existingCoach } = await supabaseAdmin
+      .from("coach_master")
+      .select("coach_id")
+      .eq("coach_unique_id", data.coach_unique_id)
+      .maybeSingle();
 
-      // Check for duplicate coach_unique_id
-      const [[existingCoach]] = await conn.query(
-        "SELECT coach_id FROM coach_master WHERE coach_unique_id = ?",
-        [data.coach_unique_id]
-      );
-
-      if (existingCoach) {
-        throw new Error(
-          `Coach with unique ID "${data.coach_unique_id}" already exists.`
-        );
-      }
-
-      // Insert into coach_master - Added coach_display_id here
-      const [coachResult] = await conn.query(
-        `INSERT INTO coach_master (
-          entity_type,
-          coach_unique_id,
-          coach_display_id,
-          make_of_coach,
-          type_of_coach,
-          manufacturing_year,
-          no_of_master_module,
-          coach_status,
-          created_by,
-          created_date
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          data.entity_type,
-          data.coach_unique_id,
-          data.coach_display_id,
-          data.make_of_coach,
-          data.type_of_coach,
-          data.manufacturing_year,
-          data.no_of_master_module,
-          data.coach_status,
-          data.created_by,
-          created_date,
-        ]
-      );
-
-      await conn.commit();
-      return coachResult.insertId;
-    } catch (error) {
-      await conn.rollback();
-      throw new Error("Failed to create coach: " + error.message);
-    } finally {
-      conn.release();
+    if (existingCoach) {
+      throw new Error(`Coach with unique ID "${data.coach_unique_id}" already exists.`);
     }
+
+    const { data: coachData, error: coachError } = await supabaseAdmin
+      .from("coach_master")
+      .insert([{
+        entity_type: data.entity_type,
+        coach_unique_id: data.coach_unique_id,
+        coach_display_id: data.coach_display_id,
+        make_of_coach: data.make_of_coach,
+        type_of_coach: data.type_of_coach,
+        manufacturing_year: data.manufacturing_year,
+        no_of_master_module: data.no_of_master_module,
+        coach_status: data.coach_status,
+        created_by: data.created_by,
+        created_date: created_date
+      }])
+      .select();
+
+    if (coachError) throw new Error("Failed to create coach: " + coachError.message);
+
+    return coachData[0].coach_id;
   }
 
   async updateCoach(data) {
-    const conn = await pool.getConnection();
-    try {
-      await conn.beginTransaction();
+    const { data: duplicateCoach } = await supabaseAdmin
+      .from("coach_master")
+      .select("coach_id")
+      .eq("coach_unique_id", data.coach_unique_id)
+      .neq("coach_id", data.coach_id)
+      .maybeSingle();
 
-      // Check if the new coach_unique_id already exists for another coach
-      const [[duplicateCoach]] = await conn.query(
-        "SELECT coach_id FROM coach_master WHERE coach_unique_id = ? AND coach_id != ?",
-        [data.coach_unique_id, data.coach_id]
-      );
-
-      if (duplicateCoach) {
-        throw new Error(
-          `Coach Unique ID "${data.coach_unique_id}" is already used by another coach.`
-        );
-      }
-
-      // Perform the update
-      await conn.query(
-        `UPDATE coach_master SET
-          entity_type = ?,
-          coach_unique_id = ?,
-          coach_display_id = ?,
-          make_of_coach = ?,
-          type_of_coach = ?,
-          manufacturing_year = ?,
-          position = ?,
-          no_of_master_module = ?,
-          coach_status = ?,
-          updated_by = ?
-        WHERE coach_id = ?`,
-        [
-          data.entity_type,
-          data.coach_unique_id,
-          data.coach_display_id,
-          data.make_of_coach,
-          data.type_of_coach,
-          data.manufacturing_year,
-          data.position,
-          data.no_of_master_module,
-          data.coach_status,
-          data.updated_by,
-          data.coach_id,
-        ]
-      );
-
-      await conn.commit();
-      return true;
-    } catch (error) {
-      await conn.rollback();
-      throw new Error("Failed to update coach: " + error.message);
-    } finally {
-      conn.release();
+    if (duplicateCoach) {
+      throw new Error(`Coach Unique ID "${data.coach_unique_id}" is already used by another coach.`);
     }
+
+    const { error: updError } = await supabaseAdmin
+      .from("coach_master")
+      .update({
+        entity_type: data.entity_type,
+        coach_unique_id: data.coach_unique_id,
+        coach_display_id: data.coach_display_id,
+        make_of_coach: data.make_of_coach,
+        type_of_coach: data.type_of_coach,
+        manufacturing_year: data.manufacturing_year,
+        position: data.position,
+        no_of_master_module: data.no_of_master_module,
+        coach_status: data.coach_status,
+        updated_by: data.updated_by
+      })
+      .eq("coach_id", data.coach_id);
+    if (updError) throw new Error("Failed to update coach: " + updError.message);
+
+    return true;
   }
 
   async deleteCoach(coach_id) {
-    const conn = await pool.getConnection();
-    try {
-      await conn.beginTransaction();
-  
-      // Step 1: Set coach_id to NULL in master_module
-      await conn.query(
-        'UPDATE master_module SET coach_id = NULL WHERE coach_id = ?',
-        [coach_id]
-      );
-  
-      // Step 3: Delete the coach from coach_master
-      const [result] = await conn.query(
-        'DELETE FROM coach_master WHERE coach_id = ?',
-        [coach_id]
-      );
-  
-      await conn.commit();
-  
-      if (result.affectedRows === 0) {
-        return false; // Coach not found
-      }
-  
-      return true;
-    } catch (error) {
-      await conn.rollback();
-      throw new Error("Failed to delete coach: " + error.message);
-    } finally {
-      conn.release();
-    }
-  }
-  
-  
-  
+    const { error: nullError } = await supabaseAdmin
+      .from("master_module")
+      .update({ coach_id: null })
+      .eq("coach_id", coach_id);
+    if (nullError) throw new Error("Failed to delete coach: " + nullError.message);
 
-  // Check if coach number already exists in a train
+    const { data, error: delError } = await supabaseAdmin
+      .from("coach_master")
+      .delete()
+      .eq("coach_id", coach_id)
+      .select();
+
+    if (delError) throw new Error("Failed to delete coach: " + delError.message);
+
+    if (!data || data.length === 0) {
+      return false;
+    }
+
+    return true;
+  }
+
   async coachNumberExists(trainId, coachNumber, excludeId = null) {
-    let query =
-      "SELECT id FROM coaches WHERE train_id = ? AND coach_number = ?";
-    const params = [trainId, coachNumber];
+    let query = supabaseAdmin
+      .from("coaches")
+      .select("id")
+      .eq("train_id", trainId)
+      .eq("coach_number", coachNumber);
 
     if (excludeId) {
-      query += " AND id != ?";
-      params.push(excludeId);
+      query = query.neq("id", excludeId);
     }
 
-    const [rows] = await this.pool.query(query, params);
-    return rows.length > 0;
+    const { data, error } = await query;
+    if (error) throw error;
+    return (data || []).length > 0;
   }
 
   async findUnmappedCoaches() {
-    const query = `
-    SELECT c.*
-    FROM coach_master c
-    LEFT JOIN master_module mm ON c.coach_id = mm.coach_id
-    WHERE mm.coach_id IS NULL
-  `;
+    const { data: mappedIds } = await supabaseAdmin
+      .from("master_module")
+      .select("coach_id")
+      .not("coach_id", "is", null);
 
-    const [rows] = await this.pool.query(query);
-    return rows;
+    const excludedIds = mappedIds ? mappedIds.map(m => m.coach_id) : [];
+
+    let query = supabaseAdmin.from("coach_master").select("*");
+    if (excludedIds.length > 0) {
+      query = query.not("coach_id", "in", `(${excludedIds.join(",")})`);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return data || [];
   }
 
-  // async getAllCoaches() {
-  //   const query = `SELECT * FROM coach_master`;
-
-  //   const [rows] = await this.pool.query(query);
-  //   return rows;
-  // }
   async getAllCoachesWithDetails() {
-    const conn = await pool.getConnection();
-    try {
-      const [rows] = await conn.query(`
-        SELECT 
-          c.coach_id,
-          c.coach_unique_id,
-          c.coach_display_id,
-          c.position,
-          c.no_of_master_module,
-          c.created_by,
-          c.coach_status,
-          COALESCE(c.entity_type, '') AS entity_type,
-          c.manufacturing_year,
-          cu.first_name AS created_by_name,
-          c.created_date,
-          c.updated_by,
-          uu.first_name AS updated_by_name,
-          c.updated_date,
-          COALESCE(cm.name, '') AS make_of_coach_name,
-          cm.id AS make_of_coach_id,
-          COALESCE(ct.code, '') AS type_of_coach_code,
-          ct.id AS type_of_coach_id,
-          (SELECT GROUP_CONCAT(mm.module_unique_id SEPARATOR ', ') FROM master_module mm WHERE mm.coach_id = c.coach_id) AS master_module_ids,
-          (SELECT GROUP_CONCAT(mm.location SEPARATOR ', ') FROM master_module mm WHERE mm.coach_id = c.coach_id) AS master_module_locations
-        FROM coach_master c
-        LEFT JOIN coach_make cm ON c.make_of_coach = cm.id
-        LEFT JOIN coach_type ct ON c.type_of_coach = ct.id
-        LEFT JOIN user_master cu ON c.created_by = cu.user_id
-        LEFT JOIN user_master uu ON c.updated_by = uu.user_id
-      `);
-      return rows;
-    } catch (err) {
-      throw new Error("Failed to fetch coaches: " + err.message);
-    } finally {
-      conn.release();
+    const { data: rows, error } = await supabaseAdmin
+      .from("coach_master")
+      .select("*");
+    if (error) throw new Error("Failed to fetch coaches: " + error.message);
+    if (!rows || rows.length === 0) return [];
+
+    const makeIds = [...new Set(rows.filter(r => r.make_of_coach).map(r => r.make_of_coach))];
+    const typeIds = [...new Set(rows.filter(r => r.type_of_coach).map(r => r.type_of_coach))];
+    const userIds = [...new Set(rows.flatMap(r => [r.created_by, r.updated_by].filter(Boolean)))];
+
+    let makeMap = {};
+    if (makeIds.length > 0) {
+      const { data: makes } = await supabaseAdmin.from("coach_make").select("id, name").in("id", makeIds);
+      for (const m of makes || []) makeMap[m.id] = m;
     }
+
+    let typeMap = {};
+    if (typeIds.length > 0) {
+      const { data: types } = await supabaseAdmin.from("coach_type").select("id, code").in("id", typeIds);
+      for (const t of types || []) typeMap[t.id] = t;
+    }
+
+    let userMap = {};
+    if (userIds.length > 0) {
+      const { data: users } = await supabaseAdmin.from("user_master").select("user_id, first_name").in("user_id", userIds);
+      for (const u of users || []) userMap[u.user_id] = u;
+    }
+
+    const coachIds = rows.map(r => r.coach_id);
+    let mmByCoach = {};
+    if (coachIds.length > 0) {
+      const { data: modules } = await supabaseAdmin
+        .from("master_module")
+        .select("coach_id, module_unique_id, location")
+        .in("coach_id", coachIds);
+      for (const mm of modules || []) {
+        if (!mmByCoach[mm.coach_id]) mmByCoach[mm.coach_id] = [];
+        mmByCoach[mm.coach_id].push(mm);
+      }
+    }
+
+    return rows.map(c => {
+      const modules = mmByCoach[c.coach_id] || [];
+      return {
+        coach_id: c.coach_id,
+        coach_unique_id: c.coach_unique_id,
+        coach_display_id: c.coach_display_id,
+        position: c.position,
+        no_of_master_module: c.no_of_master_module,
+        created_by: c.created_by,
+        coach_status: c.coach_status,
+        entity_type: c.entity_type || '',
+        manufacturing_year: c.manufacturing_year,
+        created_by_name: c.created_by ? (userMap[c.created_by] ? userMap[c.created_by].first_name : null) : null,
+        created_date: c.created_date,
+        updated_by: c.updated_by,
+        updated_by_name: c.updated_by ? (userMap[c.updated_by] ? userMap[c.updated_by].first_name : null) : null,
+        updated_date: c.updated_date,
+        make_of_coach_name: c.make_of_coach ? (makeMap[c.make_of_coach] ? makeMap[c.make_of_coach].name : '') : '',
+        make_of_coach_id: c.make_of_coach,
+        type_of_coach_code: c.type_of_coach ? (typeMap[c.type_of_coach] ? typeMap[c.type_of_coach].code : '') : '',
+        type_of_coach_id: c.type_of_coach,
+        master_module_ids: modules.map(mm => mm.module_unique_id).join(', '),
+        master_module_locations: modules.map(mm => mm.location).join(', ')
+      };
+    });
   }
 
   async getCoachForTrain(trainId) {
-    const query = `
-      SELECT coach_id, coach_unique_id FROM coach_master
-      WHERE train_id = ?
-    `;
-    const [rows] = await this.pool.query(query, [trainId]);
-    return rows;
+    const { data, error } = await supabaseAdmin
+      .from("coach_master")
+      .select("coach_id, coach_unique_id")
+      .eq("train_id", trainId);
+    if (error) throw error;
+    return data || [];
   }
 }
 

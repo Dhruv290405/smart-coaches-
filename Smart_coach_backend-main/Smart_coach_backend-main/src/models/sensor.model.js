@@ -1,5 +1,5 @@
 const BaseModel = require('./base.model');
-const { pool } = require('../config/db');
+const supabaseAdmin = require('../config/supabaseAdmin');
 
 class SensorModel extends BaseModel {
   constructor() {
@@ -7,106 +7,81 @@ class SensorModel extends BaseModel {
   }
 
   async getAll(filters = {}) {
-    let query = `
-        SELECT 
-      sm.sensor_type_id,
-      sm.sensor_type_name,
-      sm.category,
-      sm.name,
-      sm.description,
-      sm.value_format,
-      sm.min_expected_value,
-      sm.max_expected_value,
-      sm.sampling_frequency,
-      sm.time_interval,
-      sm.is_active,
-      sm.created_at,
-      sm.updated_at,
-      sm.created_by,
-      sm.updated_by,
-      vt.name AS category_name,
-      u1.first_name AS created_by_user,
-      u2.first_name AS updated_by_user
-    FROM sensor_master sm
-    LEFT JOIN value_type_master vt ON sm.category = vt.value_type_id
-    LEFT JOIN user_master u1 ON sm.created_by = u1.user_id
-    LEFT JOIN user_master u2 ON sm.updated_by = u2.user_id
-    WHERE 1 = 1  
-  `;
-
-    const params = [];
+    let query = supabaseAdmin
+      .from('sensor_master')
+      .select('*');
 
     if (filters.sensor_type) {
-      query += ' AND sm.sensor_type = ?';
-      params.push(filters.sensor_type);
+      query = query.eq('sensor_type', filters.sensor_type);
     }
 
     if (filters.status) {
-      query += ' AND sm.status = ?';
-      params.push(filters.status);
+      query = query.eq('status', filters.status);
     }
 
     if (filters.search) {
-      query += ` AND (
-      sm.name LIKE ? OR
-      sm.sensor_type_name LIKE ? OR
-      sm.value_type LIKE ?
-    )`;
       const term = `%${filters.search}%`;
-      params.push(term, term, term);
+      query = query.or(`name.ilike.${term},sensor_type_name.ilike.${term},value_type.ilike.${term}`);
     }
 
-    query += ' ORDER BY sm.sensor_type_id DESC';
+    query = query.order('sensor_type_id', { ascending: false });
 
-    const [sensorRows] = await this.pool.query(query, params);
+    const { data: sensorRows, error } = await query;
+    if (error) throw error;
+    if (!sensorRows || sensorRows.length === 0) return [];
 
     const sensorIds = sensorRows.map(s => s.sensor_type_id);
-    if (sensorIds.length === 0) return [];
 
-    // ✅ Fetch units mapped
-    const [unitRows] = await this.pool.query(
-      `SELECT smap.sensor_id, um.unit_id, um.unit 
-     FROM sensor_unit_mapping smap
-     JOIN unit_master um ON smap.unit_id = um.unit_id
-     WHERE smap.sensor_id IN (?)`,
-      [sensorIds]
-    );
+    const categoryIds = [...new Set(sensorRows.filter(s => s.category).map(s => s.category))];
+    const userIds = [...new Set(sensorRows.flatMap(s => [s.created_by, s.updated_by].filter(Boolean)))];
 
-    // ✅ Fetch devices mapped
-    const [deviceRows] = await this.pool.query(
-      `SELECT sdm.sensor_id, dm.device_id, dm.short_name, dm.full_name 
-     FROM sensor_device_mapping sdm
-     JOIN device_master dm ON sdm.device_id = dm.device_id
-     WHERE sdm.sensor_id IN (?)`,
-      [sensorIds]
-    );
+    let catMap = {};
+    if (categoryIds.length > 0) {
+      const { data: cats } = await supabaseAdmin.from('value_type_master').select('value_type_id, name').in('value_type_id', categoryIds);
+      for (const c of cats || []) catMap[c.value_type_id] = c;
+    }
 
-    // ✅ Group unit/device by sensor_id
-    const unitMap = {}, deviceMap = {};
-    unitRows.forEach(row => {
+    let userMap = {};
+    if (userIds.length > 0) {
+      const { data: users } = await supabaseAdmin.from('user_master').select('user_id, first_name').in('user_id', userIds);
+      for (const u of users || []) userMap[u.user_id] = u;
+    }
+
+    const { data: unitRows } = await supabaseAdmin
+      .from('sensor_unit_mapping')
+      .select('sensor_id, unit_id, unit_master!unit_id(unit_id, unit)')
+      .in('sensor_id', sensorIds);
+
+    const { data: deviceRows } = await supabaseAdmin
+      .from('sensor_device_mapping')
+      .select('sensor_id, device_id, device_master!device_id(device_id, short_name, full_name)')
+      .in('sensor_id', sensorIds);
+
+    const unitMap = {};
+    for (const row of unitRows || []) {
       if (!unitMap[row.sensor_id]) unitMap[row.sensor_id] = [];
       unitMap[row.sensor_id].push({
-        unit_id: row.unit_id,
-        unit: row.unit
+        unit_id: row.unit_master.unit_id,
+        unit: row.unit_master.unit
       });
-    });
+    }
 
-    deviceRows.forEach(row => {
+    const deviceMap = {};
+    for (const row of deviceRows || []) {
       if (!deviceMap[row.sensor_id]) deviceMap[row.sensor_id] = [];
       deviceMap[row.sensor_id].push({
-        device_id: row.device_id,
-        short_name: row.short_name,
-        full_name: row.full_name
+        device_id: row.device_master.device_id,
+        short_name: row.device_master.short_name,
+        full_name: row.device_master.full_name
       });
-    });
+    }
 
-    // ✅ Merge and return final array
     return sensorRows.map(sensor => ({
       sensor_type_id: sensor.sensor_type_id,
       sensor_type_name: sensor.sensor_type_name,
       category: {
         id: sensor.category,
-        name: sensor.category_name
+        name: sensor.category ? (catMap[sensor.category] ? catMap[sensor.category].name : null) : null
       },
       name: sensor.name,
       description: sensor.description,
@@ -118,98 +93,88 @@ class SensorModel extends BaseModel {
       is_active: !!sensor.is_active,
       created_at: sensor.created_at,
       updated_at: sensor.updated_at,
-      created_by: sensor.created_by_user,
-      updated_by: sensor.updated_by_user,
+      created_by: sensor.created_by ? (userMap[sensor.created_by] ? userMap[sensor.created_by].first_name : null) : null,
+      updated_by: sensor.updated_by ? (userMap[sensor.updated_by] ? userMap[sensor.updated_by].first_name : null) : null,
       units: unitMap[sensor.sensor_type_id] || [],
       devices: deviceMap[sensor.sensor_type_id] || []
     }));
-
   }
-
 
   async deleteSensorById(sensorId) {
-    // 1. Delete from sensor_mapping (units)
-    await this.pool.query(
-      `DELETE FROM sensor_unit_mapping WHERE sensor_id = ?`,
-      [sensorId]
-    );
+    const { error: delUnitError } = await supabaseAdmin
+      .from('sensor_unit_mapping')
+      .delete()
+      .eq('sensor_id', sensorId);
+    if (delUnitError) throw delUnitError;
 
-    // 2. Delete from sensor_device_mapping
-    await this.pool.query(
-      `DELETE FROM sensor_device_mapping WHERE sensor_id = ?`,
-      [sensorId]
-    );
+    const { error: delDevError } = await supabaseAdmin
+      .from('sensor_device_mapping')
+      .delete()
+      .eq('sensor_id', sensorId);
+    if (delDevError) throw delDevError;
 
-    // 3. Delete from sensor_master
-    const [result] = await this.pool.query(
-      `DELETE FROM sensor_master WHERE sensor_type_id = ?`,
-      [sensorId]
-    );
+    const { data, error } = await supabaseAdmin
+      .from('sensor_master')
+      .delete()
+      .eq('sensor_type_id', sensorId)
+      .select();
 
-    return result.affectedRows > 0;
+    if (error) throw error;
+    return data && data.length > 0;
   }
 
-
-
-  // Get sensor by ID
   async getById(sensorId) {
-    const [rows] = await this.pool.query(
-      `SELECT * FROM sensor_master
-       WHERE sensor_type_id = ?`,
-      [sensorId]
-    );
-    return rows[0] || null;
+    const { data, error } = await supabaseAdmin
+      .from('sensor_master')
+      .select('*')
+      .eq('sensor_type_id', sensorId)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
   }
 
-
-  // get all categories from value_type_master
   async getAllCategories() {
-    const [rows] = await this.pool.query(
-      'SELECT value_type_id, name, base_unit FROM value_type_master ORDER BY name'
-    );
-    return rows;
+    const { data, error } = await supabaseAdmin
+      .from('value_type_master')
+      .select('value_type_id, name, base_unit')
+      .order('name');
+    if (error) throw error;
+    return data || [];
   }
 
-  // Get units by category
   async getUnitsByCategory(categoryId) {
-    const [rows] = await this.pool.query(
-      `SELECT um.unit_id, um.unit, um.is_base_unit
-       FROM unit_master um
-       JOIN value_type_master vtm ON um.value_type_id = vtm.value_type_id
-       WHERE vtm.value_type_id = ?
-       ORDER BY um.unit`,
-      [categoryId]
-    );
-    return rows;
+    const { data, error } = await supabaseAdmin
+      .from('unit_master')
+      .select(`
+        unit_id, unit, is_base_unit
+      `)
+      .eq('value_type_id', categoryId)
+      .order('unit');
+    if (error) throw error;
+    return data || [];
   }
 
-  // Check if serial number already exists
   async serialNumberExists(serialNumber, excludeId = null) {
-    let query = 'SELECT id FROM sensors WHERE serial_number = ?';
-    const params = [serialNumber];
-
+    let query = supabaseAdmin.from('sensors').select('id').eq('serial_number', serialNumber);
     if (excludeId) {
-      query += ' AND id != ?';
-      params.push(excludeId);
+      query = query.neq('id', excludeId);
     }
-
-    const [rows] = await this.pool.query(query, params);
-    return rows.length > 0;
+    const { data, error } = await query;
+    if (error) throw error;
+    return (data || []).length > 0;
   }
 
-  // Get latest readings for a sensor
   async getReadings(sensorId, limit = 100) {
-    const [rows] = await this.pool.query(
-      `SELECT * FROM sensor_readings 
-       WHERE sensor_id = ? 
-       ORDER BY reading_time DESC 
-       LIMIT ?`,
-      [sensorId, parseInt(limit)]
-    );
-    return rows;
+    const { data, error } = await supabaseAdmin
+      .from('sensor_readings')
+      .select('*')
+      .eq('sensor_id', sensorId)
+      .order('reading_time', { ascending: false })
+      .limit(parseInt(limit));
+    if (error) throw error;
+    return data || [];
   }
 
-  // Add a new reading for a sensor
   async addReading(sensorId, reading) {
     const {
       value,
@@ -224,58 +189,78 @@ class SensorModel extends BaseModel {
       raw_data = null
     } = reading;
 
-    const [result] = await this.pool.query(
-      `INSERT INTO sensor_readings 
-       (sensor_id, device_id, value, unit, reading_time, error_code, 
-        error_message, latitude, longitude, battery_level, 
-        signal_strength, raw_data, created_at) 
-       VALUES (?, (SELECT device_id FROM sensors WHERE id = ?), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
-      [sensorId, sensorId, value, unit, reading_time, error_code,
-        error_message, latitude, longitude, battery_level,
-        signal_strength, raw_data]
-    );
+    const { data: sensorData } = await supabaseAdmin
+      .from('sensors')
+      .select('device_id')
+      .eq('id', sensorId)
+      .maybeSingle();
 
-    // Update last_reading_time on the sensor
-    await this.pool.query(
-      'UPDATE sensors SET last_reading_time = ? WHERE id = ?',
-      [reading_time, sensorId]
-    );
+    const device_id = sensorData ? sensorData.device_id : null;
 
-    return result.insertId;
+    const { data: result, error } = await supabaseAdmin
+      .from('sensor_readings')
+      .insert([{
+        sensor_id: sensorId,
+        device_id: device_id,
+        value: value,
+        unit: unit,
+        reading_time: reading_time,
+        error_code: error_code,
+        error_message: error_message,
+        latitude: latitude,
+        longitude: longitude,
+        battery_level: battery_level,
+        signal_strength: signal_strength,
+        raw_data: raw_data,
+        created_at: new Date().toISOString()
+      }])
+      .select();
+
+    if (error) throw error;
+
+    await supabaseAdmin
+      .from('sensors')
+      .update({ last_reading_time: reading_time })
+      .eq('id', sensorId);
+
+    return result[0].id;
   }
 
-  // Get sensor statistics
   async getStatistics(sensorId, startDate, endDate) {
-    const [stats] = await this.pool.query(
-      `SELECT 
-          MIN(value) as min_value,
-          MAX(value) as max_value,
-          AVG(value) as avg_value,
-          COUNT(*) as reading_count,
-          MIN(reading_time) as first_reading,
-          MAX(reading_time) as last_reading
-       FROM sensor_readings 
-       WHERE sensor_id = ? 
-         AND reading_time BETWEEN ? AND ?`,
-      [sensorId, startDate, endDate]
-    );
+    const { data: readings, error } = await supabaseAdmin
+      .from('sensor_readings')
+      .select('value, reading_time')
+      .eq('sensor_id', sensorId)
+      .gte('reading_time', startDate)
+      .lte('reading_time', endDate);
 
-    return stats[0] || null;
+    if (error) throw error;
+    if (!readings || readings.length === 0) return null;
+
+    const values = readings.map(r => parseFloat(r.value)).filter(v => !isNaN(v));
+    const times = readings.map(r => new Date(r.reading_time).getTime());
+
+    return {
+      min_value: Math.min(...values),
+      max_value: Math.max(...values),
+      avg_value: values.reduce((a, b) => a + b, 0) / values.length,
+      reading_count: readings.length,
+      first_reading: new Date(Math.min(...times)).toISOString(),
+      last_reading: new Date(Math.max(...times)).toISOString()
+    };
   }
 
-  // Get sensor alerts
   async getAlerts(sensorId, limit = 10) {
-    const [alerts] = await this.pool.query(
-      `SELECT * FROM sensor_alerts 
-       WHERE sensor_id = ? 
-       ORDER BY created_at DESC 
-       LIMIT ?`,
-      [sensorId, limit]
-    );
-    return alerts;
+    const { data, error } = await supabaseAdmin
+      .from('sensor_alerts')
+      .select('*')
+      .eq('sensor_id', sensorId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (error) throw error;
+    return data || [];
   }
 
-  // Create a new alert for a sensor
   async createAlert(sensorId, alert) {
     const {
       alert_type,
@@ -289,29 +274,45 @@ class SensorModel extends BaseModel {
       resolved_notes = null
     } = alert;
 
-    const [result] = await this.pool.query(
-      `INSERT INTO sensor_alerts 
-       (sensor_id, device_id, alert_type, threshold_value, actual_value, 
-        message, severity, resolved, resolved_at, resolved_by, resolved_notes) 
-       VALUES (?, (SELECT device_id FROM sensors WHERE id = ?), ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [sensorId, sensorId, alert_type, threshold_value, actual_value,
-        message, severity, resolved, resolved_at, resolved_by, resolved_notes]
-    );
+    const { data: sensorData } = await supabaseAdmin
+      .from('sensors')
+      .select('device_id')
+      .eq('id', sensorId)
+      .maybeSingle();
 
-    return result.insertId;
+    const device_id = sensorData ? sensorData.device_id : null;
+
+    const { data: result, error } = await supabaseAdmin
+      .from('sensor_alerts')
+      .insert([{
+        sensor_id: sensorId,
+        device_id: device_id,
+        alert_type: alert_type,
+        threshold_value: threshold_value,
+        actual_value: actual_value,
+        message: message,
+        severity: severity,
+        resolved: resolved,
+        resolved_at: resolved_at,
+        resolved_by: resolved_by,
+        resolved_notes: resolved_notes
+      }])
+      .select();
+
+    if (error) throw error;
+    return result[0].id;
   }
 
-  // Get Sensors
   async getWaterSensorsForCoach(filters = {}) {
     const { coach_id } = filters;
-    
-    const query = `
-        SELECT sensor_config_id, sensor_id, sensor_type_id FROM sensor_config
-        WHERE coach_id = ? AND sensor_type_id = 5
-    `;
 
-    const [rows] = await this.pool.query(query, [coach_id]);
-    return rows;
+    const { data, error } = await supabaseAdmin
+      .from('sensor_config')
+      .select('sensor_config_id, sensor_id, sensor_type_id')
+      .eq('coach_id', coach_id)
+      .eq('sensor_type_id', 5);
+    if (error) throw error;
+    return data || [];
   }
 }
 

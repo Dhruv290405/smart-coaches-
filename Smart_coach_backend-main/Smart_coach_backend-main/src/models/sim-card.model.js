@@ -1,3 +1,4 @@
+const supabaseAdmin = require('../config/supabaseAdmin');
 const BaseModel = require('./base.model');
 
 class SimCardModel extends BaseModel {
@@ -5,137 +6,169 @@ class SimCardModel extends BaseModel {
     super('sim_cards');
   }
 
-  // Get all SIM cards with optional filters
   async getAll(filters = {}, page = 1, limit = 10) {
     const offset = (page - 1) * limit;
-    let query = `
-      SELECT sc.*, 
-             mm.name as master_module_name,
-             mm.serial_number as master_module_serial,
-             c.coach_number,
-             t.number as train_number,
-             t.name as train_name,
-             c2.name as carrier_name
-      FROM sim_cards sc
-      LEFT JOIN master_modules mm ON sc.master_module_id = mm.id
-      LEFT JOIN coaches c ON mm.coach_id = c.id
-      LEFT JOIN trains t ON c.train_id = t.id
-      LEFT JOIN carriers c2 ON sc.carrier_id = c2.id
-      WHERE 1=1
-    `;
-    
-    const params = [];
-    
-    // Add filters
+
+    let query = supabaseAdmin
+      .from('sim_cards')
+      .select(`
+        *,
+        master_modules!left(
+          name,
+          serial_number,
+          coaches!left(coach_number, trains!left(number, name))
+        ),
+        carriers!left(name)
+      `);
+
     if (filters.master_module_id) {
-      query += ' AND sc.master_module_id = ?';
-      params.push(filters.master_module_id);
+      query = query.eq('master_module_id', filters.master_module_id);
     }
-    
+
     if (filters.carrier_id) {
-      query += ' AND sc.carrier_id = ?';
-      params.push(filters.carrier_id);
+      query = query.eq('carrier_id', filters.carrier_id);
     }
-    
+
     if (filters.status) {
-      query += ' AND sc.status = ?';
-      params.push(filters.status);
+      query = query.eq('status', filters.status);
     }
-    
+
     if (filters.search) {
-      query += ' AND (sc.phone_number LIKE ? OR sc.iccid LIKE ? OR sc.imsi LIKE ?)';
-      const searchTerm = `%${filters.search}%`;
-      params.push(searchTerm, searchTerm, searchTerm);
+      query = query.or(`phone_number.ilike.%${filters.search}%,iccid.ilike.%${filters.search}%,imsi.ilike.%${filters.search}%`);
     }
-    
-    // Add pagination
-    query += ' ORDER BY sc.phone_number LIMIT ? OFFSET ?';
-    params.push(limit, offset);
-    
-    const [rows] = await this.pool.query(query, params);
+
+    query = query.order('phone_number').range(offset, offset + limit - 1);
+
+    const { data: simCards, error } = await query;
+    if (error) throw error;
+
+    const rows = [];
+    for (const sc of simCards || []) {
+      const row = { ...sc };
+      if (sc.master_modules) {
+        row.master_module_name = sc.master_modules.name || null;
+        row.master_module_serial = sc.master_modules.serial_number || null;
+        if (sc.master_modules.coaches) {
+          row.coach_number = sc.master_modules.coaches.coach_number || null;
+          if (sc.master_modules.coaches.trains) {
+            row.train_number = sc.master_modules.coaches.trains.number || null;
+            row.train_name = sc.master_modules.coaches.trains.name || null;
+          }
+        }
+      }
+      if (sc.carriers) {
+        row.carrier_name = sc.carriers.name || null;
+      }
+      delete row.master_modules;
+      delete row.carriers;
+      rows.push(row);
+    }
+
     return rows;
   }
 
-  // Get SIM card by ID with details
   async getById(id) {
-    const [rows] = await this.pool.query(
-      `SELECT sc.*, 
-              mm.name as master_module_name,
-              mm.serial_number as master_module_serial,
-              c.coach_number,
-              t.id as train_id,
-              t.number as train_number,
-              t.name as train_name,
-              c2.name as carrier_name
-       FROM sim_cards sc
-       LEFT JOIN master_modules mm ON sc.master_module_id = mm.id
-       LEFT JOIN coaches c ON mm.coach_id = c.id
-       LEFT JOIN trains t ON c.train_id = t.id
-       LEFT JOIN carriers c2 ON sc.carrier_id = c2.id
-       WHERE sc.id = ?`,
-      [id]
-    );
-    return rows[0] || null;
+    const { data: rows, error } = await supabaseAdmin
+      .from('sim_cards')
+      .select(`
+        *,
+        master_modules!left(
+          name,
+          serial_number,
+          coaches!left(coach_number, trains!left(number, name))
+        ),
+        carriers!left(name)
+      `)
+      .eq('id', id);
+
+    if (error) throw error;
+
+    if (!rows || rows.length === 0) return null;
+
+    const sc = rows[0];
+    const row = { ...sc };
+    if (sc.master_modules) {
+      row.master_module_name = sc.master_modules.name || null;
+      row.master_module_serial = sc.master_modules.serial_number || null;
+      if (sc.master_modules.coaches) {
+        row.coach_number = sc.master_modules.coaches.coach_number || null;
+        if (sc.master_modules.coaches.trains) {
+          row.train_number = sc.master_modules.coaches.trains.number || null;
+          row.train_name = sc.master_modules.coaches.trains.name || null;
+        }
+      }
+    }
+    if (sc.carriers) {
+      row.carrier_name = sc.carriers.name || null;
+    }
+    delete row.master_modules;
+    delete row.carriers;
+
+    return row;
   }
 
-  // Check if phone number already exists
   async phoneNumberExists(phoneNumber, excludeId = null) {
-    let query = 'SELECT id FROM sim_cards WHERE phone_number = ?';
-    const params = [phoneNumber];
-    
+    let query = supabaseAdmin
+      .from('sim_cards')
+      .select('id')
+      .eq('phone_number', phoneNumber);
+
     if (excludeId) {
-      query += ' AND id != ?';
-      params.push(excludeId);
+      query = query.neq('id', excludeId);
     }
-    
-    const [rows] = await this.pool.query(query, params);
-    return rows.length > 0;
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return data.length > 0;
   }
 
-  // Check if ICCID already exists
   async iccidExists(iccid, excludeId = null) {
-    let query = 'SELECT id FROM sim_cards WHERE iccid = ?';
-    const params = [iccid];
-    
+    let query = supabaseAdmin
+      .from('sim_cards')
+      .select('id')
+      .eq('iccid', iccid);
+
     if (excludeId) {
-      query += ' AND id != ?';
-      params.push(excludeId);
+      query = query.neq('id', excludeId);
     }
-    
-    const [rows] = await this.pool.query(query, params);
-    return rows.length > 0;
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return data.length > 0;
   }
 
-  // Check if IMSI already exists
   async imsiExists(imsi, excludeId = null) {
     if (!imsi) return false;
-    
-    let query = 'SELECT id FROM sim_cards WHERE imsi = ?';
-    const params = [imsi];
-    
+
+    let query = supabaseAdmin
+      .from('sim_cards')
+      .select('id')
+      .eq('imsi', imsi);
+
     if (excludeId) {
-      query += ' AND id != ?';
-      params.push(excludeId);
+      query = query.neq('id', excludeId);
     }
-    
-    const [rows] = await this.pool.query(query, params);
-    return rows.length > 0;
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return data.length > 0;
   }
 
-  // Check if master module already has a SIM card assigned
   async masterModuleHasSim(masterModuleId, excludeId = null) {
     if (!masterModuleId) return false;
-    
-    let query = 'SELECT id FROM sim_cards WHERE master_module_id = ?';
-    const params = [masterModuleId];
-    
+
+    let query = supabaseAdmin
+      .from('sim_cards')
+      .select('id')
+      .eq('master_module_id', masterModuleId);
+
     if (excludeId) {
-      query += ' AND id != ?';
-      params.push(excludeId);
+      query = query.neq('id', excludeId);
     }
-    
-    const [rows] = await this.pool.query(query, params);
-    return rows.length > 0;
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return data.length > 0;
   }
 }
 

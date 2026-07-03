@@ -1,3 +1,4 @@
+const supabaseAdmin = require('../config/supabaseAdmin');
 const BaseModel = require('./base.model');
 
 class RoleModel extends BaseModel {
@@ -5,61 +6,49 @@ class RoleModel extends BaseModel {
     super('role_master');
   }
 
-  /**
-   * Get role name by role ID
-   * @param {number} roleId
-   * @returns {Promise<string|null>}
-   */
   async getRoleNameById(roleId) {
     console.log('Fetching role name for role ID:', roleId);
-    const [rows] = await this.pool.query(
-      'SELECT name FROM role_master WHERE role_id = ? AND is_active = 1',
-      [roleId]
-    );
-    console.log(`Role name query result:`, rows);
-    return rows.length > 0 ? rows[0].name : null;
+    const { data, error } = await supabaseAdmin
+      .from('role_master')
+      .select('name')
+      .eq('role_id', roleId)
+      .eq('is_active', 1);
+    if (error) throw error;
+    console.log('Role name query result:', data);
+    return data.length > 0 ? data[0].name : null;
   }
 
   async getRoleIdByUser(userId) {
     console.log('Fetching role ID for user:', userId);
-    const [rows] = await this.pool.query(
-      'SELECT role_id FROM user_master WHERE user_id = ?',
-      [userId]
-    );
-    console.log('Role ID query result:', rows);
-    return rows.length > 0 ? rows[0].role_id : null;
+    const { data, error } = await supabaseAdmin
+      .from('user_master')
+      .select('role_id')
+      .eq('user_id', userId);
+    if (error) throw error;
+    console.log('Role ID query result:', data);
+    return data.length > 0 ? data[0].role_id : null;
   }
 
-  /**
-   * Get role ID by name
-   * @param {string} roleName
-   * @returns {Promise<number|null>}
-   */
   async getRoleIdByName(roleName) {
-    const [rows] = await this.pool.query(
-      'SELECT role_id FROM role_master WHERE name = ? AND is_active = 1',
-      [roleName]
-    );
-    return rows.length > 0 ? rows[0].role_id : null;
+    const { data, error } = await supabaseAdmin
+      .from('role_master')
+      .select('role_id')
+      .eq('name', roleName)
+      .eq('is_active', 1);
+    if (error) throw error;
+    return data.length > 0 ? data[0].role_id : null;
   }
 
-  /**
-   * Get all active roles (useful for dropdowns)
-   * @returns {Promise<Array>}
-   */
   async getAllActiveRoles() {
-    const [rows] = await this.pool.query(
-      'SELECT role_id, name FROM role_master WHERE is_active = 1 ORDER BY name ASC'
-    );
+    const { data: rows, error } = await supabaseAdmin
+      .from('role_master')
+      .select('role_id, name')
+      .eq('is_active', true)
+      .order('name');
+    if (error) throw error;
     return rows;
   }
 
-  /**
-   * Check if a role is restricted to be approved only by Editors
-   * (used for Region Operator or Train Operator)
-   * @param {number} roleId
-   * @returns {Promise<boolean>}
-   */
   async isEditorRestrictedRole(roleId) {
     const restrictedRoles = ['Region Operator', 'Train Operator'];
     const roleName = await this.getRoleNameById(roleId);

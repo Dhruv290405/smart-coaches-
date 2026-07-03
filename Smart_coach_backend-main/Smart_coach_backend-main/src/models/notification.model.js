@@ -1,49 +1,46 @@
-const { pool } = require('../config/db');
-const supabase = require('../config/supabase');
+const supabaseAdmin = require('../config/supabaseAdmin');
 
 const NotificationModel = {
-    // 1. Fetch all notifications for a specific user (MySQL format)
     getByUserId: async (userId, limit = 20, offset = 0) => {
         try {
-            const query = `
-                SELECT * FROM user_notifications 
-                WHERE user_id = ? 
-                ORDER BY created_at DESC 
-                LIMIT ? OFFSET ?
-            `;
-            // MySQL mein limit aur offset numbers hone chahiye
-            const [rows] = await pool.query(query, [userId, parseInt(limit), parseInt(offset)]);
-            return rows || [];
+            const { data, error } = await supabaseAdmin
+                .from('user_notifications')
+                .select('*')
+                .eq('user_id', userId)
+                .order('created_at', { ascending: false })
+                .range(offset, offset + limit - 1);
+            if (error) throw error;
+            return data || [];
         } catch (err) {
             console.error("Model Error [getByUserId]:", err.message);
             throw err;
         }
     },
 
-    // 2. Mark a specific notification as Read
     markAsRead: async (notificationId, userId) => {
         try {
-            const query = `
-                UPDATE user_notifications 
-                SET is_read = TRUE 
-                WHERE id = ? AND user_id = ?
-            `;
-            const [result] = await pool.query(query, [notificationId, userId]);
-            return result;
+            const { data, error } = await supabaseAdmin
+                .from('user_notifications')
+                .update({ is_read: true })
+                .eq('id', notificationId)
+                .eq('user_id', userId)
+                .select();
+            if (error) throw error;
+            return data;
         } catch (err) {
             console.error("Model Error [markAsRead]:", err.message);
             throw err;
         }
     },
 
-    // 3. Delete a notification
     deleteNotification: async (notificationId, userId) => {
         try {
-            const query = `
-                DELETE FROM user_notifications 
-                WHERE id = ? AND user_id = ?
-            `;
-            const [result] = await pool.query(query, [notificationId, userId]);
+            const { error } = await supabaseAdmin
+                .from('user_notifications')
+                .delete()
+                .eq('id', notificationId)
+                .eq('user_id', userId);
+            if (error) throw error;
             return true;
         } catch (err) {
             console.error("Model Error [deleteNotification]:", err.message);

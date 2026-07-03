@@ -1,6 +1,6 @@
-const { insertSensorData } = require('../models/sensor_data.model');
+const { insertSensorData, getSensorData, getTrainsForUser } = require('../models/sensor_data.model');
+const { successResponse, errorResponse } = require('../utils/response');
 
-// Controller gets io from route
 exports.saveSensorData = async (req, res, io) => {
   try {
     const { sensor_id, value, timestamp } = req.body;
@@ -11,8 +11,9 @@ exports.saveSensorData = async (req, res, io) => {
 
     await insertSensorData(sensor_id, value, timestamp);
 
-    // Emit event to connected clients
-    io.emit('sensor_update', { sensor_id, value, timestamp });
+    if (global._io) {
+      global._io.emit('sensor_update', { sensor_id, value, timestamp });
+    }
 
     res.json({ success: true, message: 'Sensor data saved' });
   } catch (err) {
@@ -21,13 +22,23 @@ exports.saveSensorData = async (req, res, io) => {
   }
 };
 
-// get Trains for user
-exports.getTrainsForUsers = async (req, res, next) => {
+exports.getSensorData = async (req, res) => {
   try {
-      const trains = await trainModel.getTrainsForUsers();
-      return successResponse(res, 'Trains retrieved successfully', trains);
-    } catch (error) {
-      console.error('Error retrieving trains for user:', error);
-      res.status(500).json({ error: 'Internal Server Error' });
-    }
-}
+    const { sensor_id, from_date, to_date, limit } = req.query;
+    const data = await getSensorData({ sensor_id, from_date, to_date, limit: parseInt(limit) || 100 });
+    return successResponse(res, 'Sensor data retrieved successfully', data);
+  } catch (error) {
+    console.error('Error retrieving sensor data:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
+exports.getTrainsForUsers = async (req, res) => {
+  try {
+    const trains = await getTrainsForUser();
+    return successResponse(res, 'Trains retrieved successfully', trains);
+  } catch (error) {
+    console.error('Error retrieving trains for user:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+};

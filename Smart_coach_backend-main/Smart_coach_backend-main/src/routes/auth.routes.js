@@ -2,6 +2,7 @@ const express = require('express');
 const { body, param } = require('express-validator');
 const authController = require('../controllers/auth.controller');
 const { authenticate, authorize } = require('../middleware/auth.middleware');
+const { loginLimiter } = require('../middleware/rateLimiter');
 
 const router = express.Router();
 
@@ -63,7 +64,7 @@ const validateLogin = [
 // --- ROUTES ---
 
 router.post('/register', validateRegister, authController.register);
-router.post('/login', validateLogin, authController.login);
+router.post('/login', loginLimiter, validateLogin, authController.login);
 router.post('/send-otp', authController.sendOtp);
 router.post('/verify-otp', authController.verifyOtp);
 

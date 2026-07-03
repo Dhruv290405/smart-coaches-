@@ -1,16 +1,17 @@
-const { pool } = require('../config/db');
+const supabaseAdmin = require('../config/supabaseAdmin');
 
 async function insertIoTData({ sensor_id, train_id, coach_id, value, timestamp }) {
-  const [result] = await pool.query(
-    `INSERT INTO iot_odour_level (sensor_id, train_id, coach_id, value, timestamp)
-         VALUES (?, ?, ?, ?, ?)`,
-    [sensor_id, train_id, coach_id, value, timestamp]
-  );
+  const { data: inserted, error } = await supabaseAdmin
+    .from('iot_odour_level')
+    .insert([{ sensor_id, train_id, coach_id, value, timestamp }])
+    .select();
 
   console.log('Inserting IoT data:', { sensor_id, train_id, coach_id, value, timestamp });
 
+  if (error) throw error;
+
   return {
-    id: result.insertId,
+    id: inserted[0].id,
     sensor_id,
     train_id,
     coach_id,
@@ -20,26 +21,25 @@ async function insertIoTData({ sensor_id, train_id, coach_id, value, timestamp }
 }
 
 async function getLatestIoTDataFromDB(trainId, coachId) {
-  const [rows] = await pool.query(
-    `
-    SELECT t1.*
-    FROM iot_odour_level t1
-    INNER JOIN (
-      SELECT sensor_id, MAX(timestamp) AS latest_timestamp
-      FROM iot_odour_level
-      WHERE train_id = ? AND coach_id = ?
-      GROUP BY sensor_id
-    ) t2
-    ON t1.sensor_id = t2.sensor_id AND t1.timestamp = t2.latest_timestamp
-    WHERE t1.train_id = ? AND t1.coach_id = ?
-    ORDER BY t1.sensor_id
-    `,
-    [trainId, coachId, trainId, coachId]
-  );
+  const { data: rows, error } = await supabaseAdmin
+    .from('iot_odour_level')
+    .select('*')
+    .eq('train_id', trainId)
+    .eq('coach_id', coachId)
+    .order('sensor_id', { ascending: true });
 
-  return rows;
+  if (error) throw error;
+
+  const latestMap = new Map();
+  for (const row of rows || []) {
+    const key = row.sensor_id;
+    if (!latestMap.has(key) || new Date(row.timestamp) > new Date(latestMap.get(key).timestamp)) {
+      latestMap.set(key, row);
+    }
+  }
+
+  return [...latestMap.values()];
 }
-
 
 module.exports = {
   insertIoTData,

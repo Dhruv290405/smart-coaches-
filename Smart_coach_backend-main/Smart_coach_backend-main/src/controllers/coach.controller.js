@@ -160,6 +160,25 @@ const coachController = {
       next(error);
     }
   },
+
+  async getCoachById(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { data: coach, error } = await require('../config/supabaseAdmin')
+        .from('coach_master')
+        .select('*')
+        .eq('coach_id', id)
+        .single();
+
+      if (error || !coach) {
+        return errorResponse(res, `Coach with ID "${id}" not found.`, 404);
+      }
+
+      return successResponse(res, "Coach retrieved successfully.", coach);
+    } catch (error) {
+      next(error);
+    }
+  },
 };
 
 module.exports = coachController;
