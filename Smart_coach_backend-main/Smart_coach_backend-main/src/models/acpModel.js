@@ -1,6 +1,7 @@
 const supabaseAdmin = require('../config/supabaseAdmin');
 const { dualInsert, dualUpdate, dualUpsert } = require('../config/dualWrite');
 const BLOCKED_COACH = '205063';
+const fmtBin = (v) => (v === 1 || v === '1') ? 'On' : 'Off';
 
 const toIST = (d) => {
     if (!d) return null;
@@ -361,7 +362,7 @@ const AcpModel = {
             if (deviceIds.length > 0) {
                 const { data, error: fsdsErr } = await supabaseAdmin
                     .from('fsds_logs')
-                    .select('id, device_id, fire_status, timestamp')
+                    .select('id, device_id, fire_status, bypass_status, timestamp')
                     .in('device_id', deviceIds)
                     .order('id', { ascending: false });
                 if (fsdsErr) throw fsdsErr;
@@ -371,7 +372,11 @@ const AcpModel = {
             const latestFsds = {};
             for (const row of fsdsData) {
                 if (!latestFsds[row.device_id]) {
-                    latestFsds[row.device_id] = { fsds_status: row.fire_status, fsds_timestamp: row.timestamp };
+                    latestFsds[row.device_id] = {
+                        fsds_status: fmtBin(row.fire_status),
+                        fsds_bypass: fmtBin(row.bypass_status),
+                        fsds_timestamp: row.timestamp
+                    };
                 }
             }
 
@@ -400,6 +405,7 @@ const AcpModel = {
                     train_location: latestLoc[dm.tech_coach_no] || null,
                     status: todayCount === 0 ? 'Not Pulled' : (dls.status || 'Not Pulled'),
                     fsds_status: fsds.fsds_status || null,
+                    fsds_bypass: fsds.fsds_bypass || null,
                     fsds_timestamp: fsds.fsds_timestamp || null
                 };
             });
@@ -530,7 +536,7 @@ const AcpModel = {
             if (deviceIds.length > 0) {
                 const { data, error: fsdsErr } = await supabaseAdmin
                     .from('fsds_logs')
-                    .select('id, device_id, fire_status, timestamp')
+                    .select('id, device_id, fire_status, bypass_status, timestamp')
                     .in('device_id', deviceIds)
                     .order('id', { ascending: false });
                 if (fsdsErr) throw fsdsErr;
@@ -540,7 +546,11 @@ const AcpModel = {
             const latestFsds = {};
             for (const row of fsdsData) {
                 if (!latestFsds[row.device_id]) {
-                    latestFsds[row.device_id] = { fsds_status: row.fire_status, fsds_timestamp: row.timestamp };
+                    latestFsds[row.device_id] = {
+                        fsds_status: fmtBin(row.fire_status),
+                        fsds_bypass: fmtBin(row.bypass_status),
+                        fsds_timestamp: row.timestamp
+                    };
                 }
             }
 
@@ -569,6 +579,7 @@ const AcpModel = {
                     train_location: latestLoc[dm.tech_coach_no] || null,
                     status: todayCount === 0 ? 'Not Pulled' : (dls.status || 'Not Pulled'),
                     fsds_status: fsds.fsds_status || null,
+                    fsds_bypass: fsds.fsds_bypass || null,
                     fsds_timestamp: fsds.fsds_timestamp || null
                 };
             });

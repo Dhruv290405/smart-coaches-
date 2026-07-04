@@ -1,5 +1,7 @@
 const FsdsModel = require("../models/fsds.model");
 
+const formatBinary = (val) => (val === 1 || val === '1' || val === true) ? 'On' : 'Off';
+
 const fsdsController = {
     receiveData: async (req, res) => {
         try {
@@ -13,8 +15,8 @@ const fsdsController = {
             const savePromises = payload.assets.map(async (asset) => {
                 const metrics = asset.metrics?.values || [];
                 
-                // Metrics mapping (ACP format se data nikalna)
                 const fireStatus = metrics.find(m => m.name.includes("LIGHT-1"))?.value ?? 0;
+                const bypassStatus = metrics.find(m => m.name.toLowerCase().includes("bypass"))?.value ?? 0;
                 const smokeLevel = metrics.find(m => m.metricType === "COUNT")?.value ?? 0;
 
                 let formattedTime = (asset.metrics?.timestamp || payload.timestamp || new Date().toISOString())
@@ -27,6 +29,7 @@ const fsdsController = {
                     asset_id: asset.assetId,
                     asset_name: asset.assetName,
                     fire_status: fireStatus,
+                    bypass_status: bypassStatus,
                     smoke_level: smokeLevel,
                     timestamp: formattedTime
                 };
@@ -55,7 +58,14 @@ const fsdsController = {
                 locName,
                 trainNo,
             });
-            return res.json({ success: true, data: logs });
+
+            const formatted = logs.map(row => ({
+                ...row,
+                fire_status: formatBinary(row.fire_status),
+                bypass_status: formatBinary(row.bypass_status)
+            }));
+
+            return res.json({ success: true, data: formatted });
         } catch (error) {
             console.error("FSDS Get Data Error:", error.message);
             res.status(500).json({ success: false, error: error.message });
