@@ -1,14 +1,10 @@
 const supabaseAdmin = require("../config/supabaseAdmin");
+const { dualInsert } = require("../config/dualWrite");
 
 class FsdsModel {
     async saveDynamicLog(data) {
         try {
-            const { data: inserted, error } = await supabaseAdmin
-                .from('fsds_logs')
-                .insert([data])
-                .select();
-
-            if (error) throw error;
+            const inserted = await dualInsert('fsds_logs', [data]);
             return inserted?.[0]?.id;
         } catch (err) {
             console.error("FSDS Model Error:", err.message);

@@ -1,13 +1,11 @@
 const supabaseAdmin = require("../config/supabaseAdmin");
+const { dualInsert } = require("../config/dualWrite");
 
 class OdourModel {
     async saveDynamicLog(data) {
         try {
-            const { data: inserted, error } = await supabaseAdmin
-                .from('odour_logs')
-                .insert([data])
-                .select();
-            if (error) throw error;
+            const inserted = await dualInsert('odour_logs', [data]);
+            if (!inserted || !inserted[0]) throw new Error("Insert returned no data");
             return inserted[0].id;
         } catch (err) {
             console.error("Odour Model Error:", err.message);

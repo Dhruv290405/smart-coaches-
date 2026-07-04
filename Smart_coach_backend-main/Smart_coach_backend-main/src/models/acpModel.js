@@ -1,4 +1,5 @@
 const supabaseAdmin = require('../config/supabaseAdmin');
+const { dualInsert, dualUpdate, dualUpsert } = require('../config/dualWrite');
 const BLOCKED_COACH = '205063';
 
 const toIST = (d) => {
@@ -65,23 +66,16 @@ const AcpModel = {
                     status: isPulled
                 };
                 if (isTrigger) updateData.last_trigger = now;
-                const { error: updErr } = await supabaseAdmin
-                    .from('device_live_summary')
-                    .update(updateData)
-                    .eq('tech_coach_no', data.tech_coach_no);
-                if (updErr) throw updErr;
+                await dualUpdate('device_live_summary', 'tech_coach_no', data.tech_coach_no, updateData);
             } else {
-                const { error: insErr } = await supabaseAdmin
-                    .from('device_live_summary')
-                    .insert([{
-                        tech_coach_no: data.tech_coach_no,
-                        last_heartbeat: now,
-                        last_trigger: isTrigger ? now : null,
-                        today_count: todayCount,
-                        total_count: totalCount,
-                        status: isPulled
-                    }]);
-                if (insErr) throw insErr;
+                await dualInsert('device_live_summary', [{
+                    tech_coach_no: data.tech_coach_no,
+                    last_heartbeat: now,
+                    last_trigger: isTrigger ? now : null,
+                    today_count: todayCount,
+                    total_count: totalCount,
+                    status: isPulled
+                }]);
             }
         } catch (error) {
             console.error("Error in AcpModel.updateLiveStatus:", error.message);
@@ -104,14 +98,11 @@ const AcpModel = {
 
     saveLatestHeartbeat: async (data) => {
         try {
-            const { error } = await supabaseAdmin
-                .from('device_latest_status')
-                .upsert([{
-                    tech_coach_no: data.tech_coach_no,
-                    data: JSON.stringify(data),
-                    last_updated: new Date().toISOString()
-                }], { onConflict: 'tech_coach_no' });
-            if (error) throw error;
+            await dualUpsert('device_latest_status', [{
+                tech_coach_no: data.tech_coach_no,
+                data: JSON.stringify(data),
+                last_updated: new Date().toISOString()
+            }], 'tech_coach_no');
         } catch (error) {
             console.error("Error in AcpModel.saveLatestHeartbeat:", error.message);
             throw error;
@@ -165,22 +156,19 @@ const AcpModel = {
 
     saveHeartbeat: async (data) => {
         try {
-            const { data: inserted, error } = await supabaseAdmin
-                .from('acp_heartbeat_logs')
-                .insert([{
-                    train_location: data.train_location,
-                    raw_asset_name: data.raw_asset_name,
-                    acp_status: data.acp_status,
-                    total_count: data.total_count,
-                    msg_type: data.msg_type,
-                    train_no: data.train_no,
-                    comm_coach_no: data.comm_coach_no,
-                    tech_coach_no: data.tech_coach_no,
-                    power_car_no: data.power_car_no
-                }])
-                .select();
+            const inserted = await dualInsert('acp_heartbeat_logs', [{
+                train_location: data.train_location,
+                raw_asset_name: data.raw_asset_name,
+                acp_status: data.acp_status,
+                total_count: data.total_count,
+                msg_type: data.msg_type,
+                train_no: data.train_no,
+                comm_coach_no: data.comm_coach_no,
+                tech_coach_no: data.tech_coach_no,
+                power_car_no: data.power_car_no
+            }]);
 
-            if (error) throw error;
+            if (!inserted || !inserted[0]) throw new Error("Insert returned no data");
             return inserted[0].id;
         } catch (error) {
             console.error("Error in AcpModel.saveHeartbeat:", error.message);
@@ -206,9 +194,7 @@ const AcpModel = {
                 return null;
             }
 
-            const { data: inserted, error: insErr } = await supabaseAdmin
-                .from('acp_critical_events')
-                .insert([{
+            const inserted = await dualInsert('acp_critical_events', [{
                     train_location: data.train_location,
                     raw_asset_name: data.raw_asset_name,
                     acp_status: data.acp_status,
@@ -217,10 +203,9 @@ const AcpModel = {
                     tech_coach_no: data.tech_coach_no,
                     power_car_no: data.power_car_no,
                     event_time: new Date().toISOString()
-                }])
-                .select();
+                }]);
 
-            if (insErr) throw insErr;
+            if (!inserted || !inserted[0]) throw new Error("Insert returned no data");
             return inserted[0].id;
         } catch (error) {
             console.error("Error in AcpModel.saveCriticalEvent:", error.message);
