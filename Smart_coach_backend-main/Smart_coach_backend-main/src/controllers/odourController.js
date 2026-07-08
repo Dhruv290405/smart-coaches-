@@ -6,39 +6,40 @@ const odourController = {
             const payload = req.body;
             if (req.query.confirmationToken) return res.status(200).send("OK");
 
-            let formattedTime = (payload.coach_data?.timestamp || payload.timestamp || new Date().toISOString())
+            const formattedTime = (payload.timestamp || new Date().toISOString())
                 .replace('T', ' ').replace(/\..*Z|Z/, '');
 
             const dataToSave = {
-                master_sensor_id: payload.source?.SensorId || null,
-                device_id: payload.source?.deviceId || null,
-                
-                train_number: payload.train_info?.train_number || null,
-                coach_number: payload.coach_data?.coach_number || null,
-                coach_type: payload.coach_data?.coach_type || null,
-                
-                toilet_position: payload.coach_data?.toilet_position || "N/A",
-                odour_reading: payload.coach_data?.reading || payload.coach_data?.Reading || 0,
-                device_status: payload.coach_data?.status || "Unknown",
-                
-                voc: payload.coach_data?.voc || 0,
-                h2s: payload.coach_data?.h2s || 0,
-                nh3: payload.coach_data?.nh3 || 0,
-                smoke: payload.coach_data?.smoke || 0,
-                temperature: payload.coach_data?.temperature || null,
-                humidity: payload.coach_data?.humidity || null,
-                latitude: payload.coach_data?.latitude || null,
-                longitude: payload.coach_data?.longitude || null,
-                
+                device_id: payload.device_id || null,
+                sensor_id: payload.sensor_id || null,
+                train_number: payload.train_number || null,
+                coach_number: payload.coach_number || null,
+                coach_type: payload.coach_type || null,
+                toilet_position: payload.toilet_position || "N/A",
+                temperature: payload.temperature || null,
+                humidity: payload.humidity || null,
+                voc_index: payload.voc_index || 0,
+                methane_ppm: payload.methane_ppm || 0,
+                h2s_ppm: payload.h2s_ppm || 0,
+                nh3_ppm: payload.nh3_ppm || 0,
+                sraw_voc: payload.sraw_voc || 0,
+                h2s_raw: payload.h2s_raw || 0,
+                nh3_raw: payload.nh3_raw || 0,
+                long_lock_count: payload.long_lock_count || 0,
+                status: payload.status || "Active",
                 timestamp: formattedTime
             };
 
-            const insertId = await OdourModel.saveDynamicLog(dataToSave);
+            const insertId = await OdourModel.saveLog(dataToSave);
 
-            return res.status(201).json({ 
-                success: true, 
-                message: "Odour log stored successfully", 
-                id: insertId 
+            if (global._io) {
+                global._io.emit('odour_data_update', dataToSave);
+            }
+
+            return res.status(201).json({
+                success: true,
+                message: "Odour log stored successfully",
+                id: insertId
             });
 
         } catch (error) {
