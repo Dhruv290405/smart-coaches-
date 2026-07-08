@@ -64,8 +64,6 @@ class OdourModal extends StatelessWidget {
                       _buildInfoSection('Coach Info', [
                         _buildDetailRow('Device ID', coach.deviceId, showTopBorder: false),
                         _buildDetailRow('Train Number', coach.trainNumber),
-                        _buildDetailRow('Train Name', coach.trainName),
-                        _buildDetailRow('Route', coach.route),
                         _buildDetailRow('Coach Type', coach.coachType),
                       ]),
                       const SizedBox(height: 16),
@@ -102,21 +100,37 @@ class OdourModal extends StatelessWidget {
         color: t.isBad ? const Color(0xFFFFF0F0) : (t.reading > 40 ? const Color(0xFFFFF8E1) : const Color(0xFFF5F5F5)),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Row(children: [
-        Container(
-          width: 10, height: 10,
-          decoration: BoxDecoration(color: t.isBad ? const Color(0xFFD32F2F) : (t.reading > 40 ? const Color(0xFFBE8B22) : Colors.green), shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(t.position, style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600)),
-            Text('${t.reading} ppm — ${t.levelLabel}', style: GoogleFonts.poppins(fontSize: 10, color: ColorConstants.textSecondary)),
-          ]),
-        ),
-        Text(t.status.toUpperCase(), style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w600, color: t.isBad ? const Color(0xFFD32F2F) : Colors.green)),
+      child: Column(children: [
+        Row(children: [
+          Container(
+            width: 10, height: 10,
+            decoration: BoxDecoration(color: t.isBad ? const Color(0xFFD32F2F) : (t.reading > 40 ? const Color(0xFFBE8B22) : Colors.green), shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(t.position, style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600)),
+              Text('VOC: ${t.vocIndex} | H2S: ${t.h2sPpm} ppm | NH3: ${t.nh3Ppm} ppm', style: GoogleFonts.poppins(fontSize: 10, color: ColorConstants.textSecondary)),
+            ]),
+          ),
+          Text(t.status.toUpperCase(), style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w600, color: t.isBad ? const Color(0xFFD32F2F) : Colors.green)),
+        ]),
+        const SizedBox(height: 6),
+        Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
+          _miniMetric('Temp', '${t.temperature}\u00B0C'),
+          _miniMetric('Humidity', '${t.humidity}%'),
+          _miniMetric('Methane', '${t.methanePpm}'),
+          _miniMetric('Locks', '${t.longLockCount}'),
+        ]),
       ]),
     );
+  }
+
+  Widget _miniMetric(String label, String value) {
+    return Column(children: [
+      Text(value, style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w600, color: ColorConstants.textPrimary)),
+      Text(label, style: GoogleFonts.poppins(fontSize: 8, color: ColorConstants.textSecondary)),
+    ]);
   }
 
   Widget _buildInfoSection(String title, List<Widget> children) {
