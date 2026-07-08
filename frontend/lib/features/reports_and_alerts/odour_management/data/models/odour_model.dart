@@ -1,6 +1,7 @@
 class ToiletSensor {
   final String id;
   final String position;
+<<<<<<< HEAD
   final num vocIndex;
   final num methanePpm;
   final num h2sPpm;
@@ -11,12 +12,16 @@ class ToiletSensor {
   final num temperature;
   final num humidity;
   final int longLockCount;
+=======
+  final num reading;
+>>>>>>> 76f59f6 (fix(android): fix Gradle and AGP versions for Flutter build, add keystore config)
   final String status;
   final bool isRecent;
 
   ToiletSensor({
     required this.id,
     required this.position,
+<<<<<<< HEAD
     required this.vocIndex,
     this.methanePpm = 0,
     this.h2sPpm = 0,
@@ -27,10 +32,14 @@ class ToiletSensor {
     this.temperature = 0,
     this.humidity = 0,
     this.longLockCount = 0,
+=======
+    required this.reading,
+>>>>>>> 76f59f6 (fix(android): fix Gradle and AGP versions for Flutter build, add keystore config)
     required this.status,
     this.isRecent = false,
   });
 
+<<<<<<< HEAD
   num get reading => vocIndex;
   bool get isBad => vocIndex > 70 || h2sPpm > 10 || nh3Ppm > 25;
   String get levelLabel {
@@ -55,6 +64,18 @@ class ToiletSensor {
       longLockCount: json['long_lock_count'] ?? 0,
       status: json['status']?.toString() ?? 'Active',
       isRecent: false,
+=======
+  bool get isBad => reading > 70;
+  String get levelLabel => reading > 70 ? 'High' : (reading > 40 ? 'Moderate' : 'Low');
+
+  factory ToiletSensor.fromJson(Map<String, dynamic> json) {
+    return ToiletSensor(
+      id: json['id'] ?? '',
+      position: json['position'] ?? '',
+      reading: json['reading'] ?? 0,
+      status: json['status'] ?? 'Active',
+      isRecent: json['isRecent'] ?? false,
+>>>>>>> 76f59f6 (fix(android): fix Gradle and AGP versions for Flutter build, add keystore config)
     );
   }
 }
@@ -63,6 +84,11 @@ class OdourCoachModel {
   final String coachNumber;
   final String coachType;
   final String trainNumber;
+<<<<<<< HEAD
+=======
+  final String trainName;
+  final String route;
+>>>>>>> 76f59f6 (fix(android): fix Gradle and AGP versions for Flutter build, add keystore config)
   final String deviceId;
   final List<ToiletSensor> toilets;
 
@@ -70,6 +96,11 @@ class OdourCoachModel {
     required this.coachNumber,
     required this.coachType,
     required this.trainNumber,
+<<<<<<< HEAD
+=======
+    required this.trainName,
+    required this.route,
+>>>>>>> 76f59f6 (fix(android): fix Gradle and AGP versions for Flutter build, add keystore config)
     required this.deviceId,
     required this.toilets,
   });
@@ -80,6 +111,7 @@ class OdourCoachModel {
 
   factory OdourCoachModel.fromJson(Map<String, dynamic> json) {
     return OdourCoachModel(
+<<<<<<< HEAD
       coachNumber: json['coach_number']?.toString() ?? '',
       coachType: json['coach_type']?.toString() ?? '',
       trainNumber: json['train_number']?.toString() ?? '',
@@ -87,6 +119,15 @@ class OdourCoachModel {
       toilets: json['toilets'] != null
           ? (json['toilets'] as List).map((e) => ToiletSensor.fromJson(e)).toList()
           : [ToiletSensor.fromJson(json)],
+=======
+      coachNumber: json['coachNumber'] ?? '',
+      coachType: json['coachType'] ?? '',
+      trainNumber: json['trainNumber'] ?? '',
+      trainName: json['trainName'] ?? '',
+      route: json['route'] ?? '',
+      deviceId: json['deviceId'] ?? '',
+      toilets: (json['toilets'] as List? ?? []).map((e) => ToiletSensor.fromJson(e)).toList(),
+>>>>>>> 76f59f6 (fix(android): fix Gradle and AGP versions for Flutter build, add keystore config)
     );
   }
 }

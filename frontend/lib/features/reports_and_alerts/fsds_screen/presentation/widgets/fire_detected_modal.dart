@@ -132,7 +132,11 @@ class FireDetectedModal extends StatelessWidget {
                 _buildDividerRow('Device ID', sensor.deviceId),
                 _buildDividerRow('Asset Name', sensor.assetName),
                 _buildDividerRow('Fire Status', sensor.fireStatus.toString()),
+<<<<<<< HEAD
                 _buildDividerRow('Methane Level', sensor.methaneLevel.toString()),
+=======
+                _buildDividerRow('Smoke Level', sensor.smokeLevel.toString()),
+>>>>>>> 76f59f6 (fix(android): fix Gradle and AGP versions for Flutter build, add keystore config)
                 _buildDividerRow('Location', sensor.locName, isLast: true),
                 _buildDividerRow('Time', _fmtTimestamp(sensor.timestamp), isLast: true),
               ],

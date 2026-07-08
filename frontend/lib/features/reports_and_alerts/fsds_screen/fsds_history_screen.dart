@@ -314,7 +314,11 @@ class _FsdsHistoryScreenState extends State<FsdsHistoryScreen> {
                 _buildRow('Status', entry.statusText,
                     valueColor: entry.isBypassed ? const Color(0xFFD32F2F) : const Color(0xFF2E7D32)),
                 _buildRow('Fire Status', entry.fireStatus.toString()),
+<<<<<<< HEAD
                 _buildRow('Methane Level', entry.methaneLevel.toString()),
+=======
+                _buildRow('Smoke Level', entry.smokeLevel.toString()),
+>>>>>>> 76f59f6 (fix(android): fix Gradle and AGP versions for Flutter build, add keystore config)
                 const Divider(color: ColorConstants.divider),
                 _buildRow('Location', entry.locName),
                 _buildRow('Timestamp', _fmtTimestamp(entry.timestamp)),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import '../../../../../core/utils/app_dimensions.dart';
 import '../../../../../core/utils/app_text_styles.dart';
 import '../../../../../core/utils/color_constants.dart';
@@ -63,6 +64,11 @@ class OdourModal extends StatelessWidget {
                       _buildInfoSection('Coach Info', [
                         _buildDetailRow('Device ID', coach.deviceId, showTopBorder: false),
                         _buildDetailRow('Train Number', coach.trainNumber),
+<<<<<<< HEAD
+=======
+                        _buildDetailRow('Train Name', coach.trainName),
+                        _buildDetailRow('Route', coach.route),
+>>>>>>> 76f59f6 (fix(android): fix Gradle and AGP versions for Flutter build, add keystore config)
                         _buildDetailRow('Coach Type', coach.coachType),
                       ]),
                       const SizedBox(height: 16),
@@ -99,6 +105,7 @@ class OdourModal extends StatelessWidget {
         color: t.isBad ? const Color(0xFFFFF0F0) : (t.reading > 40 ? const Color(0xFFFFF8E1) : const Color(0xFFF5F5F5)),
         borderRadius: BorderRadius.circular(8),
       ),
+<<<<<<< HEAD
       child: Column(children: [
         Row(children: [
           Container(
@@ -121,10 +128,26 @@ class OdourModal extends StatelessWidget {
           _miniMetric('Methane', '${t.methanePpm}'),
           _miniMetric('Locks', '${t.longLockCount}'),
         ]),
+=======
+      child: Row(children: [
+        Container(
+          width: 10, height: 10,
+          decoration: BoxDecoration(color: t.isBad ? const Color(0xFFD32F2F) : (t.reading > 40 ? const Color(0xFFBE8B22) : Colors.green), shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(t.position, style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600)),
+            Text('${t.reading} ppm — ${t.levelLabel}', style: GoogleFonts.poppins(fontSize: 10, color: ColorConstants.textSecondary)),
+          ]),
+        ),
+        Text(t.status.toUpperCase(), style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w600, color: t.isBad ? const Color(0xFFD32F2F) : Colors.green)),
+>>>>>>> 76f59f6 (fix(android): fix Gradle and AGP versions for Flutter build, add keystore config)
       ]),
     );
   }
 
+<<<<<<< HEAD
   Widget _miniMetric(String label, String value) {
     return Column(children: [
       Text(value, style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w600, color: ColorConstants.textPrimary)),
@@ -132,6 +155,8 @@ class OdourModal extends StatelessWidget {
     ]);
   }
 
+=======
+>>>>>>> 76f59f6 (fix(android): fix Gradle and AGP versions for Flutter build, add keystore config)
   Widget _buildInfoSection(String title, List<Widget> children) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(title, style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: ColorConstants.textSecondary)),

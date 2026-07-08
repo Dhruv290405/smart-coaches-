@@ -92,12 +92,52 @@ class _OdourDashboardState extends State<OdourDashboard> {
     });
   }
 
+  List<OdourCoachModel> _generateMockData() {
+    final trains = [
+      {'no': '12952', 'name': 'Rajdhani Express', 'route': 'NDLS-BCT'},
+      {'no': '12615', 'name': 'Grand Trunk Express', 'route': 'NDLS-MAS'},
+      {'no': '12002', 'name': 'Shatabdi Express', 'route': 'NDLS-HBH'},
+    ];
+    final coachTypes = ['1AC', '2AC', '3AC', 'SL'];
+    final positions = ['Toilet 1 (Front-Left)', 'Toilet 2 (Front-Right)', 'Toilet 3 (Rear-Left)', 'Toilet 4 (Rear-Right)'];
+    final coaches = <OdourCoachModel>[];
+
+    for (int c = 1; c <= 20; c++) {
+      final train = trains[(c - 1) % 3];
+      final type = coachTypes[(c - 1) % 4];
+      final toilets = <ToiletSensor>[];
+      for (int t = 0; t < 4; t++) {
+        final isBad = (c == 4 && t == 0) || (c == 7 && t == 2) || (c == 11 && t == 1) || (c == 15 && t == 3) || (c == 19 && t == 0);
+        final isWarn = !isBad && ((c == 4 && t == 1) || (c == 8 && t == 0) || (c == 12 && t == 2));
+        final reading = isBad ? 75 + (c * 3) % 25 : (isWarn ? 45 + (c * 2) % 25 : 10 + (c * 5) % 30);
+        toilets.add(ToiletSensor(
+          id: 'T${c}0${t + 1}',
+          position: positions[t],
+          reading: reading,
+          status: isBad ? 'Alert' : 'Active',
+          isRecent: isBad,
+        ));
+      }
+      coaches.add(OdourCoachModel(
+        coachNumber: 'Coach $c',
+        coachType: type,
+        trainNumber: train['no']!,
+        trainName: train['name']!,
+        route: train['route']!,
+        deviceId: 'ODR_DEV_${100 + c}',
+        toilets: toilets,
+      ));
+    }
+    return coaches;
+  }
+
   Future<void> _refreshData({bool isBackgroundRefresh = false}) async {
     if (!isBackgroundRefresh) {
       if (mounted) setState(() => isRefreshing = true);
     }
 
     try {
+<<<<<<< HEAD
       final data = await _repository.getOdourData();
 
       if (mounted) {
@@ -106,6 +146,17 @@ class _OdourDashboardState extends State<OdourDashboard> {
           trainNumbers = ['All Trains', ...data.map((e) => e.trainNumber).toSet()];
           coachTypes = ['All Types', ...data.map((e) => e.coachType).toSet()];
           coachNumbers = ['All Coach Numbers', ...data.map((e) => e.coachNumber).toSet()];
+=======
+      await Future.delayed(const Duration(milliseconds: 500));
+      final List<OdourCoachModel> mockData = _generateMockData();
+
+      if (mounted) {
+        setState(() {
+          _allCoaches = mockData;
+          trainNumbers = ['All Trains', ...mockData.map((e) => e.trainNumber).toSet()];
+          coachTypes = ['All Types', ...mockData.map((e) => e.coachType).toSet()];
+          coachNumbers = ['All Coach Numbers', ...mockData.map((e) => e.coachNumber).toSet()];
+>>>>>>> 76f59f6 (fix(android): fix Gradle and AGP versions for Flutter build, add keystore config)
           _applyFilters();
           lastUpdated = DateFormat('HH:mm:ss').format(DateTime.now());
           if (!isBackgroundRefresh) isRefreshing = false;
