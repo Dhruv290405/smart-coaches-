@@ -11,7 +11,7 @@ class FsdsBypassModel {
   final String coachNo;
   final String deviceId;
   final int fireStatus;
-  final int smokeLevel;
+  final int methaneLevel;
 
   FsdsBypassModel({
     this.id = 0,
@@ -26,7 +26,7 @@ class FsdsBypassModel {
     this.coachNo = '',
     this.deviceId = '',
     this.fireStatus = 0,
-    this.smokeLevel = 0,
+    this.methaneLevel = 0,
   });
 
   bool get isRecent {
@@ -44,7 +44,7 @@ class FsdsBypassModel {
     final ts = _normalizeTimestamp(json['timestamp'] ?? '');
 
     final fStatus = _parseInt(json['fire_status']);
-    final sLevel = _parseInt(json['smoke_level']);
+    final sLevel = _parseInt(json['methane_level']);
 
     return FsdsBypassModel(
       id: _parseInt(json['id']),
@@ -59,7 +59,7 @@ class FsdsBypassModel {
       coachNo: (json['asset_name'] ?? json['coachNo'] ?? '').toString(),
       deviceId: (json['device_id'] ?? json['deviceId'] ?? '').toString(),
       fireStatus: fStatus,
-      smokeLevel: sLevel,
+      methaneLevel: sLevel,
     );
   }
 

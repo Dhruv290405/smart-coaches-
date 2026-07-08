@@ -132,7 +132,7 @@ class FireDetectedModal extends StatelessWidget {
                 _buildDividerRow('Device ID', sensor.deviceId),
                 _buildDividerRow('Asset Name', sensor.assetName),
                 _buildDividerRow('Fire Status', sensor.fireStatus.toString()),
-                _buildDividerRow('Smoke Level', sensor.smokeLevel.toString()),
+                _buildDividerRow('Methane Level', sensor.methaneLevel.toString()),
                 _buildDividerRow('Location', sensor.locName, isLast: true),
                 _buildDividerRow('Time', _fmtTimestamp(sensor.timestamp), isLast: true),
               ],

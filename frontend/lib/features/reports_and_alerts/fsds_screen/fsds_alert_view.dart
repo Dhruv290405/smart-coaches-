@@ -18,7 +18,7 @@ class FsdsAlertsView extends StatelessWidget {
           icon: Icons.check_circle,
           bgColor: const Color(0xFFE8F5E9),
           iconColor: const Color(0xFF2E7D32),
-          title: 'Resolved: False Smoke Detected',
+          title: 'Resolved: False Methane Detected',
           titleColor: const Color(0xFF2E7D32),
           subtitle:
               'Coach 1 | Today, 06:10 AM\nIssue resolved by: Ramesh Kumar',

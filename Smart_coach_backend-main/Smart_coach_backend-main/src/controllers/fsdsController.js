@@ -17,7 +17,7 @@ const fsdsController = {
                 
                 const fireStatus = metrics.find(m => m.name.includes("LIGHT-1"))?.value ?? 0;
                 const bypassStatus = metrics.find(m => m.name.toLowerCase().includes("bypass"))?.value ?? 0;
-                const smokeLevel = metrics.find(m => m.metricType === "COUNT")?.value ?? 0;
+                const methaneLevel = metrics.find(m => m.metricType === "COUNT")?.value ?? 0;
 
                 let formattedTime = (asset.metrics?.timestamp || payload.timestamp || new Date().toISOString())
                     .replace('T', ' ').replace(/\..*Z|Z/, '');
@@ -30,7 +30,7 @@ const fsdsController = {
                     asset_name: asset.assetName,
                     fire_status: fireStatus,
                     bypass_status: bypassStatus,
-                    smoke_level: smokeLevel,
+                    methane_level: methaneLevel,
                     timestamp: formattedTime
                 };
 
