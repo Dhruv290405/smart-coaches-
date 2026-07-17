@@ -56,9 +56,9 @@ class BrakeBindingState extends Equatable {
     this.statusDuration = "0 sec",
     this.diagnosticFlags = const {
       "Brake Binding": "OK",
-      "Pneumatic Leakage": "OK",
-      "Brake Cylinder": "NORMAL",
-      "CR Overcharge": "NORMAL",
+      "CR Overcharging": "NORMAL",
+      "Emergency Brake": "NORMAL",
+      "Severe Brake Binding": "NORMAL",
     },
     this.bpValue = 0.0,
     this.fpValue = 0.0,

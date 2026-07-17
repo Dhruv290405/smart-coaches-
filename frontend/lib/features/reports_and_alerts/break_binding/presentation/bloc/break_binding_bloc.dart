@@ -229,11 +229,11 @@ class BrakeBindingBloc extends Bloc<BrakeBindingEvent, BrakeBindingState> {
 
     int maxPoints = 60;
     switch (state.timeFilter) {
-      case "15s": maxPoints = 15; break;
       case "1m":  maxPoints = 60; break;
-      case "10m": maxPoints = 600; break;
-      case "1h":  maxPoints = 3600; break;
+      case "15m": maxPoints = 900; break;
+      case "30m": maxPoints = 1800; break;
       case "24h": maxPoints = 86400; break;
+      case "48h": maxPoints = 172800; break;
     }
     if (newHistory.length > maxPoints) newHistory.removeAt(0);
 
@@ -254,17 +254,19 @@ class BrakeBindingBloc extends Bloc<BrakeBindingEvent, BrakeBindingState> {
     if (finalStatus.toUpperCase() == "NORMAL" && anomaly != null) finalStatus = anomaly;
 
     final faults = response.activeFaults ?? [];
-    final String activeFaultType =
-        faults.isNotEmpty ? (faults[0].type?.toString().toUpperCase() ?? "") : "";
+    // Collect ALL active fault types (not just the first one)
+    final Set<String> activeFaultTypes = faults
+        .map((f) => f.type?.toString().toUpperCase() ?? "")
+        .where((t) => t.isNotEmpty)
+        .toSet();
 
     final Map<String, String> diagFlags = {
-      "Pneumatic Leakage":             activeFaultType == "PNEUMATIC LEAKAGE"   ? "DETECTED" : "OK",
-      "Probably Brake Binding":        activeFaultType == "BRAKE BINDING"        ? "DETECTED" : "OK",
-      "Probably Severe Brake Binding": activeFaultType == "SEVERE BRAKE BINDING" ? "DETECTED" : "OK",
-      "CR Overcharge":                 activeFaultType == "CR OVERCHARGING"      ? "ALARM"    : "NORMAL",
-      "DV/BC Defect":                  activeFaultType == "DV BC DEFECT"         ? "ALARM"    : "NORMAL",
-      "Emergency Brake":               activeFaultType == "EMERGENCY BRAKE"      ? "ALARM"    : "NORMAL",
+      "Brake Binding":         activeFaultTypes.contains("BRAKE BINDING") || activeFaultTypes.contains("SEVERE BRAKE BINDING") ? "DETECTED" : "OK",
+      "CR Overcharging":       activeFaultTypes.contains("CR OVERCHARGING")      ? "ALARM"    : "NORMAL",
+      "Emergency Brake":       activeFaultTypes.contains("EMERGENCY BRAKE")      ? "ALARM"    : "NORMAL",
+      "Severe Brake Binding":  activeFaultTypes.contains("DV BC DEFECT")         ? "ALARM"    : "NORMAL",
     };
+
 
     emit(state.copyWith(
       pneumaticStatus: response,
