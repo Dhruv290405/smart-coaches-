@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import 'package:smart_coach_new/core/utils/app_dimensions.dart';
 import 'package:smart_coach_new/core/utils/app_text_styles.dart';
 import '../../data/models/odour_model.dart';
