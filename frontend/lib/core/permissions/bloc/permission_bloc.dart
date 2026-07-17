@@ -7,32 +7,21 @@ import 'package:smart_coach_new/core/permissions/role_permissions.dart';
 @singleton
 class PermissionBloc extends Bloc<PermissionEvent, PermissionState> {
   PermissionBloc() : super(PermissionState.initial()) {
-    on<InitializePermissions>(_onInitializePermissions);
-    on<UpdatePermissions>(_onUpdatePermissions);
+    on<InitializePermissions>(_onInitializeOrUpdatePermissions);
+    on<UpdatePermissions>(_onInitializeOrUpdatePermissions);
     on<ClearPermissions>(_onClearPermissions);
   }
 
-  void _onInitializePermissions(
-    InitializePermissions event,
+  void _onInitializeOrUpdatePermissions(
+    PermissionEvent event,
     Emitter<PermissionState> emit,
   ) {
-    final permissions = RolePermissions.getPermissionsForRole(event.roleId);
+    final roleId = (event as dynamic).roleId;
+    final roleName = (event as dynamic).roleName;
+    final permissions = RolePermissions.getPermissionsForRole(roleId);
     emit(state.copyWith(
-      roleId: event.roleId,
-      roleName: event.roleName,
-      permissions: permissions,
-      isInitialized: true,
-    ));
-  }
-
-  void _onUpdatePermissions(
-    UpdatePermissions event,
-    Emitter<PermissionState> emit,
-  ) {
-    final permissions = RolePermissions.getPermissionsForRole(event.roleId);
-    emit(state.copyWith(
-      roleId: event.roleId,
-      roleName: event.roleName,
+      roleId: roleId,
+      roleName: roleName,
       permissions: permissions,
       isInitialized: true,
     ));

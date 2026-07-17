@@ -8,7 +8,6 @@ class RuleConfigurationState {
   final List<DeviceEntity> deviceList;
   final List<SensorTypeEntity> sensorList;
   final List<SensorCategoryEntity> sensorCategoriesList;
-  // final List<SiUnitEntity> sensorCategorySiUnitList;
   final Map<int, List<SiUnitEntity>> sensorCategorySiUnitsMap;
   final List<RuleConfigurationEntity> rulesList;
   final List<AlertTypeItem> alertTypeList;
@@ -21,7 +20,6 @@ class RuleConfigurationState {
     this.deviceList = const [],
     this.sensorList = const [],
     this.sensorCategoriesList = const [],
-    // this.sensorCategorySiUnitList = const [],
     this.sensorCategorySiUnitsMap = const {},
     this.rulesList = const [],
     this.alertTypeList = const [],
@@ -35,7 +33,6 @@ class RuleConfigurationState {
     List<DeviceEntity>? deviceList,
     List<SensorTypeEntity>? sensorList,
     List<SensorCategoryEntity>? sensorCategoriesList,
-    // List<SiUnitEntity>? sensorCategorySiUnitList,
     Map<int, List<SiUnitEntity>>? sensorCategorySiUnitsMap,
     List<RuleConfigurationEntity>? rulesList,
     List<AlertTypeItem>? alertTypeList,
@@ -48,7 +45,6 @@ class RuleConfigurationState {
       deviceList: deviceList ?? this.deviceList,
       sensorList: sensorList ?? this.sensorList,
       sensorCategoriesList: sensorCategoriesList ?? this.sensorCategoriesList,
-      // sensorCategorySiUnitList: sensorCategorySiUnitList ?? this.sensorCategorySiUnitList,
       sensorCategorySiUnitsMap: sensorCategorySiUnitsMap ?? this.sensorCategorySiUnitsMap,
       rulesList: rulesList ?? this.rulesList,
       alertTypeList: alertTypeList ?? this.alertTypeList,

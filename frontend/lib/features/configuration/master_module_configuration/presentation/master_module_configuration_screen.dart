@@ -99,7 +99,6 @@ class _MasterModuleConfigurationScreenState
                       style: TextStyle(
                         fontSize: 12.sp,
                         color: Colors.black,
-                        // fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],

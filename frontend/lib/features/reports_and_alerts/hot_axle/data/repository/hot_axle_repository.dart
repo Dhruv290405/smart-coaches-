@@ -4,7 +4,8 @@ import 'package:smart_coach_new/features/reports_and_alerts/hot_axle/data/models
 import 'package:smart_coach_new/features/reports_and_alerts/hot_axle/data/models/hot_axle_history_response.dart';
 
 abstract class HotAxleRepository {
-  Future<List<HotAxleData>> getHotAxleDashboard({String? trainNo, String? deviceId});
+  Future<List<HotAxleData>> getHotAxleDashboard({String? trainNo, String? deviceId, String? coachType, String? owningRly, String? coachNumber});
+  Future<dynamic> getHotAxleFilters();
   Future<HotAxleHistoryResponse> getHotAxleHistory({
     required String coachNumber,
     required String startDate,
@@ -20,12 +21,20 @@ class HotAxleRepositoryImpl implements HotAxleRepository {
   HotAxleRepositoryImpl(this.remoteDataSource);
 
   @override
-  Future<List<HotAxleData>> getHotAxleDashboard({String? trainNo, String? deviceId}) async {
+  Future<List<HotAxleData>> getHotAxleDashboard({String? trainNo, String? deviceId, String? coachType, String? owningRly, String? coachNumber}) async {
     final response = await remoteDataSource.getHotAxleDashboard(
       trainNo: trainNo,
       deviceId: deviceId,
+      coachType: coachType,
+      owningRly: owningRly,
+      coachNumber: coachNumber,
     );
     return response.data ?? [];
+  }
+
+  @override
+  Future<dynamic> getHotAxleFilters() async {
+    return remoteDataSource.getHotAxleFilters();
   }
 
   @override

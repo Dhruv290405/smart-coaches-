@@ -49,7 +49,6 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         try {
           return await call();
         } catch (e) {
-          print("Dashboard fetch error: $e");
           return null;
         }
       }

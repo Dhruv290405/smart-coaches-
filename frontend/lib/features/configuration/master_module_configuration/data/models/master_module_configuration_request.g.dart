@@ -9,7 +9,7 @@ part of 'master_module_configuration_request.dart';
 _MasterModuleConfigurationRequest _$MasterModuleConfigurationRequestFromJson(
   Map<String, dynamic> json,
 ) => _MasterModuleConfigurationRequest(
-  coachId: _parseInt(json['coach_id']),
+  coachId: (json['coach_id'] as num?)?.toInt(),
   moduleUniqueId: json['module_unique_id'] as String?,
   makeModel: json['make_model'] as String?,
   firmwareVersion: json['firmware_version'] as String?,
@@ -28,7 +28,7 @@ _MasterModuleConfigurationRequest _$MasterModuleConfigurationRequestFromJson(
   dualProfileSupported: json['dual_profile_supported'] as bool?,
   loraEnabled: json['lora_enabled'] as bool?,
   esimEnabled: json['esim_enabled'] as bool?,
-  batteryCapacity: _parseInt(json['battery_capacity']),
+  batteryCapacity: (json['battery_capacity'] as num?)?.toInt(),
   batteryType: json['battery_type'] as String?,
   deviceIds: (json['device_ids'] as List<dynamic>?)
       ?.map((e) => e as String)

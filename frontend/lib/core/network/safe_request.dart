@@ -10,8 +10,6 @@ Future<T> safeRequest<T>(Future<T> Function() request) async {
     final data = e.response?.data;
     final statusCode = e.response?.statusCode;
 
-    print('❌ DIO ERROR: type=${e.type}, status=$statusCode, data=$data, msg=${e.message}');
-
     // Network-level errors (no server response)
     if (e.type == DioExceptionType.connectionError) {
       final msg = e.message ?? '';
@@ -47,8 +45,6 @@ Future<T> safeRequest<T>(Future<T> Function() request) async {
   } on HttpException catch (e) {
     throw ApiException('HTTP error: ${e.message}');
   } catch (e, stack) {
-    print('❌ SAFE_REQUEST REAL ERROR: $e');
-    print('❌ SAFE_REQUEST REAL STACK: $stack');
     throw ApiException('Unexpected error: $e');
   }
 }

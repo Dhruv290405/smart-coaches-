@@ -73,10 +73,10 @@ abstract class RestClient {
   Future<RegisterResponse> register(@Body() Map<String, dynamic> body);
 
   @POST('/auth/send-otp')
-  Future<Map<String, dynamic>> sendOtp(@Body() Map<String, dynamic> body);
+  Future<dynamic> sendOtp(@Body() Map<String, dynamic> body);
 
   @POST('/auth/verify-otp')
-  Future<Map<String, dynamic>> verifyOtp(@Body() Map<String, dynamic> body);
+  Future<dynamic> verifyOtp(@Body() Map<String, dynamic> body);
 
   @POST(ApiConstants.loginApiEndpoint)
   @Extra({'requiresAuth': false})
@@ -403,10 +403,16 @@ abstract class RestClient {
     @Query("deviceId") String? deviceId,
   );
 
+  @GET(ApiConstants.hotAxleFiltersApiEndpoint)
+  Future<dynamic> getHotAxleFilters();
+
   @GET(ApiConstants.hotAxleDashboardApiEndpoint)
   Future<HotAxleDashboardResponse> getHotAxleDashboard(
     @Query("trainNo") String? trainNo,
     @Query("deviceId") String? deviceId,
+    @Query("coachType") String? coachType,
+    @Query("owningRly") String? owningRly,
+    @Query("coachNumber") String? coachNumber,
   );
 
   @GET(ApiConstants.hotAxleHistoryApiEndpoint)

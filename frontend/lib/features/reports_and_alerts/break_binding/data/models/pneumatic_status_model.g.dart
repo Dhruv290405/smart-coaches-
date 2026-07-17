@@ -62,9 +62,9 @@ PneumaticContext _$PneumaticContextFromJson(Map<String, dynamic> json) =>
 Map<String, dynamic> _$PneumaticContextToJson(PneumaticContext instance) =>
     <String, dynamic>{
       'deviceId': instance.deviceId,
-      'coachNo': instance.coachNo,
-      'trainNo': instance.trainNo,
-      'technicalId': instance.technicalId,
+      'coach_no': instance.coachNo,
+      'Train_no': instance.trainNo,
+      'technical_id': instance.technicalId,
       'location': instance.location,
     };
 

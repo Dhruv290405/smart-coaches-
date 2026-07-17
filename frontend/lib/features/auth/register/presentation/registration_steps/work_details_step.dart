@@ -62,10 +62,6 @@ class WorkDetailsStep extends StatelessWidget {
             bloc,
             'Select region',
           ),
-          // _regionDropdownField(
-          //   bloc,
-          //   'Select region',
-          // ),
           if (_isTrainOperatorSelected(bloc)) SizedBox(height: 2.h),
           if (_isTrainOperatorSelected(bloc)) _title("Train", isRequired: true),
           if (_isTrainOperatorSelected(bloc))
@@ -290,42 +286,6 @@ class WorkDetailsStep extends StatelessWidget {
       },
     );
   }
-
-  // Widget _regionDropdownField(
-  //   RegisterBloc bloc,
-  //   String hintText,
-  // ) {
-  //   return DropdownButtonFormField<int>(
-  //     value: bloc.state.registerRequest.regionId,
-  //     hint: Text(
-  //       hintText,
-  //       style: TextStyle(
-  //         fontSize: 12.5.sp,
-  //         fontWeight: FontWeight.normal,
-  //         color: Colors.black,
-  //       ),
-  //     ),
-  //     validator: (v) => v == null ? 'Required' : null,
-  //     decoration: InputDecoration(
-  //       border: OutlineInputBorder(borderRadius: BorderRadius.circular(1.h)),
-  //       contentPadding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 1.5.h),
-  //     ),
-  //     items: bloc.state.regions
-  //         .map(
-  //           (item) => DropdownMenuItem(
-  //             value: item.regionId,
-  //             child: _dropDownTextView(item.name),
-  //           ),
-  //         )
-  //         .toList(),
-  //     onChanged: (value) {
-  //       if (value != null) {
-  //         bloc.add(
-  //             UpdateDropdownValue(key: bloc.regionDropDownKey, value: value));
-  //       }
-  //     },
-  //   );
-  // }
 
   void _showMultiRegionDialog(
       BuildContext context,

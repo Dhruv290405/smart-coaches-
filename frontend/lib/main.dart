@@ -11,6 +11,8 @@ import 'package:smart_coach_new/core/services/socket_service.dart';
 import 'package:smart_coach_new/features/notifications/presentation/bloc/notification_bloc.dart';
 import 'package:smart_coach_new/features/notifications/presentation/bloc/notification_event.dart';
 import 'package:smart_coach_new/services/fcm_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'supabase_config.dart';
 import 'firebase_options.dart';
 import 'package:smart_coach_new/routes/app_router.dart';
 import 'core/theme/app_theme.dart';
@@ -20,7 +22,18 @@ void main() async {
 
   await configureDependencies();
 
-  // Firebase initialize karo — lekin FCM baad mein lazily karo
+  // Initialize Supabase
+  try {
+    await Supabase.initialize(
+      url: SupabaseConfig.url,
+      anonKey: SupabaseConfig.anonKey,
+    );
+    debugPrint('Supabase initialized successfully');
+  } catch (e) {
+    debugPrint('Supabase initialization failed: $e');
+  }
+
+  // Firebase initialize karo
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
@@ -29,7 +42,7 @@ void main() async {
     debugPrint('Firebase initialization failed: $e');
   }
 
-  // App pehle start karo — FCM permission dialog se block nahi hoga
+  // App pehle start karo
   runApp(const MyApp());
 }
 

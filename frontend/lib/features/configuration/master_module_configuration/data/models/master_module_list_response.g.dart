@@ -26,7 +26,7 @@ Map<String, dynamic> _$MasterModuleListResponseToJson(
 
 MasterModuleItem _$MasterModuleItemFromJson(Map<String, dynamic> json) =>
     MasterModuleItem(
-      moduleId: _parseInt(json['module_id']),
+      moduleId: (json['module_id'] as num?)?.toInt(),
       moduleUniqueId: json['module_unique_id'] as String?,
       makeModel: json['make_model'] as String?,
       firmwareVersion: json['firmware_version'] as String?,
@@ -45,11 +45,11 @@ MasterModuleItem _$MasterModuleItemFromJson(Map<String, dynamic> json) =>
       dualProfileSupported: json['dual_profile_supported'] as bool?,
       loraEnabled: json['lora_enabled'] as bool?,
       esimEnabled: json['esim_enabled'] as bool?,
-      batteryCapacity: _parseInt(json['battery_capacity']),
+      batteryCapacity: (json['battery_capacity'] as num?)?.toInt(),
       batteryType: json['battery_type'] as String?,
-      createdBy: _parseInt(json['created_by']),
+      createdBy: (json['created_by'] as num?)?.toInt(),
       createdDate: json['created_date'] as String?,
-      updatedBy: _parseInt(json['updated_by']),
+      updatedBy: (json['updated_by'] as num?)?.toInt(),
       updatedDate: json['updated_date'] as String?,
       coach: json['coach'] == null
           ? null

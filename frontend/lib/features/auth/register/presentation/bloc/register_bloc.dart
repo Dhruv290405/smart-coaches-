@@ -1,5 +1,3 @@
-import 'dart:developer';
-
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
 import 'package:smart_coach_new/core/network/api_exception.dart';
@@ -80,11 +78,6 @@ class RegisterBloc extends Bloc<RegisterEvent, RegisterState> {
         add(LoadRegionsDropdowns(divisionId: id));
       }
 
-      // if ((values.items ?? []).length == 1 && (values.items ?? []).first.divisionId == -1) {
-      //   add(UpdateDropdownValue(key: divisionDropDownKey, value: (values.items ?? []).first.divisionId));
-      //   add(LoadRegionsDropdowns(divisionId: (values.items ?? []).first.divisionId!));
-      // }
-
       emit(state.copyWith(
         isLoading: false,
         divisions: values.items,
@@ -110,12 +103,6 @@ class RegisterBloc extends Bloc<RegisterEvent, RegisterState> {
           add(LoadTrainsDropdowns(zoneId: state.registerRequest.zoneId, divisionId: state.registerRequest.divisionId, regionId: [regionId],));
         }
       }
-
-      // if ((values.items ?? []).length == 1 && (values.items ?? []).first.regionId == -1) {
-      //   int regionId = (values.items ?? []).first.regionId!;
-      //   add(UpdateDropdownValue(key: regionDropDownKey, value: [regionId]));
-      //   add(LoadTrainsDropdowns(zoneId: state.registerRequest.zoneId, divisionId: state.registerRequest.divisionId, regionId: [regionId],));
-      // }
 
       emit(state.copyWith(
         isLoading: false,
@@ -166,12 +153,6 @@ class RegisterBloc extends Bloc<RegisterEvent, RegisterState> {
         int trainId = values[allIndex].trainId!;
         add(UpdateDropdownValue(key: trainDropDownKey, value: [trainId]));
       }
-
-      // if ((values.trains ?? []).length == 1 && (values.trains ?? []).first.trainId == -1) {
-      //   int trainId = (values.trains ?? []).first.trainId!;
-      //   add(UpdateDropdownValue(key: trainDropDownKey, value: [trainId]));
-      //   add(LoadRolesDropdowns(zoneId: state.registerRequest.zoneId, divisionId: state.registerRequest.divisionId, regionId: state.registerRequest.regionIdList, trainIds: [trainId],));
-      // }
 
       emit(state.copyWith(
         isLoading: false,
@@ -235,34 +216,8 @@ class RegisterBloc extends Bloc<RegisterEvent, RegisterState> {
     emit(state.copyWith(registerRequest: updated));
   }
 
-  // void _onUpdateDropdownValue(
-  //     UpdateDropdownValue event, Emitter<RegisterState> emit) {
-  //   final updated = state.registerRequest;
-  //
-  //   if (event.key == genderDropDownKey) {
-  //     updated.gender = event.value;
-  //   } else if (event.key == organizationTypeDropDownKey) {
-  //     updated.organisationType = event.value;
-  //     updated.organisationName = '';
-  //   } else if (event.key == zoneDropDownKey) {
-  //     updated.zoneId = event.value;
-  //   } else if (event.key == divisionDropDownKey) {
-  //     updated.divisionId = event.value;
-  //   } else if (event.key == regionDropDownKey) {
-  //     if(event.value is List<int>) {
-  //       updated.selectedRegionIds = event.value;
-  //     } else {
-  //       updated.regionId = event.value;
-  //     }
-  //   } else if (event.key == roleDropDownKey) {
-  //     updated.roleId = event.value;
-  //   }
-  //   emit(state.copyWith(registerRequest: updated));
-  // }
-
   void _onSubmitRegister(
       SubmitRegister event, Emitter<RegisterState> emit) async {
-    log('checkDoRegister ${state.registerRequest.toJsonForApi()}');
     emit(state.copyWith(
       isSubmitting: true,
       isLoading: false,
@@ -312,8 +267,9 @@ class RegisterBloc extends Bloc<RegisterEvent, RegisterState> {
   void _onSendOtp(SendOtp event, Emitter<RegisterState> emit) async {
     emit(state.copyWith(isLoading: true, errorMessage: null, errorList: null));
     try {
-      await registerUseCase.sendOtp(event.mobileNumber);
-      emit(state.copyWith(isLoading: false, isOtpSent: true));
+      final response = await registerUseCase.sendOtp(event.mobileNumber);
+      final otp = (response is Map && response['data'] is Map) ? response['data']['otp']?.toString() : null;
+      emit(state.copyWith(isLoading: false, isOtpSent: true, otpCode: otp));
     } catch (e) {
       emit(state.copyWith(isLoading: false, errorMessage: e.toString()));
     }

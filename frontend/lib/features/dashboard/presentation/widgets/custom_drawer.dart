@@ -52,15 +52,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
     final prefs = GetIt.I<Prefs>();
     final user = prefs.getUser();
     final roleId = user?.roleId ?? 0;
-
-    print('🔐 DEBUG: Role ID = ${permissionBloc.currentRoleId}');
-    print('🔐 DEBUG: Permissions = ${permissionBloc.state.permissions}');
-    print(
-      '🔐 DEBUG: Has canViewUserRegistration = ${permissionBloc.hasPermission(PermissionConstants.canViewUserRegistration)}',
-    );
-    print(
-      '🔐 DEBUG: Has canApproveUsers = ${permissionBloc.hasPermission(PermissionConstants.canApproveUsers)}',
-    );
+    final regionName = user?.regionName ?? '';
+    final isDanapur = regionName == 'Danapur';
 
     return Drawer(
       backgroundColor: Colors.white,
@@ -68,13 +61,12 @@ class _CustomDrawerState extends State<CustomDrawer> {
         child: ListView(
           padding: EdgeInsets.symmetric(vertical: 3.h, horizontal: 4.w),
           children: [
-            PermissionGuard(
-              permissions: [
-                PermissionConstants.canViewUserRegistration,
-                PermissionConstants.canApproveUsers,
-              ],
-              requireAll: false,
-              child: _drawerSection(
+            if (isDanapur || context.hasAnyPermission([
+              PermissionConstants.canViewUserRegistration,
+              PermissionConstants.canApproveUsers,
+              PermissionConstants.canCreateUsers,
+            ]))
+              _drawerSection(
                 title: 'User Management',
                 icon: Icons.person_outline,
                 isExpanded: _expanded['User Management']!,
@@ -85,31 +77,26 @@ class _CustomDrawerState extends State<CustomDrawer> {
                   );
                 },
                 children: [
-                  PermissionGuard(
-                    permission: PermissionConstants.canViewUserRegistration,
-                    child: _drawerItem(
+                  if (isDanapur || context.hasPermission(PermissionConstants.canCreateUsers))
+                    _drawerItem(
                       'User Registration',
                       icon: Icons.app_registration,
                       onTap: () {
                         context.push(AppRouter.registerRoute);
                       },
                     ),
-                  ),
-                  PermissionGuard(
-                    permission: PermissionConstants.canApproveUsers,
-                    child: _drawerItem(
+                  if (isDanapur || context.hasPermission(PermissionConstants.canApproveUsers))
+                    _drawerItem(
                       'User Approval',
                       icon: Icons.verified_user,
                       onTap: () {
                         context.push(AppRouter.userManagementRoute);
                       },
                     ),
-                  ),
                 ],
               ),
-            ),
-            // Hide Configuration section for Train Operator (role_id = 4)
-            if (roleId != 4)
+            // Hide Configuration section for read-only roles (Region Operator, Train Operator)
+            if (roleId != 6 && roleId != 7)
               _drawerSection(
                 title: 'Configurations',
                 icon: Icons.settings,
@@ -147,38 +134,6 @@ class _CustomDrawerState extends State<CustomDrawer> {
                   ),
                 ],
               ),
-            // _drawerSection(
-            //   title: 'Device Management',
-            //   icon: Icons.devices_other,
-            //   isExpanded: _expanded['Device Management']!,
-            //   onTap: () {
-            //     setState(() => _expanded['Device Management'] =
-            //     !_expanded['Device Management']!);
-            //   },
-            //   children: [
-            //     _drawerItem(
-            //       'Device Config',
-            //       icon: Icons.settings_input_hdmi,
-            //       onTap: () {
-            //         context.push(AppRouter.deviceConfigurationRoute);
-            //       },
-            //     ),
-            //     _drawerItem(
-            //       'Sensor Type Config',
-            //       icon: Icons.sensors,
-            //       onTap: () {
-            //         context.push(AppRouter.sensorTypeConfigurationRoute);
-            //       },
-            //     ),
-            //     _drawerItem(
-            //       'Rules Config',
-            //       icon: Icons.rule,
-            //       onTap: () {
-            //         context.push(AppRouter.ruleConfigurationRoute);
-            //       },
-            //     ),
-            //   ],
-            // ),
             _drawerSection(
               title: 'Reports & Alerts',
               icon: Icons.assessment,
@@ -190,46 +145,45 @@ class _CustomDrawerState extends State<CustomDrawer> {
                 );
               },
               children: [
-                _drawerItem(
-                  'Coach Dashboard',
-                  icon: Icons.dashboard_customize_outlined,
-                  onTap: () {
-                    context.push(AppRouter.coachDashboardRoute);
-                  },
-                ),
-                // _drawerItem('Level Report', onTap: () {
-                //   context.push(AppRouter.levelIndicatorRoute);
-                // }),
+                if (!isDanapur) ...[
+                  _drawerItem(
+                    'Coach Dashboard',
+                    icon: Icons.dashboard_customize_outlined,
+                    onTap: () {
+                      context.push(AppRouter.coachDashboardRoute);
+                    },
+                  ),
+                ],
                 _drawerItem(
                   'ACP Monitoring',
                   onTap: () {
                     context.push(AppRouter.acpMonitoringRoute);
                   },
                 ),
-                _drawerSection(
-                  title: 'FSDS',
-                  // icon: Icons.fire_extinguisher,
-                  isExpanded: _expanded['FSDS']!,
-                  onTap: () {
-                    setState(() => _expanded['FSDS'] = !_expanded['FSDS']!);
-                  },
-                  children: [
-                    _drawerItem(
-                      'FSDS Bypass',
-                      onTap: () {
-                        context.push(AppRouter.fsdsMonitoringRoute,
-                            extra: 'FSDS Bypass');
-                      },
-                    ),
-                    _drawerItem(
-                      'FSDS MCB',
-                      onTap: () {
-                        context.push(AppRouter.fsdsMonitoringRoute,
-                            extra: 'FSDS MCB');
-                      },
-                    ),
-                  ],
-                ),
+                if (!isDanapur)
+                  _drawerSection(
+                    title: 'FSDS',
+                    isExpanded: _expanded['FSDS']!,
+                    onTap: () {
+                      setState(() => _expanded['FSDS'] = !_expanded['FSDS']!);
+                    },
+                    children: [
+                      _drawerItem(
+                        'FSDS Bypass',
+                        onTap: () {
+                          context.push(AppRouter.fsdsMonitoringRoute,
+                              extra: 'FSDS Bypass');
+                        },
+                      ),
+                      _drawerItem(
+                        'FSDS MCB',
+                        onTap: () {
+                          context.push(AppRouter.fsdsMonitoringRoute,
+                              extra: 'FSDS MCB');
+                        },
+                      ),
+                    ],
+                  ),
                 _drawerItem(
                   'Hot Axle Monitoring',
                   onTap: () {
@@ -242,95 +196,37 @@ class _CustomDrawerState extends State<CustomDrawer> {
                     context.push(AppRouter.bcPressureMonitoringRoute);
                   },
                 ),
-                _drawerItem(
-                  'Diesel Level Monitoring',
-                  onTap: () {
-                    context.push(AppRouter.dieselLevelMonitoringRoute);
-                  },
-                ),
-                _drawerItem(
-                  'Water Tank Monitoring',
-                  onTap: () {
-                    context.push(AppRouter.waterTankMonitoringRoute);
-                  },
-                ),
-                _drawerItem(
-                  'Odour Management Report',
-                  onTap: () {
-                    context.push(AppRouter.odourManagement);
-                  },
-                ),
-                _drawerItem(
-                  'Brake Binding',
-                  onTap: () {
-                    context.push(AppRouter.breakBinding);
-                  },
-                ),
+                if (!isDanapur) ...[
+                  _drawerItem(
+                    'Diesel Level Monitoring',
+                    onTap: () {
+                      context.push(AppRouter.dieselLevelMonitoringRoute);
+                    },
+                  ),
+                  _drawerItem(
+                    'Water Tank Monitoring',
+                    onTap: () {
+                      context.push(AppRouter.waterTankMonitoringRoute);
+                    },
+                  ),
+                  _drawerItem(
+                    'Odour Management Report',
+                    onTap: () {
+                      context.push(AppRouter.odourManagement);
+                    },
+                  ),
+                  _drawerItem(
+                    'Brake Binding',
+                    onTap: () {
+                      context.push(AppRouter.breakBinding);
+                    },
+                  ),
+                ],
               ],
             ),
-            // _drawerSection(
-            //   title: 'Support',
-            //   icon: Icons.support_agent_outlined,
-            //   onTap: () {
-            //     print('Support');
-            //   },
-            // ),
-            // SizedBox(height: 2.h),
-            // Divider(color: Colors.grey[300]),
-            // SizedBox(height: 1.h),
-            // _drawerSection(
-            //   title: 'Logout',
-            //   icon: Icons.logout,
-            //   onTap: () {
-            //     _showLogoutDialog();
-            //   },
-            // ),
           ],
         ),
       ),
-    );
-  }
-
-  void _showLogoutDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: Text(
-            'Logout',
-            style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.bold),
-          ),
-          content: Text(
-            'Are you sure you want to logout?',
-            style: TextStyle(fontSize: 12.sp),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-              },
-              child: Text(
-                'Cancel',
-                style: TextStyle(fontSize: 11.sp, color: Colors.grey[600]),
-              ),
-            ),
-            TextButton(
-              onPressed: () async {
-                Navigator.of(dialogContext).pop();
-                Navigator.of(context).pop();
-                await GetIt.I<Prefs>().clear();
-                if (context.mounted) {
-                  context.go(AppRouter.loginRoute);
-                }
-              },
-              child: Text(
-                'Logout',
-                style: TextStyle(fontSize: 11.sp, color: Colors.red[600]),
-              ),
-            ),
-          ],
-        );
-      },
     );
   }
 

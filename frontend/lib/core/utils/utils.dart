@@ -68,10 +68,8 @@ class Utils {
         message: message,
         buttonText: buttonText,
         onPressed: () {
-          // Navigator.pop();
           context.pop();
           onTapButton?.call();
-          // Navigate or perform another action here
         },
       ),
     );
@@ -144,7 +142,6 @@ class Utils {
   static bool isValidDropDownSelectedItem(
       List<dynamic> items, dynamic selectedValue) {
     if (selectedValue != null && items.contains(selectedValue)) {
-      // if ((selectedValue ?? '').isNotEmpty && items.contains(selectedValue)) {
       return true;
     }
     return false;

@@ -41,7 +41,7 @@ class SubCondition {
   String? connector;
   int? sortOrder;
 
-  SubCondition({this.operator, this.threshold, this.connector, this.sortOrder, thi}) {
+  SubCondition({this.operator, this.threshold, this.connector, this.sortOrder}) {
     thresholdTextEditingController = TextEditingController(text: threshold?.trim() ?? '');
   }
   void dispose() {
@@ -166,7 +166,6 @@ class _ConfigureRuleState extends State<ConfigureRule> {
         connector: c.connector,
       );
 
-      // print('model.valueTypeId ${model.valueTypeId}');
       if (model.valueTypeId != null) {
         _ruleConfigurationBloc.add(LoadSensorCategorySiUnits(model.valueTypeId!));
       }
@@ -424,9 +423,6 @@ class _ConfigureRuleState extends State<ConfigureRule> {
           isRemovable: true,
           onRemove: () {
             onRemove.call(item);
-            // setState(() {
-            //   items.remove(item);
-            // });
           },
         );
       }).toList(),

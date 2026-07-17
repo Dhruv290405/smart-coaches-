@@ -473,6 +473,9 @@ extension GetItInjectableX on _i174.GetIt {
         coachConfigurationUseCase: gh<_i781.CoachConfigurationUseCase>(),
       ),
     );
+    gh.factory<_i648.DeleteNotificationUseCase>(
+      () => _i648.DeleteNotificationUseCase(gh<_i668.NotificationRepository>()),
+    );
     gh.factory<_i597.GetNotificationsUseCase>(
       () => _i597.GetNotificationsUseCase(gh<_i668.NotificationRepository>()),
     );
@@ -484,9 +487,6 @@ extension GetItInjectableX on _i174.GetIt {
     gh.factory<_i642.MarkNotificationReadUseCase>(
       () =>
           _i642.MarkNotificationReadUseCase(gh<_i668.NotificationRepository>()),
-    );
-    gh.factory<_i648.DeleteNotificationUseCase>(
-      () => _i648.DeleteNotificationUseCase(gh<_i668.NotificationRepository>()),
     );
     gh.factory<_i406.CoachConfigurationUseCase>(
       () => _i406.CoachConfigurationUseCase(

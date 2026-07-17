@@ -22,8 +22,8 @@ const authController = {
 
     const registrationData = {
       ...req.body,
-      region_id: Array.isArray(region_id) ? region_id[0] : region_id,
-      train_id: Array.isArray(train_ids) ? train_ids[0] : (req.body.train_id || null)
+      region_id: Array.isArray(region_id) ? region_id : (region_id ? [region_id] : []),
+      train_ids: Array.isArray(train_ids) ? train_ids : (req.body.train_id ? [req.body.train_id] : [])
     };
 
     const newUser = await userModel.create(registrationData);
@@ -44,7 +44,6 @@ const authController = {
   }
 },
 
-  // User login
   async login(req, res, next) {
     try {
       const errors = validationResult(req);
@@ -54,7 +53,6 @@ const authController = {
 
       const { email, password } = req.body;
 
-      // Check if user exists
       const user = await userModel.findByEmail(email);
       if (!user) {
         return errorResponse(res, 'Invalid credentials', 401);
@@ -62,23 +60,19 @@ const authController = {
 
       const fullUserData = await userModel.getFullUserDetail(user.user_id);
 
-      // Check if user is approved
       if (user.approval_status == "Pending") {
         return errorResponse(res, 'Your account is pending approval from admin', 403);
       } else if (user.approval_status === "Rejected") {
         return errorResponse(res, 'Your account has been rejected by admin', 403);
       }
 
-      // Validate password
       const isMatch = await userModel.validatePassword(user, password);
       if (!isMatch) {
         return errorResponse(res, 'Invalid credentials', 401);
       }
 
-      // Generate JWT token
       const token = userModel.generateAuthToken(user);
 
-      // Don't send password hash in response
       const { password_hash, ...userData } = fullUserData;
 
       return successResponse(res, 'Login successful', {
@@ -94,8 +88,8 @@ const authController = {
     try {
       const currentUser = req.user;
       const filters = {
-        status: req.query.status, // Can be string or array
-        organisation_type: req.query.organisation_type, // Can be string or array
+        status: req.query.status,
+        organisation_type: req.query.organisation_type,
         from_date: req.query.from_date,
         to_date: req.query.to_date,
       };
@@ -127,11 +121,9 @@ const authController = {
         return errorResponse(res, 'Cannot approve users with the same role', 400);
       }
 
-      // Check scope-based authorization
-      const authorized = userModel.isApproverAuthorized(currentUser, targetUser, currentUserRole);
+      const authorized = await userModel.isApproverAuthorized(currentUser, targetUser, currentUserRole);
       if (!authorized) return errorResponse(res, 'Not authorized to approve this user', 403);
 
-      // Update
       await userModel.approveUserWithRoleChange(target_user_id, approval_status, role_id);
       return successResponse(res, `User ${approval_status} successfully`);
     } catch (error) {
@@ -141,7 +133,7 @@ const authController = {
 
   async bulkApproveUsers(req, res, next) {
     try {
-      const { users } = req.body; // Expecting array of { target_user_id, role_id, approval_status }
+      const { users } = req.body;
       const currentUser = req.user;
 
       if (!Array.isArray(users) || users.length === 0) {
@@ -172,13 +164,12 @@ const authController = {
           continue;
         }
 
-        const authorized = userModel.isApproverAuthorized(currentUser, targetUser, currentUserRole);
+        const authorized = await userModel.isApproverAuthorized(currentUser, targetUser, currentUserRole);
         if (!authorized) {
           results.push({ target_user_id, status: 'failed', reason: 'Not authorized' });
           continue;
         }
 
-        // Update
         await userModel.approveUserWithRoleChange(target_user_id, approval_status, role_id);
         results.push({ target_user_id, status: 'success' });
       }
@@ -190,7 +181,6 @@ const authController = {
     }
   },
 
-  // Get current user profile
   async getProfile(req, res, next) {
     try {
       const userId = req.user.user_id;
@@ -200,7 +190,6 @@ const authController = {
         return errorResponse(res, 'User not found', 404);
       }
 
-      // Don't send password hash
       const { password_hash, ...userData } = user;
       return successResponse(res, 'Profile fetched successfully', userData);
     } catch (error) {
@@ -208,20 +197,17 @@ const authController = {
     }
   },
 
-  // Update current user profile
   async updateProfile(req, res, next) {
     try {
       const userId = req.user.user_id;
       const updateData = req.body;
 
-      // Prevent sensitive fields from being updated via this route
       delete updateData.password_hash;
       delete updateData.role_id;
       delete updateData.approval_status;
 
       const updatedUser = await userModel.update(userId, updateData);
       
-      // Fetch fresh data after update
       const user = await userModel.findOne({ user_id: userId });
       const { password_hash, ...userData } = user;
 
@@ -236,7 +222,7 @@ const authController = {
       const { mobile_number } = req.body;
       if (!mobile_number) return errorResponse(res, 'Mobile number is required', 400);
       const result = await smsService.sendOtp(mobile_number);
-      return successResponse(res, result.message);
+      return successResponse(res, result.message, { otp: result.otp });
     } catch (error) {
       next(error);
     }

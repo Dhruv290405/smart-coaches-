@@ -1,7 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:intl/intl.dart';
 import 'package:smart_coach_new/core/network/rest_client.dart';
-import 'package:smart_coach_new/core/widgets/chart_data_helper.dart';
 
 class ChartRepository {
   static RestClient _client() => RestClient(Dio(BaseOptions(

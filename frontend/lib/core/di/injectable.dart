@@ -1,6 +1,4 @@
-import 'dart:async';
 import 'dart:convert';
-import 'dart:developer';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -21,8 +19,7 @@ Future<String> _resolveHostname(String host) async {
     final results = await InternetAddress.lookup(host);
     if (results.isNotEmpty) return host;
   } catch (_) {
-    log('⚠️ System DNS failed for $host, trying DoH...');
-  }
+    }
 
   // Fallback: Cloudflare DoH via hardcoded IP (no DNS needed for 1.1.1.1)
   try {
@@ -37,14 +34,12 @@ Future<String> _resolveHostname(String host) async {
         final answer = a as Map;
         if (answer['type'] == 1) {
           final ip = answer['data'] as String;
-          log('✅ DoH resolved $host → $ip');
           return ip;
         }
       }
     }
   } catch (e) {
-    log('❌ DoH fallback also failed: $e');
-  }
+    }
 
   return host;
 }
@@ -55,8 +50,7 @@ abstract class RegisterModule {
   Future<SharedPreferences> get prefs {
     _resolveHostname(Uri.parse(ApiConstants.devUrl).host).then((ip) {
       _resolvedIp = ip;
-      log('🔍 DNS resolved $ip for ${ApiConstants.devUrl}');
-    });
+      });
     return SharedPreferences.getInstance();
   }
 
@@ -111,16 +105,6 @@ abstract class RegisterModule {
           options.headers['Host'] = _apiHost;
         }
 
-        log("🚀 [REQUEST] ${options.method} => ${options.uri}");
-        if (options.data != null) {
-          try {
-            const encoder = JsonEncoder.withIndent('  ');
-            log("📦 [PAYLOAD]\n${encoder.convert(options.data)}");
-          } catch (_) {
-            log("📦 [PAYLOAD] ${options.data}");
-          }
-        }
-
         final requiresAuth = options.extra['requiresAuth'] ?? true;
         if (requiresAuth) {
           final token = prefs.token;
@@ -141,7 +125,6 @@ abstract class RegisterModule {
         if (retryable) {
           final retryCount = e.requestOptions.extra['_retryCount'] as int? ?? 0;
           if (retryCount < 2) {
-            log('🔁 [RETRY ${retryCount + 1}/3] ${e.requestOptions.uri}');
             e.requestOptions.extra['_retryCount'] = retryCount + 1;
             await Future.delayed(Duration(seconds: retryCount + 1));
             try {
@@ -156,8 +139,6 @@ abstract class RegisterModule {
           }
         }
 
-        log('❌ [ERROR] ${e.response?.statusCode} => ${e.requestOptions.uri}');
-        log('📄 [BODY] ${e.response?.data}');
         final data = e.response?.data;
         if (data is Map && data.containsKey('errors')) {
           final errors =
@@ -181,13 +162,6 @@ abstract class RegisterModule {
           );
         }
       }, onResponse: (Response response, ResponseInterceptorHandler handler) {
-        log("✅ [RESPONSE] ${response.statusCode} <= ${response.requestOptions.uri}");
-        try {
-          const encoder = JsonEncoder.withIndent('  ');
-          log("✨ [DATA]\n${encoder.convert(response.data)}");
-        } catch (_) {
-          log("✨ [DATA] ${response.data}");
-        }
         handler.next(response);
       }),
     );

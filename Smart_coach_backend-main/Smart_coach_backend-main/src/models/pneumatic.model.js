@@ -1,4 +1,4 @@
-const supabase = require('../config/supabase');
+const supabase = require('../config/supabaseOld');
 
 const Pneumatic = {
     
@@ -15,9 +15,6 @@ const Pneumatic = {
         return query;
     },
 
-    /**
-     * Get recent readings with role-based access and date filters
-     */
     getLatestReading: async (deviceId = null, user = null, limit = 10, offset = 0, fromDate = null, toDate = null) => {
         try {
             const finalLimit = parseInt(limit) || 10;
@@ -31,12 +28,10 @@ const Pneumatic = {
                 brake_released_time
             `);
 
-            // 1. Device ID Filter
             if (deviceId) {
                 query = query.eq('device_id', deviceId);
             }
 
-            // 2. Role-Based Location Filter
             if (user && user.role_id !== 1) {
                 const userLoc = user.region_name || user.division_name;
                 
@@ -55,7 +50,6 @@ const Pneumatic = {
                 }
             }
 
-            // 3. Date Range Filters (Yahan badlav kiya hai)
             if (fromDate) {
                 query = query.gte('timestamp', `${fromDate}T00:00:00`);
             }
@@ -63,7 +57,7 @@ const Pneumatic = {
                 query = query.lte('timestamp', `${toDate}T23:59:59`);
             }
 
-            // 4. Order and Range Execution
+
             const { data, error } = await query
                 .order('timestamp', { ascending: false })
                 .range(finalOffset, finalOffset + (finalLimit - 1)); 
@@ -77,9 +71,6 @@ const Pneumatic = {
         }
     },
 
-    /**
-     * Get historical readings with role-based access
-     */
     getHistory: async (limit = 30, user = null) => {
         try {
             let query = supabase.from('bpc_pressure').select(`

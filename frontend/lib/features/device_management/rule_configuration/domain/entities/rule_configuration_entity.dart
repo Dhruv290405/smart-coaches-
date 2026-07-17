@@ -67,7 +67,6 @@ class ConditionBlockEntity {
   final String? siUnit;
   final String? operator;
   final int? threshold;
-  // final String? subConditionConnector;
   final List<SubConditionEntity> subConditions;
   final String? alertType;
   final String? alertMessageTemplate;
@@ -83,7 +82,6 @@ class ConditionBlockEntity {
     this.siUnit,
     this.operator,
     this.threshold,
-    // this.subConditionConnector,
     this.subConditions = const [],
     this.alertType,
     this.alertMessageTemplate,
@@ -106,7 +104,6 @@ class ConditionBlockEntity {
       siUnit: model.unit,
       operator: sortedSubs.isNotEmpty ? sortedSubs.first.operator : null,
       threshold: sortedSubs.isNotEmpty ? sortedSubs.first.thresholdValue : null,
-      // subConditionConnector: model.connector,
       subConditions: sortedSubs
           .skip(1) // rest are treated as sub-conditions
           .map((e) => SubConditionEntity.fromModel(e))
@@ -135,7 +132,6 @@ class SubConditionEntity {
   });
 
   factory SubConditionEntity.fromModel(SubConditionItem model) {
-    print('assa ${model.operator}');
     return SubConditionEntity(
       operator: model.operator,
       threshold: model.thresholdValue,

@@ -96,7 +96,6 @@ class SensorDeviceConfigurationRepositoryImpl implements SensorDeviceConfigurati
   @override
   Future<List<MasterModuleEntity>> getMasterModulesForCoach(int coachId) async {
     final models = await remoteDataSource.fetchMasterModules(coachId);
-    print("Model: $models");
     return models.map((m) {
       return MasterModuleEntity.fromModel(m);
     }).toList();

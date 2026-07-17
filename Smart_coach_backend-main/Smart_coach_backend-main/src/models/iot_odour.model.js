@@ -1,44 +1,34 @@
-const supabaseAdmin = require('../config/supabaseAdmin');
+const acpSupabase = require('../config/supabaseAcp');
 
-async function insertIoTData({ sensor_id, train_id, coach_id, value, timestamp }) {
-  const { data: inserted, error } = await supabaseAdmin
-    .from('iot_odour_level')
-    .insert([{ sensor_id, train_id, coach_id, value, timestamp }])
+async function insertIoTData({ device_id, temperature, humidity, voc_index, methane_ppm, h2s_ppm, nh3_ppm, long_lock_count, timestamp_device }) {
+  const { data: inserted, error } = await acpSupabase
+    .from('iot_bad_odour')
+    .insert([{
+      device_id: device_id || 'Unknown',
+      temperature: temperature || 0,
+      humidity: humidity || 0,
+      voc_index: voc_index || 0,
+      methane_ppm: methane_ppm || 0,
+      h2s_ppm: h2s_ppm || 0,
+      nh3_ppm: nh3_ppm || 0,
+      long_lock_count: long_lock_count || 0,
+      timestamp_device: timestamp_device || new Date().toISOString()
+    }])
     .select();
 
-  console.log('Inserting IoT data:', { sensor_id, train_id, coach_id, value, timestamp });
-
   if (error) throw error;
-
-  return {
-    id: inserted[0].id,
-    sensor_id,
-    train_id,
-    coach_id,
-    value,
-    timestamp
-  };
+  return { id: inserted[0].id };
 }
 
 async function getLatestIoTDataFromDB(trainId, coachId) {
-  const { data: rows, error } = await supabaseAdmin
-    .from('iot_odour_level')
+  const { data: rows, error } = await acpSupabase
+    .from('iot_bad_odour')
     .select('*')
-    .eq('train_id', trainId)
-    .eq('coach_id', coachId)
-    .order('sensor_id', { ascending: true });
+    .order('created_at', { ascending: false })
+    .limit(50);
 
   if (error) throw error;
-
-  const latestMap = new Map();
-  for (const row of rows || []) {
-    const key = row.sensor_id;
-    if (!latestMap.has(key) || new Date(row.timestamp) > new Date(latestMap.get(key).timestamp)) {
-      latestMap.set(key, row);
-    }
-  }
-
-  return [...latestMap.values()];
+  return rows || [];
 }
 
 module.exports = {

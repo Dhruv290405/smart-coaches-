@@ -60,7 +60,7 @@ class RuleConfigurationBloc
       final updatedMap = Map<int, List<SiUnitEntity>>.from(state.sensorCategorySiUnitsMap);
       updatedMap[event.id!] = list;
 
-      emit(state.copyWith(isLoading: false, /*sensorCategorySiUnitList: list*/sensorCategorySiUnitsMap: updatedMap,));
+      emit(state.copyWith(isLoading: false, sensorCategorySiUnitsMap: updatedMap));
     } catch (e) {
       emit(state.copyWith(isLoading: false, errorMessage: e.toString()));
     }

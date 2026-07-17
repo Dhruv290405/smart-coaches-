@@ -7,9 +7,9 @@ class RegisterUseCase {
   Future<RegisterResponse> register(Map<String, dynamic> payload) =>
       repository.doRegister(payload);
 
-  Future<Map<String, dynamic>> sendOtp(String mobileNumber) =>
+  Future<dynamic> sendOtp(String mobileNumber) =>
       repository.sendOtp(mobileNumber);
 
-  Future<Map<String, dynamic>> verifyOtp(String mobileNumber, String otp) =>
+  Future<dynamic> verifyOtp(String mobileNumber, String otp) =>
       repository.verifyOtp(mobileNumber, otp);
 }

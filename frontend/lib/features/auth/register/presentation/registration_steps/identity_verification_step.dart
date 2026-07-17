@@ -34,7 +34,6 @@ class IdentityVerificationStep extends StatefulWidget {
 }
 
 class _IdentityVerificationStepState extends State<IdentityVerificationStep> {
-  String _selectedIdType = 'PAN';
   File? _idDocument;
   File? _profilePhoto;
 
@@ -82,7 +81,6 @@ class _IdentityVerificationStepState extends State<IdentityVerificationStep> {
         });
       }
     } catch (e) {
-      debugPrint("Error picking file: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Could not open file picker: $e")),
@@ -111,9 +109,8 @@ class _IdentityVerificationStepState extends State<IdentityVerificationStep> {
                 children: [
                   Radio<String>(
                     value: 'PAN',
-                    groupValue: _selectedIdType,
+                    groupValue: state.isIdTypeIsPan ? 'PAN' : 'AADHAAR',
                     onChanged: (value) {
-                      _selectedIdType = value.toString();
                       widget.onChangeSelectedIdType.call();
                     },
                     visualDensity: VisualDensity.compact,
@@ -122,7 +119,6 @@ class _IdentityVerificationStepState extends State<IdentityVerificationStep> {
                   ),
                   GestureDetector(
                     onTap: () {
-                      _selectedIdType = 'PAN';
                       widget.onChangeSelectedIdType.call();
                     },
                     child: Text(
@@ -136,9 +132,8 @@ class _IdentityVerificationStepState extends State<IdentityVerificationStep> {
                   SizedBox(width: 1.2.w),
                   Radio<String>(
                     value: 'AADHAAR',
-                    groupValue: _selectedIdType,
+                    groupValue: state.isIdTypeIsPan ? 'PAN' : 'AADHAAR',
                     onChanged: (value) {
-                      _selectedIdType = value.toString();
                       widget.onChangeSelectedIdType.call();
                     },
                     visualDensity: VisualDensity.compact,
@@ -146,7 +141,6 @@ class _IdentityVerificationStepState extends State<IdentityVerificationStep> {
                   ),
                   GestureDetector(
                     onTap: () {
-                      _selectedIdType = 'AADHAAR';
                       widget.onChangeSelectedIdType.call();
                     },
                     child: Text(
@@ -219,11 +213,6 @@ class _IdentityVerificationStepState extends State<IdentityVerificationStep> {
         GestureDetector(
           onTap: onTap,
           child: DottedBorder(
-            // color: Colors.grey.shade400,
-            // strokeWidth: 1,
-            // dashPattern: [6, 4],
-            // borderType: BorderType.RRect,
-            // radius: Radius.circular(4.w),
             child: Container(
               padding: EdgeInsets.symmetric(vertical: 2.5.h),
               width: double.infinity,

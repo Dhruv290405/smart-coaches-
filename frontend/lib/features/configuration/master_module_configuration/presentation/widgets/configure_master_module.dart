@@ -331,7 +331,6 @@ class _ConfigureMasterModuleState extends State<ConfigureMasterModule> {
                   onTap: () => _selectDate(installationDateController),
                   child: AbsorbPointer(
                     child: CustomTextField(
-                      // controller: installationDateController,
                       controller: TextEditingController(
                           text: _displayFormatText(installationDateController)),
                       labelText: 'Installation Date',
@@ -484,7 +483,6 @@ class _ConfigureMasterModuleState extends State<ConfigureMasterModule> {
                   onTap: () => _selectDate(rechargeDateController),
                   child: AbsorbPointer(
                     child: CustomTextField(
-                      // controller: rechargeDateController,
                       controller: TextEditingController(
                           text: _displayFormatText(rechargeDateController)),
                       labelText: 'Recharge Date',
@@ -566,7 +564,6 @@ class _ConfigureMasterModuleState extends State<ConfigureMasterModule> {
                   onTap: () => _selectDate(batteryReplacementDateController),
                   child: AbsorbPointer(
                     child: CustomTextField(
-                      // controller: batteryReplacementDateController,
                       controller: TextEditingController(
                           text: _displayFormatText(
                               batteryReplacementDateController)),
@@ -584,7 +581,6 @@ class _ConfigureMasterModuleState extends State<ConfigureMasterModule> {
                   onTap: () => _selectDate(batteryRechargeDateController),
                   child: AbsorbPointer(
                     child: CustomTextField(
-                      // controller: batteryRechargeDateController,
                       controller: TextEditingController(
                           text: _displayFormatText(
                               batteryRechargeDateController)),

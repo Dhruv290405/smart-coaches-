@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:developer';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:smart_coach_new/core/network/api_constants.dart';
 
@@ -25,8 +24,6 @@ class SocketService {
     final uri = Uri.parse(ApiConstants.devUrl);
     final serverUrl = '${uri.scheme}://${uri.host}';
 
-    log('[SocketIO] Connecting to $serverUrl');
-
     _socket = io.io(serverUrl, <String, dynamic>{
       'transports': ['websocket'],
       'autoConnect': true,
@@ -37,12 +34,10 @@ class SocketService {
 
     _socket!.onConnect((_) {
       _connected = true;
-      log('[SocketIO] Connected');
     });
 
     _socket!.onDisconnect((_) {
       _connected = false;
-      log('[SocketIO] Disconnected');
     });
 
     _socket!.on('acp:update', (data) {
@@ -58,7 +53,6 @@ class SocketService {
     });
 
     _socket!.onConnectError((err) {
-      log('[SocketIO] Connect error: $err');
     });
   }
 

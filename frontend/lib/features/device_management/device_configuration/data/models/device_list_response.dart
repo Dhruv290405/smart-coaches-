@@ -97,7 +97,6 @@ class DeviceItem {
 
 int? _parseInt(dynamic value) {
   if (value is int) return value;
-  if (value is double) return value.toInt();
   if (value is String) return int.tryParse(value);
   return null;
 }
@@ -108,3 +107,4 @@ double? _parseDouble(dynamic value) {
   if (value is String) return double.tryParse(value);
   return null;
 }
+

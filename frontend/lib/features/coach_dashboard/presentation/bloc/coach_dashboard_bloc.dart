@@ -1,4 +1,3 @@
-import 'dart:developer';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
 import 'package:smart_coach_new/features/configuration/coach_configuration/domain/entities/coach_entity.dart';
@@ -61,7 +60,6 @@ class CoachDashboardBloc extends Bloc<CoachDashboardEvent, CoachDashboardState> 
         coachNotFound: false,
       ));
     } catch (e, stack) {
-      log('Error fetching coach config: $e\n$stack');
       emit(state.copyWith(
         isLoading: false,
         coachNotFound: true,
@@ -86,7 +84,6 @@ class CoachDashboardBloc extends Bloc<CoachDashboardEvent, CoachDashboardState> 
       return;
     }
 
-    log('Manual search: sending query directly to API: ${event.query}');
     add(SelectCoach(CoachEntity(coachUniqueId: event.query)));
   }
 
@@ -103,7 +100,6 @@ class CoachDashboardBloc extends Bloc<CoachDashboardEvent, CoachDashboardState> 
       final List<String> types = ['All Types', ...response.data?.map((e) => e.commCoachNo).whereType<String>().toSet() ?? []];
       emit(state.copyWith(coachTypes: types));
     } catch (e) {
-      log('Error loading coach types: $e');
     }
   }
 
@@ -120,7 +116,6 @@ class CoachDashboardBloc extends Bloc<CoachDashboardEvent, CoachDashboardState> 
       final List<String> ids = ['All Coach Numbers', ...response.data?.map((e) => e.techCoachNo).whereType<String>().toSet() ?? []];
       emit(state.copyWith(coachNumbers: ids));
     } catch (e) {
-      log('Error loading coach numbers: $e');
     }
   }
 

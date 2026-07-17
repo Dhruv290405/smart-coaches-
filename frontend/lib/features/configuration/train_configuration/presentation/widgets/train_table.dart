@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:sizer/sizer.dart';
-import 'package:smart_coach_new/core/utils/enums.dart';
 import 'package:smart_coach_new/core/utils/utils.dart';
 import 'package:smart_coach_new/core/widgets/custom_text_field.dart';
 import 'package:smart_coach_new/features/configuration/train_configuration/domain/entities/train_configs_entity.dart';
@@ -142,9 +141,8 @@ class _TrainTableState extends State<TrainTable> {
 
   @override
   Widget build(BuildContext context) {
-    final bool showSearch = true;
     final bool hasSearch = _searchText.isNotEmpty;
-    
+
     // Get columns from data source if initialized
     List<String> columnsToShow = [];
     if (_dataSource is TableDataSource) {
@@ -153,8 +151,7 @@ class _TrainTableState extends State<TrainTable> {
 
     return Column(
       children: [
-        if (showSearch)
-          Padding(
+        Padding(
             padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
             child: CustomTextField(
               controller: _searchController,

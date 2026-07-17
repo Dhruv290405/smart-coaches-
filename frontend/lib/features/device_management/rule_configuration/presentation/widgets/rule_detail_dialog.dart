@@ -38,7 +38,6 @@ class RuleDetailDialog extends StatelessWidget {
                       'View Rule: ${sensorItem.ruleName ?? 'N/A'}',
                       style: TextStyle(
                         fontSize: 14.sp,
-                        // fontWeight: FontWeight.w600,
                         color: Colors.black,
                       ),
                     ),

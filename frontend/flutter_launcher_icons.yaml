@@ -1,5 +1,5 @@
 flutter_launcher_icons:
-  image_path: "assets/images/logo.jpeg"
+  image_path: "assets/images/vasp_logo.jpeg"
   android: "launcher_icon"
   min_sdk_android: 21
   ios: true

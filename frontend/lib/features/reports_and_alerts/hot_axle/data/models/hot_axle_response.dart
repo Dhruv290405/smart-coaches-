@@ -38,7 +38,7 @@ class HotAxleResponse {
 
 class HotAxleData {
   final int? id;
-  final int? trainNo;
+  final String? trainNo;
   final String? techCoachNo;
   final String? axlePosition;
   final String? temperature;
@@ -104,7 +104,7 @@ class HotAxleData {
 
     return HotAxleData(
       id: json['id'] as int?,
-      trainNo: json['train_no'] is int ? json['train_no'] as int : int.tryParse(json['train_no']?.toString() ?? ''),
+      trainNo: json['train_no']?.toString(),
       techCoachNo: json['tech_coach_no']?.toString(),
       axlePosition: json['axle_position']?.toString(),
       temperature: json['temperature']?.toString(),

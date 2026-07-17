@@ -141,9 +141,8 @@ class CoachDetailDialog extends StatelessWidget {
     String label1,
     String? value1,
     String label2,
-    String? value2, {
-    bool isStatusLeft = false,
-  }) {
+    String? value2,
+  ) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -151,7 +150,7 @@ class CoachDetailDialog extends StatelessWidget {
           child: _buildItem(
             label: label1,
             value: value1,
-            isStatusView: isStatusLeft && value1 != null,
+            isStatusView: false,
           ),
         ),
         SizedBox(width: 3.w),
@@ -159,7 +158,7 @@ class CoachDetailDialog extends StatelessWidget {
           child: _buildItem(
             label: label2,
             value: value2,
-            isStatusView: !isStatusLeft && value2 != null,
+            isStatusView: false,
           ),
         ),
       ],

@@ -1,10 +1,13 @@
-const supabaseAdmin = require("../config/supabaseAdmin");
+const _acpSupabase = require('../config/supabaseAcp');
+const acpSupabase = _acpSupabase || { from: () => ({ select: () => ({ order: () => ({ in: () => ({ then: (r) => r({ data: [], error: null }), catch: () => {} }) }) }), insert: () => ({ select: () => ({ then: (r) => r({ data: [], error: null }), catch: () => {} }) }) }) };
+
+const TABLE = 'iot_bad_odour';
 
 class OdourModel {
     async saveLog(data) {
         try {
-            const { data: inserted, error } = await supabaseAdmin
-                .from('odour_management_live')
+            const { data: inserted, error } = await acpSupabase
+                .from(TABLE)
                 .insert([data])
                 .select();
 
@@ -19,8 +22,8 @@ class OdourModel {
 
     async getLatestStatusForAllCoaches() {
         try {
-            const { data, error } = await supabaseAdmin
-                .from('odour_management_live')
+            const { data, error } = await acpSupabase
+                .from(TABLE)
                 .select('*')
                 .order('timestamp', { ascending: false });
 
@@ -44,8 +47,8 @@ class OdourModel {
     async getCoachesByDeviceIds(deviceIds) {
         try {
             if (!deviceIds || deviceIds.length === 0) return [];
-            const { data, error } = await supabaseAdmin
-                .from('odour_management_live')
+            const { data, error } = await acpSupabase
+                .from(TABLE)
                 .select('*')
                 .in('device_id', deviceIds)
                 .order('timestamp', { ascending: false });

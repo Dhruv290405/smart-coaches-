@@ -68,25 +68,27 @@ router.post('/login', loginLimiter, validateLogin, authController.login);
 router.post('/send-otp', authController.sendOtp);
 router.post('/verify-otp', authController.verifyOtp);
 
-// Updated Roles in Authorization as per your DB Update
+// Updated Roles in Authorization as per RBAC hierarchy:
+// Master (1), Super Admin (2), Division Admin (3), Division Manager (4), Regional Master (5)
+// Region Operator (6) and Train Operator (7) are read-only and cannot manage users
 router.get(
   '/users/pending',
   authenticate,
-  authorize(['Master', 'Super Admin', 'Regional Master', 'Train Operator']),
+  authorize(['Master', 'Super Admin', 'Division Admin', 'Division Manager', 'Regional Master']),
   authController.getPendingUsers
 );
 
 router.put(
   '/users/approve',
   authenticate,
-  authorize(['Master', 'Super Admin', 'Regional Master', 'Train Operator']),
+  authorize(['Master', 'Super Admin', 'Division Admin', 'Division Manager', 'Regional Master']),
   authController.approveUserWithRoleChange
 );
 
 router.put(
   '/users/approve/bulk',
   authenticate,
-  authorize(['Master', 'Super Admin', 'Regional Master', 'Train Operator']),
+  authorize(['Master', 'Super Admin', 'Division Admin', 'Division Manager', 'Regional Master']),
   authController.bulkApproveUsers
 );
 

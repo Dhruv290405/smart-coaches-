@@ -63,7 +63,6 @@ class _ConfigureTrainState extends State<ConfigureTrain> {
   String? selectedLine;
   String? selectedTrainOperator;
 
-  // int? selectedNumberOfCoaches;
   List<CoachConfig>? coaches;
 
   List<int> numberOfCoachesList = List.generate(24, (index) => index + 1);

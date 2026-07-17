@@ -175,9 +175,6 @@ class CustomTextFieldState extends State<CustomTextField> {
                           color: ColorConstants.iconColor,
                         ),
                 ),
-              // SizedBox(
-              //   width: 2.w,
-              // ),
               Expanded(
                 child: Stack(
                   alignment: Alignment.centerRight,

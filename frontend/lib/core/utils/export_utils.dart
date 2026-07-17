@@ -3,10 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
-import 'package:sizer/sizer.dart';
-
 class ExportUtils {
-  static Future<void> saveFile(String filename, String csvContent, {String delimiter = ',', int pageSize = 10000}) async {
+  static Future<void> saveFile(String filename, String csvContent, {int pageSize = 10000}) async {
     final directory = await getExternalStorageDirectory();
     final file = File(path.join(directory!.path, filename));
     // If data exceeds pageSize, split into multiple files

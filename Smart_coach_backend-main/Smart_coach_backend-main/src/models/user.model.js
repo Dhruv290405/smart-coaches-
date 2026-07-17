@@ -12,6 +12,9 @@ class UserModel extends BaseModel {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(userData.password, salt);
 
+    const regionForUser = Array.isArray(userData.region_id) && userData.region_id.length > 0
+      ? userData.region_id[0] : (userData.region_id || null);
+
     const { data: user, error } = await supabaseAdmin
       .from('user_master')
       .insert({
@@ -26,16 +29,14 @@ class UserModel extends BaseModel {
         zone_id: userData.zone_id,
         division_id: userData.division_id,
         role_id: userData.role_id,
+        region_id: regionForUser,
         status: userData.status || 'Inactive',
         approval_status: userData.approval_status || 'Pending',
         created_date: new Date(),
         employee_id: userData.employee_id || null,
         pan_card_no: userData.pan_card_no || null,
-        pan_card_image: userData.pan_card_image || null,
         aadhar_no: userData.aadhar_no || null,
-        aadhar_img: userData.aadhar_img || null,
-        company_id: userData.company_id || null,
-        user_image: userData.user_image || null
+        company_id: userData.company_id || null
       })
       .select()
       .single();
@@ -45,7 +46,15 @@ class UserModel extends BaseModel {
     const userId = user.user_id;
 
     if (userData.region_id && Array.isArray(userData.region_id) && userData.region_id.length > 0) {
-      const regionValues = userData.region_id.map(id => ({ user_id: userId, region_id: id }));
+      let nextId = 1;
+      const { data: maxRow } = await supabaseAdmin
+        .from('user_region_mapping')
+        .select('id')
+        .order('id', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (maxRow?.id) nextId = maxRow.id + 1;
+      const regionValues = userData.region_id.map((id, i) => ({ id: nextId + i, user_id: userId, region_id: id }));
       const { error: regionError } = await supabaseAdmin
         .from('user_region_mapping')
         .insert(regionValues);
@@ -252,8 +261,82 @@ class UserModel extends BaseModel {
     if (error) throw error;
   }
 
-  isApproverAuthorized(currentUser, targetUser, currentUserRole) {
-    return true
+  async isApproverAuthorized(currentUser, targetUser, currentUserRole) {
+    const currentRoleId = currentUser.role_id;
+    const targetRoleId = targetUser.role_id;
+
+    // Must be managing a lower role (higher role_id = lower in hierarchy)
+    if (targetRoleId <= currentRoleId) return false;
+
+    // Master (role_id=1) and Super Admin (role_id=2) can approve any lower role system-wide
+    if (currentRoleId <= 2) return true;
+
+    // Admin / Division Admin (role_id=3): same zone
+    if (currentRoleId === 3) {
+      if (targetUser.zone_id !== currentUser.zone_id) return false;
+      if (targetRoleId === 4) return true;
+      // For roles 5,6: same division within zone
+      const { data: targetDivisions } = await supabaseAdmin
+        .from('division_master')
+        .select('division_id')
+        .eq('zone_id', currentUser.zone_id);
+      const zoneDivisionIds = targetDivisions.map(d => d.division_id);
+      if (!zoneDivisionIds.includes(targetUser.division_id)) return false;
+      if (targetRoleId === 5 || targetRoleId === 6) return true;
+      // For role 7: same region within zone's divisions
+      const { data: zoneRegions } = await supabaseAdmin
+        .from('region_master')
+        .select('region_id')
+        .in('division_id', zoneDivisionIds);
+      const zoneRegionIds = zoneRegions.map(r => r.region_id);
+      const targetRegions = await this._getUserRegionIds(targetUser.user_id);
+      return targetRegions.some(r => zoneRegionIds.includes(r));
+    }
+
+    // Manager / Division Manager (role_id=4): same division
+    if (currentRoleId === 4) {
+      if (targetUser.division_id !== currentUser.division_id) return false;
+      if (targetRoleId === 5 || targetRoleId === 6) return true;
+      // For role 7: same region within division
+      const { data: divRegions } = await supabaseAdmin
+        .from('region_master')
+        .select('region_id')
+        .eq('division_id', currentUser.division_id);
+      const divRegionIds = divRegions.map(r => r.region_id);
+      const targetRegions = await this._getUserRegionIds(targetUser.user_id);
+      return targetRegions.some(r => divRegionIds.includes(r));
+    }
+
+    // Editor / Regional Master (role_id=5): role 7 only, same division's regions
+    if (currentRoleId === 5) {
+      if (targetRoleId !== 7) return false;
+      const { data: divRegions } = await supabaseAdmin
+        .from('region_master')
+        .select('region_id')
+        .eq('division_id', currentUser.division_id);
+      const divRegionIds = divRegions.map(r => r.region_id);
+      const targetRegions = await this._getUserRegionIds(targetUser.user_id);
+      return targetRegions.some(r => divRegionIds.includes(r));
+    }
+
+    // Region Operator (6) and Train Operator (7) cannot approve anyone
+    return false;
+  }
+
+  async _getUserRegionIds(userId) {
+    const { data: mappings } = await supabaseAdmin
+      .from('user_region_mapping')
+      .select('region_id')
+      .eq('user_id', userId);
+    if (mappings && mappings.length > 0) {
+      return mappings.map(m => m.region_id);
+    }
+    const { data: user } = await supabaseAdmin
+      .from('user_master')
+      .select('region_id')
+      .eq('user_id', userId)
+      .maybeSingle();
+    return user?.region_id ? [user.region_id] : [];
   }
 
   async findOne(criteria) {
@@ -272,6 +355,21 @@ class UserModel extends BaseModel {
     delete data.zone_master;
     delete data.division_master;
     delete data.region_master;
+    if (!data.region_name) {
+      const { data: mappings } = await supabaseAdmin
+        .from('user_region_mapping')
+        .select('region_id')
+        .eq('user_id', data.user_id)
+        .limit(1);
+      if (mappings && mappings.length > 0) {
+        const { data: region } = await supabaseAdmin
+          .from('region_master')
+          .select('name')
+          .eq('region_id', mappings[0].region_id)
+          .maybeSingle();
+        if (region) data.region_name = region.name;
+      }
+    }
     return data;
   }
 

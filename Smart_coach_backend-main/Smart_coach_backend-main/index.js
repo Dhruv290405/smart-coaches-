@@ -94,8 +94,37 @@ app.get('/test', async (req, res) => {
   res.json({ status: 'Test route works!', db: dbStatus, supabaseUrl, wliLogs: wliCount, tables, users: userCount });
 });
 
+const acpSupabaseClient = require('./src/config/supabaseAcp');
 app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'ok', message: 'Server is running' });
+  const acpUrl = !!(process.env.ACP_SUPABASE_URL);
+  const acpKey = !!(process.env.ACP_SUPABASE_SERVICE_KEY || process.env.ACP_SUPABASE_ANON_KEY);
+  res.status(200).json({
+    status: 'ok',
+    message: 'Server is running',
+    acp: {
+      envUrl: acpUrl,
+      envKey: acpKey,
+      clientReady: !!acpSupabaseClient
+    }
+  });
+});
+
+app.get('/debug-env', (req, res) => {
+  const allKeys = Object.keys(process.env).sort();
+  const acpKeys = allKeys.filter(k => /acp/i.test(k));
+  const supabaseKeys = allKeys.filter(k => /supabase/i.test(k));
+  const acpVars = {};
+  const supabaseVars = {};
+  acpKeys.forEach(k => { acpVars[k] = process.env[k] ? '(set)' : '(empty)'; });
+  supabaseKeys.forEach(k => { supabaseVars[k] = process.env[k] ? '(set)' : '(empty)'; });
+  res.json({
+    totalEnvVars: allKeys.length,
+    foundACP: acpKeys.length > 0,
+    acpVars,
+    foundSupabase: supabaseKeys.length > 0,
+    supabaseVars,
+    first20: allKeys.slice(0, 20)
+  });
 });
 
 app.get('/db-data', async (req, res) => {

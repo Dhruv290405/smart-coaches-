@@ -16,7 +16,7 @@ const smsService = {
 
     console.log(`[SMS] OTP for ${mobileNumber}: ${otp}`);
 
-    return { success: true, message: 'OTP sent successfully' };
+    return { success: true, message: 'OTP sent successfully', otp };
   },
 
   verifyOtp(mobileNumber, otp) {

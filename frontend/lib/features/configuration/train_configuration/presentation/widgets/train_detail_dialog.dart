@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sizer/sizer.dart';
 import 'package:smart_coach_new/core/utils/constants.dart';
-import 'package:smart_coach_new/core/utils/enums.dart';
 import 'package:smart_coach_new/core/utils/utils.dart';
-import 'package:smart_coach_new/core/widgets/chip_view.dart';
 import 'package:smart_coach_new/core/widgets/custom_button.dart';
 import 'package:smart_coach_new/features/configuration/train_configuration/domain/entities/train_configs_entity.dart';
 
@@ -100,15 +98,12 @@ class TrainDetailDialog extends StatelessWidget {
     String label1,
     String? value1,
     String label2,
-    String? value2, {
-    bool isStatus = false,
-  }) {
+    String? value2,
+  ) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-            child: _buildItem(
-                label: label1, value: value1, isStatusView: isStatus)),
+        Expanded(child: _buildItem(label: label1, value: value1)),
         SizedBox(width: 3.w),
         Expanded(child: _buildItem(label: label2, value: value2)),
       ],
@@ -119,7 +114,6 @@ class TrainDetailDialog extends StatelessWidget {
   Widget _buildItem({
     required String label,
     required String? value,
-    bool isStatusView = false,
   }) {
     return Padding(
       padding: EdgeInsets.only(bottom: 1.0.h),
@@ -129,40 +123,11 @@ class TrainDetailDialog extends StatelessWidget {
           Text(label,
               style: TextStyle(fontSize: 11.sp, color: Colors.grey.shade700)),
           SizedBox(height: 0.3.h),
-          isStatusView
-              ? _buildStatusView(label: label, statusValue: value)
-              : Text(value ?? 'N/A',
-                  style: TextStyle(fontSize: 12.5.sp, color: Colors.black)),
+          Text(value ?? 'N/A',
+              style: TextStyle(fontSize: 12.5.sp, color: Colors.black)),
         ],
       ),
     );
-  }
-
-  /// Status view with colored chip
-  Widget _buildStatusView(
-      {required String label, required String? statusValue}) {
-    bool isActive =
-        statusValue?.toLowerCase() == DeviceStatus.active.name.toLowerCase();
-    bool isRegistration = statusValue?.toLowerCase() ==
-        DeviceStatus.registration.name.toLowerCase();
-    bool isInactive =
-        statusValue?.toLowerCase() == DeviceStatus.inactive.name.toLowerCase();
-
-    Color color = Colors.black;
-    if (isActive) {
-      color = Colors.green;
-    } else if (isInactive) {
-      color = Colors.red.shade900;
-    } else if (isRegistration) {
-      color = const Color(0xFFC0AF6A);
-    }
-
-    return _chipView(statusValue, color.withValues(alpha: 0.13), color);
-  }
-
-  Widget _chipView(String? text, Color bgColor, Color textColor) {
-    return ChipView(
-        text: text ?? 'N/A', bgColor: bgColor, textColor: textColor);
   }
 
   String _formatDateTime(String? datetime) {

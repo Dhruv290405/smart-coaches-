@@ -14,10 +14,10 @@ class RegisterRepositoryImpl implements RegisterRepository {
       remoteDataSource.doRegister(payload);
 
   @override
-  Future<Map<String, dynamic>> sendOtp(String mobileNumber) =>
+  Future<dynamic> sendOtp(String mobileNumber) =>
       remoteDataSource.sendOtp(mobileNumber);
 
   @override
-  Future<Map<String, dynamic>> verifyOtp(String mobileNumber, String otp) =>
+  Future<dynamic> verifyOtp(String mobileNumber, String otp) =>
       remoteDataSource.verifyOtp(mobileNumber, otp);
 }

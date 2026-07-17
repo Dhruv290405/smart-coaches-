@@ -59,8 +59,6 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
 
       emit(LoginSuccess(message));
     } catch (e, stackTrace) {
-      print('❌ LOGIN ERROR: $e');
-      print('❌ STACK TRACE: $stackTrace');
       emit(LoginFailure(message: e.toString()));
     }
   }

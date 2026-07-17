@@ -106,7 +106,6 @@ class _EditViewState extends State<EditView> {
                             ToastMessageUtils.showMessage(
                               context,
                               'Please select your job role',
-                              useFlutterToast: true,
                             );
                           } else {
                             List<int> currentSelected = (state.trains ?? [])

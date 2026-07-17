@@ -35,6 +35,7 @@ class ApiConstants {
   static const String hotAxleReceiveDataApiEndpoint = '/hot-axle/receive-data';
   static const String hotAxleGetDataApiEndpoint = '/hot-axle/get-data';
   static const String hotAxleDashboardApiEndpoint = '/hot-axle/dashboard-status';
+  static const String hotAxleFiltersApiEndpoint = '/hot-axle/filters';
   static const String hotAxleHistoryApiEndpoint = '/hot-axle/history';
   static const String bcPressureGetDataApiEndpoint = '/pressure/dashboard-status';
   static const String pressureReceiveDataApiEndpoint = '/pressure/receive-data';

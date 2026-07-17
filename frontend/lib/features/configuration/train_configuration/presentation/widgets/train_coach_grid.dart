@@ -18,28 +18,10 @@ class _TrainCoachGridState extends State<TrainCoachGrid> {
   // late List<CoachConfig> coaches;
 
   @override
-  void didUpdateWidget(covariant TrainCoachGrid oldWidget) {
-    super.didUpdateWidget(oldWidget);
-
-    // if (oldWidget.coaches.length != widget.coaches.length) {
-    //   final updatedCoaches = List<CoachConfig>.generate(
-    //     widget.coaches.length,
-    //     (index) => index < widget.coaches.length ? widget.coaches[index] : CoachConfig(),
-    //   );
-    //
-    //   setState(() {
-    //     widget.coaches = updatedCoaches;
-    //   });
-    // }
-  }
-
-  @override
   void initState() {
     super.initState();
-    // coaches = List.generate(widget.coaches.length, (_) => CoachConfig());
   }
 
-  @override
   @override
   Widget build(BuildContext context) {
     // Create a new sorted list — don't modify the original directly

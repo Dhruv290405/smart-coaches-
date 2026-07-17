@@ -67,7 +67,6 @@ class _ConfigureSensorDeviceState extends State<ConfigureSensorDevice> {
   int? selectedMasterModuleId;
   String? selectedDevicesId;
 
-  List<String> coachList = ['Coach A', 'Coach B'];
   bool showDeviceSection = false;
   bool showSensorSection = false;
 

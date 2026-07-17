@@ -118,7 +118,6 @@ class SensorDeviceConfigurationRemoteDataSourceImpl {
   Future<List<MasterModuleItem>> fetchMasterModules(int coachId) async {
     return safeRequest(() async {
       final MasterModuleListResponse masterModuleListResponse = await restClient.getMasterModulesForCoach(coachId);
-      print("Response: $masterModuleListResponse");
       if (!masterModuleListResponse.success || masterModuleListResponse.data == null) {
         throw Exception(masterModuleListResponse.message);
       }

@@ -26,17 +26,16 @@ Map<String, dynamic> _$CoachByLocationResponseToJson(
   'data': instance.data,
 };
 
-CoachByLocationItem _$CoachByLocationItemFromJson(
-  Map<String, dynamic> json,
-) => CoachByLocationItem(
-  id: (json['id'] as num?)?.toInt(),
-  technicalId: json['technical_id'],
-  coachNo: json['coach_no'],
-  deviceId: json['device_id'],
-  trainNo: json['Train_no'],
-  location: json['Location'],
-  actualId: json['Actual_id'],
-);
+CoachByLocationItem _$CoachByLocationItemFromJson(Map<String, dynamic> json) =>
+    CoachByLocationItem(
+      id: (json['id'] as num?)?.toInt(),
+      technicalId: json['technical_id'],
+      coachNo: json['coach_no'],
+      deviceId: json['device_id'],
+      trainNo: json['Train_no'],
+      location: json['Location'],
+      actualId: json['Actual_id'],
+    );
 
 Map<String, dynamic> _$CoachByLocationItemToJson(
   CoachByLocationItem instance,

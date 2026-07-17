@@ -109,12 +109,10 @@ class _SensorDeviceTableState extends State<SensorDeviceTable> {
 
   @override
   Widget build(BuildContext context) {
-    final bool showSearch = true;
     final bool hasSearch = _searchText.isNotEmpty;
     return Column(
       children: [
-        if (showSearch)
-          Padding(
+        Padding(
             padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
             child: CustomTextField(
               controller: _searchController,

@@ -90,8 +90,6 @@ class SensorDeviceConfigurationBloc extends Bloc<SensorDeviceConfigurationEvent,
       List<SensorDeviceEntity> list =
           await sensorDeviceConfigurationUseCase.fetchSensorDeviceList();
 
-      print("bloc: $list");
-
       emit(state.copyWith(isLoading: false, sensorDeviceList: list));
     } catch (e) {
       emit(state.copyWith(isLoading: false, errorMessage: e.toString()));
@@ -156,7 +154,6 @@ class SensorDeviceConfigurationBloc extends Bloc<SensorDeviceConfigurationEvent,
     }
     emit(state.copyWith(isLoading: true, errorMessage: null));
     try {
-      print("Event ${event.coachId}");
       List<MasterModuleEntity> list = await sensorDeviceConfigurationUseCase
           .getMasterModuleForCoach(event.coachId!);
 

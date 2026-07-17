@@ -3,6 +3,8 @@ class PermissionConstants {
   static const String canApproveUsers = 'can_approve_users';
   static const String canEditUsers = 'can_edit_users';
   static const String canDeleteUsers = 'can_delete_users';
+  static const String canCreateUsers = 'can_create_users';
+  static const String canManageRoles = 'can_manage_roles';
 
   static const String canViewTrainConfiguration = 'can_view_train_configuration';
   static const String canEditTrainConfiguration = 'can_edit_train_configuration';
@@ -26,15 +28,21 @@ class PermissionConstants {
 }
 
 class RoleIds {
-  static const int superAdmin = 1;
-  static const int master = 2;
-  static const int regionalMaster = 3;
-  static const int trainOperator = 4;
+  static const int masterAdmin = 1;
+  static const int superAdmin = 2;
+  static const int admin = 3;
+  static const int manager = 4;
+  static const int editor = 5;
+  static const int regionOperator = 6;
+  static const int trainOperator = 7;
 }
 
 class RoleNames {
+  static const String masterAdmin = 'Master';
   static const String superAdmin = 'Super Admin';
-  static const String master = 'Master';
-  static const String regionalMaster = 'Regional Master';
+  static const String admin = 'Division Admin';
+  static const String manager = 'Division Manager';
+  static const String editor = 'Regional Master';
+  static const String regionOperator = 'Region Operator';
   static const String trainOperator = 'Train Operator';
 }

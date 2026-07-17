@@ -62,7 +62,7 @@ class LoadRolesDropdowns extends RegisterEvent {
   });
   @override
   List<Object?> get props => [zoneId, divisionId, regionId, trainIds];
-} // class LoadRolesDropdowns extends RegisterEvent { //   int? zoneId; //   int? divisionId; //   List<int>? regionId; //   List<int>? trainIds; // //   LoadRolesDropdowns( //       {this.zoneId, this.divisionId, this.regionId, this.trainIds}); // //   @override //   List<Object?> get props => [zoneId, divisionId, regionId, trainIds]; // }
+}
 
 class UpdateDropdownValue extends RegisterEvent {
   final String key;

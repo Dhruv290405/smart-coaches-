@@ -1,5 +1,5 @@
 const Pneumatic = require('../models/pneumatic.model');
-const supabase = require('../config/supabase');
+const supabase = require('../config/supabaseOld');
 const NotificationService = require('../services/notificationService');
 const OLD_BACKEND = 'https://smart-coach-api-production.up.railway.app';
 
@@ -30,9 +30,6 @@ exports.getBreakBindingData = async (req, res) => {
         const fromDate = req.query.from_date || null;
         const toDate = req.query.to_date || null;
 
-        // ============================================================
-        // UPDATED: Passing req.user for role-based filtering
-        // ============================================================
         const limit = parseInt(req.query.limit) || 10;
         const offset = parseInt(req.query.offset) || 0;
         const readings = await Pneumatic.getLatestReading(filterDeviceId, req.user, limit, offset, fromDate, toDate);
@@ -44,9 +41,6 @@ exports.getBreakBindingData = async (req, res) => {
             });
         }
 
-        // ============================================================
-        //  STABILITY & HARDWARE LOGIC (Unchanged)
-        // ============================================================
         const getStableValue = (sensorKey) => {
             if (readings.length < 2) return readings[0][sensorKey];
             const frequencyMap = {};
@@ -94,14 +88,10 @@ exports.getBreakBindingData = async (req, res) => {
         const prevData = lastData;
         const activeDeviceId = filterDeviceId || finalData.device_id;
 
-        // ============================================================
-        // UPDATED: Coach details fetch with location security
-        // ============================================================
         let coachQuery = supabase.from('coaches_railway')
             .select('technical_id, coach_no, Train_no, Location')
             .eq('device_id', activeDeviceId);
 
-        // Security: Filter by user division if not Super Admin
         if (req.user && req.user.role_id !== 1) {
             const userLoc = req.user.region_name || req.user.division_name;
             if (userLoc) coachQuery = coachQuery.ilike('Location', userLoc);
@@ -109,14 +99,10 @@ exports.getBreakBindingData = async (req, res) => {
 
         const { data: dbCoach } = await coachQuery.maybeSingle();
 
-        // If specific device is requested but belongs to another region
         if (filterDeviceId && !dbCoach) {
             return res.status(403).json({ success: false, message: "Access denied: Device location mismatch" });
         }
 
-        // ============================================================
-        //  DATABASE QUERIES (Logic Unchanged)
-        // ============================================================
         let eventQuery = supabase.from('event_publish')
             .select('id, timestamp, event_status, coach_no, bp, bc, event_message')
             .eq('device_id', activeDeviceId)
@@ -146,9 +132,6 @@ exports.getBreakBindingData = async (req, res) => {
             faultQuery
         ]);
 
-        // ============================================================
-        //  MAPPING & CALCULATIONS (Unchanged)
-        // ============================================================
         const deviceMapping = {
             'Raspberry4_4': { technical_id: '231035', coach_no: 'M3', Train_no: '13071', location: 'Kolkatta' },
             'Raspberry4_1': { technical_id: '231545', coach_no: 'S4', Train_no: '13277', location: 'Jaipur' },
@@ -187,10 +170,6 @@ exports.getBreakBindingData = async (req, res) => {
             emergency: (bpDropRate >= 0.6) ? 'yellow' : 'green'
         };
 
-        // ============================================================
-        // PUSH NOTIFICATION LOGIC (Safely Added)
-        // ============================================================
-        
         if (faultData.data && faultData.data.length > 0) {
             const latestFault = faultData.data[0]; 
             const faultTime = new Date(latestFault.timestamp);
@@ -213,9 +192,6 @@ exports.getBreakBindingData = async (req, res) => {
             }
         }
 
-        // ============================================================
-        // RESPONSE (Structure Unchanged)
-        // ============================================================
         res.status(200).json({
             success: true,
             context: { deviceId: activeDeviceId, ...finalCoachInfo },
@@ -246,7 +222,6 @@ exports.getBreakBindingData = async (req, res) => {
             })),
             history: {
                 limit: historyLimit,
-                // historyData.data ki jagah readings array use kar rahe hain
                 data: readings.slice(0, historyLimit).map(row => ({
                     timestamp: row.timestamp,
                     device_id: row.device_id,
@@ -297,7 +272,6 @@ exports.getCoachesByLocation = async (req, res) => {
         });
     }
     try {
-        // 1. Check karo ki middleware ne user data parse kiya ya nahi
         if (!req.user) {
             return res.status(401).json({ 
                 success: false, 
@@ -307,15 +281,11 @@ exports.getCoachesByLocation = async (req, res) => {
 
         const { role_id, division_name, region_name } = req.user;
 
-        // Base query to fetch all columns from coaches_railway
         let query = supabase
             .from('coaches_railway')
             .select('id, technical_id, coach_no, device_id, Train_no, Location, Actual_id');
 
-        // 2. Role-Based Security Filter
-        // Agar role_id 1 (Super Admin) NAHI hai, toh location filter apply karo
         if (role_id !== 1) {
-            // Priority: Pehle region_name check karo, agar null hai toh division_name uthao
             const userLocation = region_name || division_name;
 
             if (!userLocation) {
@@ -325,18 +295,15 @@ exports.getCoachesByLocation = async (req, res) => {
                 });
             }
 
-            // Database ke 'Location' column ko user ki location se match karo (Case-Insensitive search)
             query = query.ilike('Location', userLocation);
         }
 
-        // 3. Query Execute karo
         const { data: coaches, error } = await query;
 
         if (error) {
             throw error;
         }
 
-        // 4. Response handle karo agar data empty ho
         if (!coaches || coaches.length === 0) {
             return res.status(404).json({
                 success: true,
@@ -346,7 +313,6 @@ exports.getCoachesByLocation = async (req, res) => {
             });
         }
 
-        // Success Response
         return res.status(200).json({
             success: true,
             message: role_id === 1 ? "All coaches fetched (Admin View)" : `Coaches fetched for location: ${region_name || division_name}`,

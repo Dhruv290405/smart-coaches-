@@ -49,6 +49,50 @@ class _RestClient implements RestClient {
   }
 
   @override
+  Future<dynamic> sendOtp(Map<String, dynamic> body) async {
+    final _extra = <String, dynamic>{};
+    final queryParameters = <String, dynamic>{};
+    final _headers = <String, dynamic>{};
+    final _data = <String, dynamic>{};
+    _data.addAll(body);
+    final _options = _setStreamType<dynamic>(
+      Options(method: 'POST', headers: _headers, extra: _extra)
+          .compose(
+            _dio.options,
+            '/auth/send-otp',
+            queryParameters: queryParameters,
+            data: _data,
+          )
+          .copyWith(baseUrl: _combineBaseUrls(_dio.options.baseUrl, baseUrl)),
+    );
+    final _result = await _dio.fetch(_options);
+    final _value = _result.data;
+    return _value;
+  }
+
+  @override
+  Future<dynamic> verifyOtp(Map<String, dynamic> body) async {
+    final _extra = <String, dynamic>{};
+    final queryParameters = <String, dynamic>{};
+    final _headers = <String, dynamic>{};
+    final _data = <String, dynamic>{};
+    _data.addAll(body);
+    final _options = _setStreamType<dynamic>(
+      Options(method: 'POST', headers: _headers, extra: _extra)
+          .compose(
+            _dio.options,
+            '/auth/verify-otp',
+            queryParameters: queryParameters,
+            data: _data,
+          )
+          .copyWith(baseUrl: _combineBaseUrls(_dio.options.baseUrl, baseUrl)),
+    );
+    final _result = await _dio.fetch(_options);
+    final _value = _result.data;
+    return _value;
+  }
+
+  @override
   Future<LoginResponse> login(Map<String, dynamic> body) async {
     final _extra = <String, dynamic>{'requiresAuth': false};
     final queryParameters = <String, dynamic>{};
@@ -1558,7 +1602,7 @@ class _RestClient implements RestClient {
       Options(method: 'PUT', headers: _headers, extra: _extra)
           .compose(
             _dio.options,
-            '/sensors-config',
+            '/sensors-config/${sensorId}',
             queryParameters: queryParameters,
             data: _data,
           )
@@ -1587,7 +1631,7 @@ class _RestClient implements RestClient {
       Options(method: 'DELETE', headers: _headers, extra: _extra)
           .compose(
             _dio.options,
-            '/sensors/sensors-configs',
+            '/sensors/sensors-configs/${sensorId}',
             queryParameters: queryParameters,
             data: _data,
           )
@@ -2053,7 +2097,7 @@ class _RestClient implements RestClient {
       Options(method: 'POST', headers: _headers, extra: _extra)
           .compose(
             _dio.options,
-            '/hotaxle/receive-data',
+            '/hot-axle/receive-data',
             queryParameters: queryParameters,
             data: _data,
           )
@@ -2099,14 +2143,41 @@ class _RestClient implements RestClient {
   }
 
   @override
+  Future<dynamic> getHotAxleFilters() async {
+    final _extra = <String, dynamic>{};
+    final queryParameters = <String, dynamic>{};
+    final _headers = <String, dynamic>{};
+    const Map<String, dynamic>? _data = null;
+    final _options = _setStreamType<dynamic>(
+      Options(method: 'GET', headers: _headers, extra: _extra)
+          .compose(
+            _dio.options,
+            '/hot-axle/filters',
+            queryParameters: queryParameters,
+            data: _data,
+          )
+          .copyWith(baseUrl: _combineBaseUrls(_dio.options.baseUrl, baseUrl)),
+    );
+    final _result = await _dio.fetch(_options);
+    final _value = _result.data;
+    return _value;
+  }
+
+  @override
   Future<HotAxleDashboardResponse> getHotAxleDashboard(
     String? trainNo,
     String? deviceId,
+    String? coachType,
+    String? owningRly,
+    String? coachNumber,
   ) async {
     final _extra = <String, dynamic>{};
     final queryParameters = <String, dynamic>{
       r'trainNo': trainNo,
       r'deviceId': deviceId,
+      r'coachType': coachType,
+      r'owningRly': owningRly,
+      r'coachNumber': coachNumber,
     };
     queryParameters.removeWhere((k, v) => v == null);
     final _headers = <String, dynamic>{};
@@ -2356,48 +2427,6 @@ class _RestClient implements RestClient {
       rethrow;
     }
     return _value;
-  }
-
-  @override
-  Future<Map<String, dynamic>> sendOtp(Map<String, dynamic> body) async {
-    final _extra = <String, dynamic>{};
-    final queryParameters = <String, dynamic>{};
-    final _headers = <String, dynamic>{};
-    final _data = <String, dynamic>{};
-    _data.addAll(body);
-    final _options = _setStreamType<Map<String, dynamic>>(
-      Options(method: 'POST', headers: _headers, extra: _extra)
-          .compose(
-            _dio.options,
-            '/auth/send-otp',
-            queryParameters: queryParameters,
-            data: _data,
-          )
-          .copyWith(baseUrl: _combineBaseUrls(_dio.options.baseUrl, baseUrl)),
-    );
-    final _result = await _dio.fetch<Map<String, dynamic>>(_options);
-    return _result.data!;
-  }
-
-  @override
-  Future<Map<String, dynamic>> verifyOtp(Map<String, dynamic> body) async {
-    final _extra = <String, dynamic>{};
-    final queryParameters = <String, dynamic>{};
-    final _headers = <String, dynamic>{};
-    final _data = <String, dynamic>{};
-    _data.addAll(body);
-    final _options = _setStreamType<Map<String, dynamic>>(
-      Options(method: 'POST', headers: _headers, extra: _extra)
-          .compose(
-            _dio.options,
-            '/auth/verify-otp',
-            queryParameters: queryParameters,
-            data: _data,
-          )
-          .copyWith(baseUrl: _combineBaseUrls(_dio.options.baseUrl, baseUrl)),
-    );
-    final _result = await _dio.fetch<Map<String, dynamic>>(_options);
-    return _result.data!;
   }
 
   RequestOptions _setStreamType<T>(RequestOptions requestOptions) {

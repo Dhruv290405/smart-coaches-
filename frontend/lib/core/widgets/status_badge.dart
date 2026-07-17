@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../helper/status_helper.dart';
 import '../utils/app_text_styles.dart';
 import '../utils/color_constants.dart';
 
@@ -12,22 +13,9 @@ class StatusBadge extends StatelessWidget {
     required this.status,
   });
 
-  Color _getBackgroundColor() {
-    switch (status.toLowerCase()) {
-      case 'good':
-        return ColorConstants.statusGood;
-      case 'warning':
-        return ColorConstants.statusWarning;
-      case 'critical':
-        return ColorConstants.statusCritical;
-      default:
-        return ColorConstants.iconGrey;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final color = _getBackgroundColor();
+    final color = StatusHelper.getStatusColor(status);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),

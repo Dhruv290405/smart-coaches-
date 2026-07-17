@@ -37,7 +37,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _panAadhaarController = TextEditingController();
   final _companyIdController = TextEditingController();
   final _otpController = TextEditingController();
-  final customTextFieldKey = GlobalKey<CustomTextFieldState>();
   String? selectedGender;
   bool isConfirmed = false;
   bool isAgreedToTerms = false;
@@ -254,11 +253,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 : Container(),
                             SizedBox(
                               child: CustomButton(
-                                text: _step < 3 ? "Next" : (_step == 3 ? "Send OTP" : (_isOtpVerified ? "Register" : "Verify OTP")),
-                                sufixIcon: _step < 3
+                                text: state.isSubmitting ? "Registering..." : (_step < 3 ? "Next" : (_step == 3 ? "Send OTP" : (_isOtpVerified ? "Register" : "Verify OTP"))),
+                                suffixIcon: _step < 3
                                     ? Icons.arrow_forward_ios_sharp
                                     : null,
-                                onPressed: () {
+                                isDisabled: state.isSubmitting,
+                                onPressed: state.isSubmitting ? null : () {
                                   if (_step == 1) {
                                     _doProcessForStep1(state);
                                   } else if (_step == 2) {
@@ -355,6 +355,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
             'An OTP has been sent to ${_mobileController.text}',
             style: const TextStyle(fontSize: 14, color: Colors.black54),
           ),
+          if (registerBloc.state.otpCode != null) ...[
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue.shade200),
+              ),
+              child: Column(children: [
+                const Text('Your OTP', style: TextStyle(fontSize: 12, color: Colors.black54)),
+                const SizedBox(height: 4),
+                Text(
+                  registerBloc.state.otpCode!,
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue.shade800,
+                    letterSpacing: 4,
+                  ),
+                ),
+              ]),
+            ),
+          ],
           const SizedBox(height: 24),
           const Text('Enter OTP', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),

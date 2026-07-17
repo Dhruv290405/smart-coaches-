@@ -50,7 +50,7 @@ dependencies:
   pdf: ^3.12.0
   printing: ^5.14.3
   share_plus: ^12.0.2
-  supabase_flutter: ^2.8.4
+  supabase_flutter: ^2.8.0
 
 
 dev_dependencies:
@@ -64,11 +64,11 @@ dev_dependencies:
   freezed: ^3.0.6
 
 flutter_launcher_icons:
-  image_path_android: "assets/images/logo.jpeg"
-  image_path_ios: "assets/images/logo.jpeg"
+  image_path_android: "assets/images/vasp_logo.jpeg"
+  image_path_ios: "assets/images/vasp_logo.jpeg"
   android: "launcher_icon"
   ios: true
-  image_path: "assets/images/logo.jpeg"
+  image_path: "assets/images/vasp_logo.jpeg"
   remove_alpha_ios: true
   min_sdk_android: 21
 

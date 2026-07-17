@@ -6,7 +6,8 @@ import 'package:smart_coach_new/features/reports_and_alerts/hot_axle/data/models
 
 abstract class HotAxleRemoteDataSource {
   Future<HotAxleResponse> getHotAxleData({String? trainNo, String? deviceId});
-  Future<HotAxleDashboardResponse> getHotAxleDashboard({String? trainNo, String? deviceId});
+  Future<dynamic> getHotAxleFilters();
+  Future<HotAxleDashboardResponse> getHotAxleDashboard({String? trainNo, String? deviceId, String? coachType, String? owningRly, String? coachNumber});
   Future<HotAxleHistoryResponse> getHotAxleHistory({
     required String coachNumber,
     required String startDate,
@@ -27,8 +28,13 @@ class HotAxleRemoteDataSourceImpl implements HotAxleRemoteDataSource {
   }
 
   @override
-  Future<HotAxleDashboardResponse> getHotAxleDashboard({String? trainNo, String? deviceId}) async {
-    return safeRequest(() async => await restClient.getHotAxleDashboard(trainNo, deviceId));
+  Future<dynamic> getHotAxleFilters() async {
+    return safeRequest(() async => await restClient.getHotAxleFilters());
+  }
+
+  @override
+  Future<HotAxleDashboardResponse> getHotAxleDashboard({String? trainNo, String? deviceId, String? coachType, String? owningRly, String? coachNumber}) async {
+    return safeRequest(() async => await restClient.getHotAxleDashboard(trainNo, deviceId, coachType, owningRly, coachNumber));
   }
 
   @override

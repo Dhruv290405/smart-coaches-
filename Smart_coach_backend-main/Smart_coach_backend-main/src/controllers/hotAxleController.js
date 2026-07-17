@@ -33,6 +33,8 @@ const hotAxleController = {
 
             const dataToSave = { 
                 ...payload, 
+                train_no: payload.train_no || payload.train_number || payload.trainNo || null,
+                coach_no: payload.coach_no || payload.coach_number || payload.coachNo || null,
                 alert_status: status 
             };
 
@@ -125,9 +127,22 @@ const hotAxleController = {
     }
 },
 
+    getFilterOptions: async (req, res) => {
+        try {
+            const options = await HotAxleModel.getFilterOptions();
+            return res.status(200).json({ success: true, data: options });
+        } catch (error) {
+            console.error("Filter Options Controller Error ->", error.message);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    },
+
     getDashboardStatus: async (req, res) => {
         try {
-            const statusData = await HotAxleModel.getLatestStatusForAllCoaches();
+            const { trainNo, deviceId, coachType, owningRly, coachNumber } = req.query;
+            const statusData = await HotAxleModel.getLatestStatusForAllCoaches({
+                trainNo, deviceId, coachType, owningRly, coachNumber
+            });
 
             return res.status(200).json({
                 success: true,
@@ -137,6 +152,31 @@ const hotAxleController = {
 
         } catch (error) {
             console.error("Dashboard Controller Error ->", error.message);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    },
+
+    getNewCompanyData: async (req, res) => {
+        try {
+            const supabaseOld = require('../config/supabaseOld');
+            if (!supabaseOld) {
+                return res.status(500).json({ success: false, message: "Old Supabase not configured" });
+            }
+
+            const { data, error } = await supabaseOld
+                .from('hams_data')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+
+            return res.status(200).json({
+                success: true,
+                totalCoaches: (data || []).length,
+                data: data || []
+            });
+        } catch (error) {
+            console.error("New Company Data Error:", error.message);
             res.status(500).json({ success: false, error: error.message });
         }
     }

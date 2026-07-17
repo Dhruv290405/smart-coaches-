@@ -49,16 +49,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final prefs = GetIt.I<Prefs>();
       final user = prefs.getUser();
 
-      print('DASHBOARD: Initializing permissions for user role_id: ${user?.roleId}');
-
       if (user != null && user.roleId != null) {
         permissionBloc.add(InitializePermissions(
           roleId: user.roleId!,
           roleName: null,
         ));
       }
-    } else {
-      print('DASHBOARD: Permissions already initialized. Role: ${permissionBloc.currentRoleId}');
     }
   }
 
