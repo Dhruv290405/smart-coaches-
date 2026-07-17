@@ -250,7 +250,7 @@ class _AcpDashboardState extends State<AcpDashboard> {
           totalCount: logEntry.totalCount ?? 0,
           todayCount: logEntry.todayCount ?? 0,
           updateTime: logEntry.lastHeartbeat ?? 'N/A',
-          isChainPulled: statusLabel.toLowerCase() == 'pulled',
+          isChainPulled: countVal > 0,
           location: logEntry.trainLocation ?? 'Danapur',
           lastPull: logEntry.lastHeartbeat ?? 'N/A',
           sensorId: sensorId,

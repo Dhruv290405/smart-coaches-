@@ -4,7 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../../core/utils/app_dimensions.dart';
 import '../../../../../core/utils/app_icons.dart';
 import '../../../../../core/utils/color_constants.dart';
-import 'package:smart_coach_new/core/utils/device_id_mapper.dart';
 import '../../data/models/acp_model.dart';
 
 class AcpCoachCard extends StatelessWidget {
@@ -19,17 +18,15 @@ class AcpCoachCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isRecent = coach.isRecent;
     final isPulled = coach.isChainPulled;
+    final hasDeviceId = coach.deviceId != 'N/A' && coach.deviceId.isNotEmpty;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: !isRecent ? ColorConstants.cardBackground : const Color(0xFFFFF0F0),
+        color: ColorConstants.cardBackground,
         borderRadius: BorderRadius.circular(AppDimensions.radiusLarge),
-        border: !isRecent
-            ? Border.all(color: ColorConstants.divider.withValues(alpha: 0.5), width: 1)
-            : Border.all(color: Colors.red.withValues(alpha: 0.15), width: 1),
+        border: Border.all(color: ColorConstants.divider.withValues(alpha: 0.5), width: 1),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.03),
@@ -58,21 +55,22 @@ class AcpCoachCard extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      'Technical No: ${DeviceIdMapper.resolve(coach.sensorId)}',
+                      'Technical No: ${coach.sensorId}',
                       style: GoogleFonts.poppins(
                         fontSize: 10,
                         fontWeight: FontWeight.w500,
                         color: ColorConstants.textSecondary,
                       ),
                     ),
-                    Text(
-                      'Device ID: ${coach.deviceId}',
-                      style: GoogleFonts.poppins(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500,
-                        color: ColorConstants.textSecondary,
+                    if (hasDeviceId)
+                      Text(
+                        'Device ID: ${coach.deviceId}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                          color: ColorConstants.textSecondary,
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),
@@ -116,6 +114,31 @@ class AcpCoachCard extends StatelessWidget {
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                   color: isPulled ? const Color(0xFFD32F2F) : const Color(0xFF2E7D32),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Text(
+                'Count: ${coach.todayCount}',
+                style: GoogleFonts.poppins(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                  color: ColorConstants.textSecondary,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  coach.updateTime != 'N/A' ? 'Updated: ${coach.updateTime}' : '',
+                  style: GoogleFonts.poppins(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                    color: ColorConstants.textTertiary,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
