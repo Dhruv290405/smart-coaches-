@@ -56,9 +56,10 @@ class BrakeBindingState extends Equatable {
     this.statusDuration = "0 sec",
     this.diagnosticFlags = const {
       "Brake Binding": "OK",
+      "Severe Brake Binding": "NORMAL",
       "CR Overcharging": "NORMAL",
       "Emergency Brake": "NORMAL",
-      "Severe Brake Binding": "NORMAL",
+      "DV BC Defect": "NORMAL",
     },
     this.bpValue = 0.0,
     this.fpValue = 0.0,

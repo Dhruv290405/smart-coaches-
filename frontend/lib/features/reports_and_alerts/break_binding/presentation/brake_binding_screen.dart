@@ -1093,16 +1093,18 @@ class _BrakeBindingScreenState extends State<BrakeBindingScreen> {
 
   static const List<String> _allFaultKeys = [
     "Brake Binding",
+    "Severe Brake Binding",
     "CR Overcharging",
     "Emergency Brake",
-    "Severe Brake Binding",
+    "DV BC Defect",
   ];
 
   static const Map<String, String> _faultTooltips = {
     "Brake Binding": "Potential wheel lock or brake friction during movement.",
+    "Severe Brake Binding": "Severe friction or locking of the wheels.",
     "CR Overcharging": "Control Reservoir pressure exceeding safe limits.",
     "Emergency Brake": "Emergency braking event detected by the system.",
-    "Severe Brake Binding": "Distributor Valve or Brake Cylinder response anomaly (DV BC Defect).",
+    "DV BC Defect": "Distributor Valve or Brake Cylinder response anomaly.",
   };
 
   Widget _buildDiagnosticGrid(BrakeBindingState state) {
@@ -1114,23 +1116,28 @@ class _BrakeBindingScreenState extends State<BrakeBindingScreen> {
 
     return Column(
       children: [
-        Row(
-          children: entries.take(2).map((e) => Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: _diagnosticCard(e.key, e.value),
+        for (int i = 0; i < entries.length; i += 2)
+          Padding(
+            padding: EdgeInsets.only(bottom: i + 2 < entries.length ? 8 : 0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: _diagnosticCard(entries[i].key, entries[i].value),
+                  ),
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 4),
+                    child: i + 1 < entries.length 
+                        ? _diagnosticCard(entries[i + 1].key, entries[i + 1].value) 
+                        : const SizedBox(),
+                  ),
+                ),
+              ],
             ),
-          )).toList(),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: entries.skip(2).take(2).map((e) => Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: _diagnosticCard(e.key, e.value),
-            ),
-          )).toList(),
-        ),
+          ),
       ],
     );
   }

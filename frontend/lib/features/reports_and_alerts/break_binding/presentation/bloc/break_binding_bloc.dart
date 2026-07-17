@@ -261,10 +261,11 @@ class BrakeBindingBloc extends Bloc<BrakeBindingEvent, BrakeBindingState> {
         .toSet();
 
     final Map<String, String> diagFlags = {
-      "Brake Binding":         activeFaultTypes.contains("BRAKE BINDING") || activeFaultTypes.contains("SEVERE BRAKE BINDING") ? "DETECTED" : "OK",
+      "Brake Binding":         activeFaultTypes.contains("BRAKE BINDING")        ? "DETECTED" : "OK",
+      "Severe Brake Binding":  activeFaultTypes.contains("SEVERE BRAKE BINDING") ? "ALARM"    : "NORMAL",
       "CR Overcharging":       activeFaultTypes.contains("CR OVERCHARGING")      ? "ALARM"    : "NORMAL",
       "Emergency Brake":       activeFaultTypes.contains("EMERGENCY BRAKE")      ? "ALARM"    : "NORMAL",
-      "Severe Brake Binding":  activeFaultTypes.contains("DV BC DEFECT")         ? "ALARM"    : "NORMAL",
+      "DV BC Defect":          activeFaultTypes.contains("DV BC DEFECT")         ? "ALARM"    : "NORMAL",
     };
 
 
