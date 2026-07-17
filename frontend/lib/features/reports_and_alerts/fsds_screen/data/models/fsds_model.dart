@@ -11,11 +11,7 @@ class FsdsBypassModel {
   final String coachNo;
   final String deviceId;
   final int fireStatus;
-<<<<<<< HEAD
   final int methaneLevel;
-=======
-  final int smokeLevel;
->>>>>>> 76f59f6 (fix(android): fix Gradle and AGP versions for Flutter build, add keystore config)
 
   FsdsBypassModel({
     this.id = 0,
@@ -30,11 +26,7 @@ class FsdsBypassModel {
     this.coachNo = '',
     this.deviceId = '',
     this.fireStatus = 0,
-<<<<<<< HEAD
     this.methaneLevel = 0,
-=======
-    this.smokeLevel = 0,
->>>>>>> 76f59f6 (fix(android): fix Gradle and AGP versions for Flutter build, add keystore config)
   });
 
   bool get isRecent {
@@ -52,11 +44,7 @@ class FsdsBypassModel {
     final ts = _normalizeTimestamp(json['timestamp'] ?? '');
 
     final fStatus = _parseInt(json['fire_status']);
-<<<<<<< HEAD
     final sLevel = _parseInt(json['methane_level']);
-=======
-    final sLevel = _parseInt(json['smoke_level']);
->>>>>>> 76f59f6 (fix(android): fix Gradle and AGP versions for Flutter build, add keystore config)
 
     return FsdsBypassModel(
       id: _parseInt(json['id']),
@@ -71,11 +59,7 @@ class FsdsBypassModel {
       coachNo: (json['asset_name'] ?? json['coachNo'] ?? '').toString(),
       deviceId: (json['device_id'] ?? json['deviceId'] ?? '').toString(),
       fireStatus: fStatus,
-<<<<<<< HEAD
       methaneLevel: sLevel,
-=======
-      smokeLevel: sLevel,
->>>>>>> 76f59f6 (fix(android): fix Gradle and AGP versions for Flutter build, add keystore config)
     );
   }
 

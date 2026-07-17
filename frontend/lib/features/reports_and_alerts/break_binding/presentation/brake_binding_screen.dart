@@ -465,7 +465,7 @@ class _BrakeBindingScreenState extends State<BrakeBindingScreen> {
             fontSize: 10,
             fontWeight: FontWeight.w900,
           ),
-          items: ["15s", "1m", "10m", "1h", "24h"].map((String val) {
+          items: ["1m", "15m", "30m", "24h", "48h"].map((String val) {
             return DropdownMenuItem<String>(
               value: val,
               child: Text(
@@ -603,27 +603,28 @@ class _BrakeBindingScreenState extends State<BrakeBindingScreen> {
     String unit = "s";
 
     switch (state.timeFilter) {
-      case "15s":
-        maxX = 15;
-        interval = 3;
-        break;
       case "1m":
         maxX = 60;
         interval = 10;
         break;
-      case "10m":
-        maxX = 600;
-        interval = 100;
+      case "15m":
+        maxX = 900;
+        interval = 150;
         unit = "s";
         break;
-      case "1h":
-        maxX = 3600;
-        interval = 600;
-        unit = "m";
+      case "30m":
+        maxX = 1800;
+        interval = 300;
+        unit = "s";
         break;
       case "24h":
         maxX = 86400;
         interval = 14400;
+        unit = "h";
+        break;
+      case "48h":
+        maxX = 172800;
+        interval = 28800;
         unit = "h";
         break;
     }
@@ -1092,38 +1093,51 @@ class _BrakeBindingScreenState extends State<BrakeBindingScreen> {
 
   static const List<String> _allFaultKeys = [
     "Brake Binding",
-    "DV/BC Defect",
+    "Severe Brake Binding",
+    "CR Overcharging",
+    "Emergency Brake",
+    "DV BC Defect",
   ];
 
   static const Map<String, String> _faultTooltips = {
     "Brake Binding": "Potential wheel lock or brake friction during movement.",
-    "DV/BC Defect": "Distributor Valve or Brake Cylinder response anomaly.",
+    "Severe Brake Binding": "Severe friction or locking of the wheels.",
+    "CR Overcharging": "Control Reservoir pressure exceeding safe limits.",
+    "Emergency Brake": "Emergency braking event detected by the system.",
+    "DV BC Defect": "Distributor Valve or Brake Cylinder response anomaly.",
   };
 
   Widget _buildDiagnosticGrid(BrakeBindingState state) {
     final flags = state.diagnosticFlags ?? {};
     final List<MapEntry<String, String>> entries = _allFaultKeys.map((key) {
-      String lookupKey = key;
-      if (key == "Brake Binding") {
-        // Try looking up with old names if data uses them
-        lookupKey = flags.containsKey("Probably Brake Binding") 
-            ? "Probably Brake Binding" 
-            : (flags.containsKey("Probably Severe Brake Binding") ? "Probably Severe Brake Binding" : key);
-      }
-      final value = flags[lookupKey] ?? "OK";
+      final value = flags[key] ?? "OK";
       return MapEntry(key, value);
     }).toList();
 
     return Column(
       children: [
-        Row(
-          children: entries.map((e) => Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: _diagnosticCard(e.key, e.value),
+        for (int i = 0; i < entries.length; i += 2)
+          Padding(
+            padding: EdgeInsets.only(bottom: i + 2 < entries.length ? 8 : 0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: _diagnosticCard(entries[i].key, entries[i].value),
+                  ),
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 4),
+                    child: i + 1 < entries.length 
+                        ? _diagnosticCard(entries[i + 1].key, entries[i + 1].value) 
+                        : const SizedBox(),
+                  ),
+                ),
+              ],
             ),
-          )).toList(),
-        ),
+          ),
       ],
     );
   }

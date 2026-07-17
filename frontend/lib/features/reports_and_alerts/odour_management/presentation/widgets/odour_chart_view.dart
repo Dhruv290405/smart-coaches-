@@ -2,226 +2,431 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:smart_coach_new/core/utils/app_dimensions.dart';
-import 'package:smart_coach_new/core/utils/app_strings.dart';
 import 'package:smart_coach_new/core/utils/app_text_styles.dart';
 import 'package:smart_coach_new/core/utils/color_constants.dart';
-import 'package:smart_coach_new/core/widgets/period_filter.dart';
 import '../../data/models/odour_model.dart';
 
-class OdourChartView extends StatefulWidget {
-  final List<OdourCoachModel> coaches;
-  const OdourChartView({super.key, required this.coaches});
+class OdourChartView extends StatelessWidget {
+  final List<OdourCoachModel> records;
+  final List<CoachToiletGroup> groups;
 
-  @override
-  State<OdourChartView> createState() => _OdourChartViewState();
-}
+  const OdourChartView({super.key, required this.records, required this.groups});
 
-class _OdourChartViewState extends State<OdourChartView> {
-  String selectedPeriod = 'Live';
-  String selectedChartType = AppStrings.timeSeries;
-  DateTimeRange? customRange;
-
-  List<OdourCoachModel> get filteredCoaches {
-    if (selectedPeriod == 'Live') return widget.coaches;
-    DateTime now = DateTime.now();
-    DateTime? startDate;
-    if (selectedPeriod == '7 Days') startDate = now.subtract(const Duration(days: 7));
-    else if (selectedPeriod == '30 Days') startDate = now.subtract(const Duration(days: 30));
-    else if (selectedPeriod == 'Custom' && customRange != null) startDate = customRange!.start;
-    if (startDate == null) return widget.coaches;
-    return widget.coaches.where((c) {
-      return c.toilets.any((t) => t.isRecent);
-    }).toList();
-  }
-
-  int get totalCoaches => filteredCoaches.length;
-  int get alertCoaches => filteredCoaches.where((c) => c.hasActiveAlert).length;
-  int get normalCoaches => totalCoaches - alertCoaches;
-  int get totalToilets => filteredCoaches.fold(0, (sum, c) => sum + c.toilets.length);
-  int get badToilets => filteredCoaches.fold(0, (sum, c) => sum + c.alertCount);
-
-  List<FlSpot> get timeSeriesData {
-    if (selectedPeriod == 'Live') {
-      return [
-        const FlSpot(0, 1), const FlSpot(1, 2), const FlSpot(2, 1), const FlSpot(3, 3),
-        const FlSpot(4, 2), const FlSpot(5, 4), const FlSpot(6, 2), FlSpot(7, badToilets.toDouble()),
-      ];
-    } else {
-      int days = selectedPeriod == '7 Days' ? 7 : 30;
-      return List.generate(days + 1, (i) {
-        double val = (i % 5 == 0) ? badToilets.toDouble() : (i % 3 == 0) ? 2.0 : 1.0;
-        return FlSpot(i.toDouble(), val);
-      });
-    }
-  }
-
-  Future<void> _pickCustomRange() async {
-    final range = await showDateRangePicker(
-      context: context, firstDate: DateTime(2026, 1, 1), lastDate: DateTime.now(),
-    );
-    if (range != null) setState(() { customRange = range; selectedPeriod = 'Custom'; });
-  }
+  int get alertCount => records.where((r) => r.hasAlert).length;
+  int get activeCount => records.where((r) => r.isActive).length;
 
   @override
   Widget build(BuildContext context) {
-    if (widget.coaches.isEmpty) return const SizedBox.shrink();
+    if (records.isEmpty || groups.isEmpty) {
+      return const Center(child: Padding(padding: EdgeInsets.all(20), child: Text("No analytics data available.")));
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        PeriodFilter(
-          selected: selectedPeriod,
-          periods: const ['Live', '7 Days', '30 Days', 'Custom'],
-          onChanged: (v) async => v == 'Custom' ? await _pickCustomRange() : setState(() { selectedPeriod = v; customRange = null; }),
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(child: Text('Odour Overview', style: AppTextStyles.header2)),
-            _chartTypeToggle(AppStrings.timeSeries),
-            const SizedBox(width: 8),
-            _chartTypeToggle(AppStrings.pieChart),
-          ],
-        ),
-        const SizedBox(height: 16),
-        selectedChartType == AppStrings.pieChart ? _buildPieChart() : _buildTimeSeriesChart(),
-        const SizedBox(height: 16),
-        _buildSummaryCard(),
-        const SizedBox(height: 16),
-        _buildCoachTable(),
+        _buildTopSummaryCards(context),
+        const SizedBox(height: 24),
+
+        _sectionTitle('Washroom Status Distribution', 'Overall train hygiene health'),
+        _buildStatusDistributionDonut(context),
+        const SizedBox(height: 24),
+
+        _sectionTitle('Critical Attention Required', 'Top 3 worst performing washrooms'),
+        _buildTop3CriticalList(context),
+        const SizedBox(height: 24),
+        
+        _sectionTitle('Hygiene Score Comparison', 'Average hygiene score by coach'),
+        _buildHygieneBarChart(context),
+        const SizedBox(height: 24),
+        
+        _sectionTitle('Fleet Sensor Averages', 'Train-wide average readings vs thresholds'),
+        _buildFleetSensorAverages(),
+        const SizedBox(height: 24),
       ],
     );
   }
 
-  Widget _chartTypeToggle(String label) {
-    final isSelected = selectedChartType == label;
-    return GestureDetector(
-      onTap: () => setState(() => selectedChartType = label),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected ? ColorConstants.primary.withValues(alpha: 0.08) : ColorConstants.white,
-          borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
-          border: Border.all(color: isSelected ? ColorConstants.primary : ColorConstants.divider, width: 1.5),
-        ),
-        child: Text(label, style: GoogleFonts.poppins(fontSize: 12, fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400, color: isSelected ? ColorConstants.primary : ColorConstants.textSecondary)),
+  Widget _sectionTitle(String title, String subtitle) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: AppTextStyles.header2),
+        const SizedBox(height: 4),
+        Text(subtitle, style: AppTextStyles.bodyMedium.copyWith(color: ColorConstants.textSecondary)),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+
+  Widget _buildTopSummaryCards(BuildContext context) {
+    int doorEvents = 0;
+    for (var r in records) {
+      doorEvents += r.doorOpenEventsToday;
+    }
+
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      children: [
+        _summaryMetricCard(context, 'Total Alerts', '$alertCount', Icons.notification_important, const Color(0xFFD32F2F)),
+        _summaryMetricCard(context, 'Door Events', '$doorEvents', Icons.door_front_door, Colors.blueAccent),
+        _summaryMetricCard(context, 'Active Devices', '$activeCount', Icons.sensors, const Color(0xFF34C700)),
+      ],
+    );
+  }
+
+  Widget _summaryMetricCard(BuildContext context, String title, String value, IconData icon, Color color) {
+    return Container(
+      width: (MediaQuery.of(context).size.width - 44) / 2,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: ColorConstants.white, 
+        borderRadius: BorderRadius.circular(AppDimensions.radiusMedium), 
+        border: Border.all(color: ColorConstants.divider),
+        boxShadow: [
+          BoxShadow(color: color.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))
+        ]
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(colors: [color.withValues(alpha: 0.2), color.withValues(alpha: 0.05)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: AppTextStyles.bodySmall.copyWith(color: ColorConstants.textSecondary)),
+                const SizedBox(height: 4),
+                Text(value, style: AppTextStyles.header2.copyWith(fontSize: 16)),
+              ],
+            ),
+          )
+        ],
       ),
     );
   }
 
-  Widget _buildPieChart() {
-    return Column(
+  Widget _buildStatusDistributionDonut(BuildContext context) {
+    int good = 0;
+    int warning = 0;
+    int critical = 0;
+    for (var r in records) {
+      if (r.hygieneScore >= 70) good++;
+      else if (r.hygieneScore >= 50) warning++;
+      else critical++;
+    }
+    
+    final total = records.length;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: ColorConstants.cardBackground,
+        borderRadius: BorderRadius.circular(AppDimensions.radiusLarge),
+        border: Border.all(color: ColorConstants.divider)
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 120, height: 120,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                PieChart(PieChartData(
+                  sectionsSpace: 4,
+                  centerSpaceRadius: 40,
+                  sections: [
+                    PieChartSectionData(value: good.toDouble(), color: const Color(0xFF34C700), radius: 16, showTitle: false),
+                    PieChartSectionData(value: warning.toDouble(), color: const Color(0xFFBE8B22), radius: 16, showTitle: false),
+                    PieChartSectionData(value: critical.toDouble(), color: const Color(0xFFD32F2F), radius: 16, showTitle: false),
+                  ]
+                )),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('$total', style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w700)),
+                    Text('Total', style: GoogleFonts.poppins(fontSize: 10, color: ColorConstants.textSecondary)),
+                  ],
+                )
+              ],
+            ),
+          ),
+          const SizedBox(width: 24),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _donutLegendRow('Good', good, total, const Color(0xFF34C700)),
+                const SizedBox(height: 12),
+                _donutLegendRow('Warning', warning, total, const Color(0xFFBE8B22)),
+                const SizedBox(height: 12),
+                _donutLegendRow('Critical', critical, total, const Color(0xFFD32F2F)),
+              ],
+            ),
+          )
+        ],
+      ),
+    );
+  }
+
+  Widget _donutLegendRow(String label, int count, int total, Color color) {
+    final pct = total > 0 ? (count / total * 100).toStringAsFixed(2) : '0';
+    return Row(
       children: [
-        SizedBox(
-          height: 220,
-          child: Stack(
-            alignment: Alignment.center,
+        Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        const SizedBox(width: 8),
+        Expanded(child: Text(label, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500))),
+        Text('$count ($pct%)', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: color)),
+      ],
+    );
+  }
+
+  Widget _buildTop3CriticalList(BuildContext context) {
+    final sorted = List<OdourCoachModel>.from(records);
+    sorted.sort((a, b) => a.hygieneScore.compareTo(b.hygieneScore));
+    
+    final worst3 = sorted.take(3).toList();
+    if (worst3.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      children: worst3.map((r) {
+        final score = r.hygieneScore;
+        final color = score >= 70 ? const Color(0xFF34C700) : score >= 50 ? const Color(0xFFBE8B22) : const Color(0xFFD32F2F);
+        
+        return Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: color.withValues(alpha: 0.2))
+          ),
+          child: Row(
             children: [
-              PieChart(PieChartData(sectionsSpace: 3, centerSpaceRadius: 56, sections: [
-                PieChartSectionData(value: normalCoaches.toDouble(), color: Colors.green, radius: 60, showTitle: false),
-                PieChartSectionData(value: alertCoaches.toDouble(), color: const Color(0xFFD32F2F), radius: 60, showTitle: false),
-              ])),
-              Column(mainAxisSize: MainAxisSize.min, children: [
-                Text('$totalCoaches', style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.w700)),
-                Text('Coaches', style: GoogleFonts.poppins(fontSize: 11, color: ColorConstants.textSecondary)),
-              ]),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: color.withValues(alpha: 0.15), shape: BoxShape.circle),
+                child: Text('${score.toStringAsFixed(2)}%', style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w700, color: color)),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Coach C-${r.coachNumber}', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w700, color: ColorConstants.textPrimary)),
+                    Text(r.toiletPosition, style: GoogleFonts.poppins(fontSize: 12, color: ColorConstants.textSecondary)),
+                  ],
+                ),
+              ),
+              ElevatedButton.icon(
+                onPressed: () {},
+                icon: const Icon(Icons.cleaning_services, size: 14, color: Colors.white),
+                label: Text('Clean', style: GoogleFonts.poppins(fontSize: 11, color: Colors.white, fontWeight: FontWeight.w600)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: color,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                  minimumSize: const Size(0, 32),
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))
+                ),
+              )
             ],
           ),
-        ),
-        const SizedBox(height: 12),
-        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          _legend(Colors.green, 'Normal ($normalCoaches)'), const SizedBox(width: 20),
-          _legend(const Color(0xFFD32F2F), 'Alert ($alertCoaches)'),
-        ]),
-      ],
+        );
+      }).toList(),
     );
   }
 
-  Widget _legend(Color color, String label) => Row(children: [
-    Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-    const SizedBox(width: 6), Text(label, style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w500)),
-  ]);
+  Widget _buildHygieneBarChart(BuildContext context) {
+    List<FlSpot> spots = [];
+    List<String> labels = [];
+    
+    for (int i = 0; i < groups.length; i++) {
+      final g = groups[i];
+      if (g.toilets.isEmpty) continue;
+      double sum = 0;
+      for (var t in g.toilets) {
+        sum += t.hygieneScore;
+      }
+      double avg = sum / g.toilets.length;
+      spots.add(FlSpot(i.toDouble(), avg));
+      labels.add('C-${g.coachNumber}');
+    }
 
-  Widget _buildTimeSeriesChart() {
-    final spots = timeSeriesData;
+    if (spots.isEmpty) return const SizedBox.shrink();
+
+    final chartWidth = labels.length * 50.0 > MediaQuery.of(context).size.width - 32
+        ? labels.length * 50.0
+        : MediaQuery.of(context).size.width - 32;
+
     return Container(
-      padding: const EdgeInsets.only(top: 24, right: 24, bottom: 12, left: 12),
-      decoration: BoxDecoration(color: ColorConstants.cardBackground, borderRadius: BorderRadius.circular(AppDimensions.radiusLarge)),
-      child: SizedBox(
-        height: 220,
-        child: LineChart(LineChartData(
-          clipData: const FlClipData.all(),
-          gridData: const FlGridData(show: true, drawVerticalLine: true, horizontalInterval: 1),
-          titlesData: FlTitlesData(
-            show: true, rightTitles: const AxisTitles(), topTitles: const AxisTitles(),
-            bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, interval: selectedPeriod == 'Live' ? 1 : 5, getTitlesWidget: (v, m) {
-              if (selectedPeriod == 'Live') {
-                final h = (DateTime.now().hour - (7 - v.toInt())) % 24;
-                return Text('${h.toString().padLeft(2, '0')}:00', style: GoogleFonts.poppins(fontSize: 9, color: ColorConstants.textSecondary));
-              }
-              return Text('D ${v.toInt()}', style: GoogleFonts.poppins(fontSize: 9, color: ColorConstants.textSecondary));
-            })),
-            leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, interval: 1, reservedSize: 28)),
+      padding: const EdgeInsets.only(top: 24, bottom: 12),
+      decoration: BoxDecoration(color: ColorConstants.cardBackground, borderRadius: BorderRadius.circular(AppDimensions.radiusLarge), border: Border.all(color: ColorConstants.divider)),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Container(
+          width: chartWidth,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: SizedBox(
+            height: 220,
+            child: BarChart(BarChartData(
+              alignment: BarChartAlignment.spaceAround,
+              maxY: 100,
+              gridData: FlGridData(show: true, drawVerticalLine: false, horizontalInterval: 20,
+                getDrawingHorizontalLine: (v) => FlLine(color: ColorConstants.divider, strokeWidth: 1, dashArray: [4, 4])),
+              titlesData: FlTitlesData(
+                show: true, rightTitles: const AxisTitles(), topTitles: const AxisTitles(),
+                bottomTitles: AxisTitles(sideTitles: SideTitles(
+                  showTitles: true, reservedSize: 42,
+                  getTitlesWidget: (v, m) {
+                    final idx = v.toInt();
+                    if (idx >= 0 && idx < labels.length) {
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(labels[idx], style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w600, color: ColorConstants.textSecondary), textAlign: TextAlign.center),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  })),
+                leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 30,
+                  getTitlesWidget: (v, m) => Text(v.toInt().toString(), style: GoogleFonts.poppins(fontSize: 10, color: ColorConstants.textSecondary)))),
+              ),
+              borderData: FlBorderData(show: false),
+              extraLinesData: ExtraLinesData(horizontalLines: [
+                HorizontalLine(y: 70, color: Colors.green.withValues(alpha: 0.5), strokeWidth: 1.5, dashArray: [5, 5], label: HorizontalLineLabel(show: true, alignment: Alignment.topRight, style: const TextStyle(color: Colors.green, fontSize: 10, fontWeight: FontWeight.bold), labelResolver: (line) => 'Good')),
+                HorizontalLine(y: 50, color: Colors.redAccent.withValues(alpha: 0.5), strokeWidth: 1.5, dashArray: [5, 5], label: HorizontalLineLabel(show: true, alignment: Alignment.bottomRight, style: const TextStyle(color: Colors.redAccent, fontSize: 10, fontWeight: FontWeight.bold), labelResolver: (line) => 'Critical')),
+              ]),
+              barTouchData: BarTouchData(
+                enabled: true,
+                touchTooltipData: BarTouchTooltipData(
+                  getTooltipColor: (_) => Colors.black87,
+                  tooltipPadding: const EdgeInsets.all(8),
+                  getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                    return BarTooltipItem(
+                      '${labels[group.x.toInt()]}\n',
+                      const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                      children: [
+                        TextSpan(text: '${rod.toY.toStringAsFixed(2)} Score', style: const TextStyle(color: Colors.yellowAccent, fontSize: 11, fontWeight: FontWeight.w500))
+                      ]
+                    );
+                  }
+                )
+              ),
+              barGroups: spots.asMap().entries.map((e) {
+                final score = e.value.y;
+                final baseColor = score >= 70 ? const Color(0xFF34C700) : score >= 50 ? const Color(0xFFBE8B22) : const Color(0xFFD32F2F);
+                return BarChartGroupData(x: e.key, barRods: [
+                  BarChartRodData(
+                    toY: score, 
+                    width: 26,
+                    gradient: LinearGradient(colors: [baseColor, baseColor.withValues(alpha: 0.6)], begin: Alignment.bottomCenter, end: Alignment.topCenter),
+                    borderRadius: const BorderRadius.only(topLeft: Radius.circular(6), topRight: Radius.circular(6))
+                  )
+                ]);
+              }).toList(),
+            )),
           ),
-          minX: 0, maxX: selectedPeriod == 'Live' ? 7 : (selectedPeriod == '7 Days' ? 7 : 30), minY: 0,
-          maxY: (spots.isEmpty ? 5 : (spots.map((e) => e.y).reduce((a, b) => a > b ? a : b) + 1).toDouble().clamp(5, 100)),
-          lineBarsData: [LineChartBarData(
-            spots: spots, isCurved: true, gradient: const LinearGradient(colors: [Colors.red, Colors.orange]),
-            barWidth: 3, dotData: FlDotData(show: spots.length < 10),
-            belowBarData: BarAreaData(show: true, gradient: LinearGradient(colors: [Colors.red.withOpacity(0.3), Colors.transparent], begin: Alignment.topCenter, end: Alignment.bottomCenter)),
-          )],
-        )),
+        ),
       ),
     );
   }
 
-  Widget _buildSummaryCard() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: ColorConstants.cardBackground, borderRadius: BorderRadius.circular(AppDimensions.radiusLarge)),
-      child: Column(children: [
-        _buildStatRow('Coaches with Alert', '$alertCoaches', const Color(0xFFD32F2F)),
-        const SizedBox(height: 8),
-        _buildStatRow('Normal Coaches', '$normalCoaches', Colors.green),
-        const SizedBox(height: 8),
-        _buildStatRow('Total Toilets Monitored', '$totalToilets', ColorConstants.primary),
-        const SizedBox(height: 8),
-        _buildStatRow('Bad Odour Toilets', '$badToilets', const Color(0xFFD32F2F)),
-      ]),
+  Widget _buildFleetSensorAverages() {
+    double avgVoc = 0, avgNh3 = 0, avgH2s = 0, avgSmoke = 0, avgTemp = 0, avgHum = 0;
+    final wm = records.isNotEmpty ? records.first : null;
+    
+    for (var r in records) {
+      avgVoc += r.voc;
+      avgNh3 += r.nh3;
+      avgH2s += r.h2s;
+      avgSmoke += r.smoke;
+      avgTemp += r.temperature;
+      avgHum += r.humidity;
+    }
+    
+    int count = records.isEmpty ? 1 : records.length;
+    avgVoc /= count;
+    avgNh3 /= count;
+    avgH2s /= count;
+    avgSmoke /= count;
+    avgTemp /= count;
+    avgHum /= count;
+
+    return GridView.count(
+      crossAxisCount: 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      mainAxisSpacing: 12,
+      crossAxisSpacing: 12,
+      childAspectRatio: 1.1,
+      children: [
+        _avgSensorTile('Avg VOC', avgVoc, 'ppm', const Color(0xFF4285F4), wm?.vocThreshold ?? 500.0),
+        _avgSensorTile('Avg NH₃', avgNh3, 'ppm', const Color(0xFFFBBC05), wm?.nh3Threshold ?? 1.0),
+        _avgSensorTile('Avg H₂S', avgH2s, 'ppm', const Color(0xFFEA4335), wm?.h2sThreshold ?? 0.1),
+        _avgSensorTile('Avg Smoke', avgSmoke, 'ppm', Colors.grey.shade700, wm?.smokeThreshold ?? 10.0),
+        _avgSensorTile('Avg Temp', avgTemp, '°C', const Color(0xFFFA7B17), 50.0),
+        _avgSensorTile('Avg Humidity', avgHum, '% RH', const Color(0xFF34A853), 100.0),
+      ],
     );
   }
 
-  Widget _buildStatRow(String l, String v, Color c) => Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-    Row(children: [Container(width: 10, height: 10, decoration: BoxDecoration(color: c, shape: BoxShape.circle)), const SizedBox(width: 6), Text(l, style: AppTextStyles.bodyMedium)]),
-    Text(v, style: AppTextStyles.bodyLarge.copyWith(fontWeight: FontWeight.w600)),
-  ]);
-
-  Widget _buildCoachTable() {
+  Widget _avgSensorTile(String label, double value, String unit, Color color, double threshold) {
+    double percent = value / threshold;
+    if (percent > 1.0) percent = 1.0;
+    
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: ColorConstants.cardBackground, borderRadius: BorderRadius.circular(AppDimensions.radiusLarge)),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text('Coach Summary', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 12),
-          ...filteredCoaches.map((c) => Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Row(children: [
-              Expanded(flex: 2, child: Text(c.coachNumber, style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w500))),
-              Expanded(flex: 2, child: Text(c.trainNumber, style: GoogleFonts.poppins(fontSize: 11, color: ColorConstants.textSecondary))),
-              Expanded(
-                flex: 3,
-                child: Row(children: c.toilets.map((t) => Container(
-                  width: 14, height: 14, margin: const EdgeInsets.only(right: 3),
-                  decoration: BoxDecoration(
-                    color: t.isBad ? const Color(0xFFD32F2F) : (t.reading > 40 ? const Color(0xFFBE8B22) : Colors.green),
-                    shape: BoxShape.circle,
-                  ),
-                )).toList()),
-              ),
-              Text('${c.averageReading.toStringAsFixed(0)} ppm', style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w500)),
-            ]),
-          )),
+          Row(
+            children: [
+              Icon(Icons.analytics_outlined, size: 14, color: color),
+              const SizedBox(width: 4),
+              Expanded(child: Text(label, style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: ColorConstants.textSecondary), overflow: TextOverflow.ellipsis)),
+            ],
+          ),
+          const Spacer(),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(value.toStringAsFixed(2), style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.w700, color: color)),
+              const SizedBox(width: 4),
+              Text(unit, style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w500, color: color)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: percent,
+              backgroundColor: color.withValues(alpha: 0.2),
+              valueColor: AlwaysStoppedAnimation<Color>(color),
+              minHeight: 6,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('0', style: GoogleFonts.poppins(fontSize: 9, color: ColorConstants.textSecondary)),
+              Text('Max: ${threshold.toStringAsFixed(2)}', style: GoogleFonts.poppins(fontSize: 9, color: ColorConstants.textSecondary)),
+            ],
+          )
         ],
       ),
     );

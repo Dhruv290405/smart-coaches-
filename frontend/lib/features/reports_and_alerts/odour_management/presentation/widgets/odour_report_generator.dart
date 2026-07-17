@@ -90,22 +90,20 @@ class OdourReportGenerator {
     _header(summary, 1, 0, 'Period: ${_fmt(range.start)}  →  ${_fmt(range.end)}');
     _blankRow(summary, 2);
 
-    final headers = ['Coach No.', 'Train', 'Type', 'Toilet Position', 'Status', 'Reading (ppm)'];
+    final headers = ['Coach No.', 'Type', 'Toilet Position', 'Status', 'Reading (ppm)', 'Timestamp'];
     for (var i = 0; i < headers.length; i++) {
       _colHeader(summary, 3, i, headers[i]);
     }
 
-    int row = 4;
-    for (final c in coaches) {
-      for (final t in c.toilets) {
-        _cell(summary, row, 0, c.coachNumber);
-        _cell(summary, row, 1, c.trainNumber);
-        _cell(summary, row, 2, c.coachType);
-        _cell(summary, row, 3, t.position);
-        _cell(summary, row, 4, t.status);
-        _cell(summary, row, 5, '${t.reading}');
-        row++;
-      }
+    for (var r = 0; r < coaches.length; r++) {
+      final c = coaches[r];
+      final row = 4 + r;
+      _cell(summary, row, 0, c.coachNumber);
+      _cell(summary, row, 1, c.coachType);
+      _cell(summary, row, 2, c.toiletPosition);
+      _cell(summary, row, 3, c.status);
+      _cell(summary, row, 4, '${c.reading}');
+      _cell(summary, row, 5, c.timestamp);
     }
 
     final dir = await getApplicationDocumentsDirectory();
@@ -126,8 +124,8 @@ class OdourReportGenerator {
           pw.Header(level: 0, child: pw.Text(title, style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold))),
           pw.SizedBox(height: 20),
           pw.TableHelper.fromTextArray(
-            headers: ['Coach', 'Train', 'Type', 'Position', 'Status', 'Reading'],
-            data: coaches.expand((c) => c.toilets.map((t) => [c.coachNumber, c.trainNumber, c.coachType, t.position, t.status, '${t.reading} ppm'])).toList(),
+            headers: ['Coach', 'Type', 'Position', 'Status', 'Reading'],
+            data: coaches.map((c) => [c.coachNumber, c.coachType, c.toiletPosition, c.status, '${c.reading} ppm']).toList(),
           ),
         ],
       ),
