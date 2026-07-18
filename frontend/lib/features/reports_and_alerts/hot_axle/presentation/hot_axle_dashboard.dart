@@ -257,7 +257,7 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
                     children: [
                       if (!_isDanapur) _buildSectionCard(child: _buildCompanyFilter()),
                       const SizedBox(height: 8),
-                      if (!_isDanapur) _buildSectionCard(child: _buildFiltersSection()),
+                      _buildSectionCard(child: _buildFiltersSection()),
                       const SizedBox(height: 8),
                       _buildSectionCard(child: _buildQuickActionsSection()),
                       const SizedBox(height: 8),
@@ -482,6 +482,7 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
     // Group by masterId, each master has up to 8 devices
     final Map<String, List<HamsDataModel>> grouped = {};
     for (final d in dataList) {
+      if (d.masterId.isEmpty) continue;
       grouped.putIfAbsent(d.masterId, () => []).add(d);
     }
     final masterEntries = grouped.entries.toList();
@@ -592,9 +593,11 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
         return HotAxleDeviceCard(
           coach: coach,
           sequenceNumber: index + 1,
-          onTap: () => showDialog(
-            context: context,
-            builder: (_) => HotAxleModal(coach: coach),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => HotAxleDetailScreen(coach: coach),
+            ),
           ),
         );
       },

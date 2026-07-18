@@ -1,5 +1,5 @@
 const OLD_BASE = 'https://smart-coach-api-production.up.railway.app/smart_coach_api/api';
-const NEW_BASE = 'https://smart-coaches-production.up.railway.app/smart_coach_api/api';
+const NEW_BASE = 'https://api.vaspsystemic.com/smart_coach_api/api';
 const POLL_INTERVAL_MS = 60_000; // 1 minute
 const MAX_SENSOR_ID = 50;
 

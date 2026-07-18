@@ -233,7 +233,7 @@ class _AcpDashboardState extends State<AcpDashboard> {
           } catch (_) {}
         }
 
-        final statusLabel = logEntry.statusText ?? (countVal > 0 ? 'Pulled' : 'Not Pulled');
+        final statusLabel = countVal > 0 ? 'Pulled' : 'Not Pulled';
 
         // FSDS: fire_status=0 means normal (ON), fire_status=1 means bypassed (OFF)
         final fsdsStatusStr = logEntry.fsdsStatus?.toString() ?? '';

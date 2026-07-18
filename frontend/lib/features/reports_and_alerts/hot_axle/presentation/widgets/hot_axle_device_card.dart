@@ -147,6 +147,9 @@ class _HotAxleDeviceCardState extends State<HotAxleDeviceCard>
   }
 
   Widget _buildHeader(String deviceNumber, HotAxleCoachModel coach, Color statusColor, bool online) {
+    final shortId = deviceNumber.startsWith('Master:')
+        ? coach.deviceId
+        : deviceNumber;
     return Row(
       children: [
         Container(
@@ -160,7 +163,7 @@ class _HotAxleDeviceCardState extends State<HotAxleDeviceCard>
           child: FittedBox(
             fit: BoxFit.scaleDown,
             child: Text(
-              deviceNumber.length > 3 ? deviceNumber.substring(deviceNumber.length - 3) : deviceNumber,
+              shortId.length > 3 ? shortId.substring(shortId.length - 3) : shortId,
               style: GoogleFonts.poppins(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,

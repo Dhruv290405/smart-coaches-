@@ -133,20 +133,21 @@ class AcpCoachCard extends StatelessWidget {
                   color: ColorConstants.textSecondary,
                 ),
               ),
-              if (coach.updateTime != 'N/A') ...[
-                const Spacer(),
-                Text(
-                  'Updated: ${coach.updateTime}',
-                  style: GoogleFonts.poppins(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w500,
-                    color: ColorConstants.textTertiary,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
             ],
           ),
+          if (coach.updateTime != 'N/A')
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                'Updated: ${coach.updateTime}',
+                style: GoogleFonts.poppins(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                  color: ColorConstants.textTertiary,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
         ],
       ),
     );
