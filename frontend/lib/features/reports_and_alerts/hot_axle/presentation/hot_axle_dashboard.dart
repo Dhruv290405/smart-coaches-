@@ -48,6 +48,8 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
   List<String> trainNumbers = ['All Trains'];
   List<String> coachTypes = ['All Types'];
   List<String> coachNumbers = ['All Coach Numbers'];
+  List<String> _hamsMasterIds = ['All Trains'];
+  List<String> _hamsDeviceIds = ['All Types'];
 
   List<HotAxleCoachModel> _allCoaches = [];
   List<HotAxleCoachModel> _filteredCoaches = [];
@@ -164,10 +166,8 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
           trainNumbers = ['All Trains', ...coaches.map((e) => e.trainNo).where((e) => e.isNotEmpty).toSet()];
           coachTypes = ['All Types', ...coaches.map((e) => e.coachType).where((e) => e.isNotEmpty).toSet()];
           coachNumbers = ['All Coach Numbers', ...coaches.map((e) => e.coachNumber).where((e) => e.isNotEmpty).toSet()];
-
-          if (!trainNumbers.contains(selectedTrainNumber)) selectedTrainNumber = 'All Trains';
-          if (!coachTypes.contains(selectedCoachType)) selectedCoachType = 'All Types';
-          if (!coachNumbers.contains(selectedCoachNumber)) selectedCoachNumber = 'All Coach Numbers';
+          _hamsMasterIds = ['All Trains', ...newData.map((e) => e.masterId).where((e) => e.isNotEmpty).toSet()];
+          _hamsDeviceIds = ['All Types', ...newData.map((e) => e.deviceId).where((e) => e.isNotEmpty).toSet()];
 
           _applyFilters();
         });
@@ -317,45 +317,74 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
           ],
         ),
         const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: FilterDropdown(
-                label: 'Train Number',
-                value: selectedTrainNumber,
-                items: trainNumbers,
-                onChanged: (value) {
-                  setState(() => selectedTrainNumber = value!);
-                  _refreshData();
-                },
+        if (selectedCompany == 'Section 1')
+          Row(
+            children: [
+              Expanded(
+                child: FilterDropdown(
+                  label: 'Master ID',
+                  value: selectedTrainNumber,
+                  items: _hamsMasterIds,
+                  onChanged: (value) {
+                    setState(() => selectedTrainNumber = value!);
+                  },
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: FilterDropdown(
-                label: 'Coach Type',
-                value: selectedCoachType,
-                items: coachTypes,
-                onChanged: (value) {
-                  setState(() => selectedCoachType = value!);
-                  _refreshData();
-                },
+              const SizedBox(width: 8),
+              Expanded(
+                child: FilterDropdown(
+                  label: 'Device ID',
+                  value: selectedCoachType,
+                  items: _hamsDeviceIds,
+                  onChanged: (value) {
+                    setState(() => selectedCoachType = value!);
+                  },
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: FilterDropdown(
-                label: 'Coach Number',
-                value: selectedCoachNumber,
-                items: coachNumbers,
-                onChanged: (value) {
-                  setState(() => selectedCoachNumber = value!);
-                  _applyFilters();
-                },
+              const SizedBox(width: 8),
+              Expanded(child: Container()),
+            ],
+          )
+        else
+          Row(
+            children: [
+              Expanded(
+                child: FilterDropdown(
+                  label: 'Train Number',
+                  value: selectedTrainNumber,
+                  items: trainNumbers,
+                  onChanged: (value) {
+                    setState(() => selectedTrainNumber = value!);
+                    _refreshData();
+                  },
+                ),
               ),
-            ),
-          ],
-        ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: FilterDropdown(
+                  label: 'Coach Type',
+                  value: selectedCoachType,
+                  items: coachTypes,
+                  onChanged: (value) {
+                    setState(() => selectedCoachType = value!);
+                    _refreshData();
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: FilterDropdown(
+                  label: 'Coach Number',
+                  value: selectedCoachNumber,
+                  items: coachNumbers,
+                  onChanged: (value) {
+                    setState(() => selectedCoachNumber = value!);
+                    _applyFilters();
+                  },
+                ),
+              ),
+            ],
+          ),
         const SizedBox(height: 12),
         Text('Status', style: AppTextStyles.label),
         const SizedBox(height: 4),
@@ -396,8 +425,15 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
     final showNewData = selectedCompany == 'All' || selectedCompany == 'Section 1';
     final showOldData = selectedCompany == 'All' || selectedCompany == 'Section 2';
     final filteredNewData = _newCompanyData.where((d) {
-      if (selectedStatus == 'All') return true;
-      return d.tempState.toUpperCase() == selectedStatus.toUpperCase();
+      if (selectedStatus != 'All') {
+        final state = d.tempState == 'Normal' ? 'Good' : d.tempState;
+        if (state.toUpperCase() != selectedStatus.toUpperCase()) return false;
+      }
+      if (selectedCompany == 'Section 1') {
+        if (selectedTrainNumber != 'All Trains' && d.masterId != selectedTrainNumber) return false;
+        if (selectedCoachType != 'All Types' && d.deviceId != selectedCoachType) return false;
+      }
+      return true;
     }).toList();
     final hasNew = filteredNewData.isNotEmpty && showNewData;
     final hasOld = _filteredCoaches.isNotEmpty && showOldData;
