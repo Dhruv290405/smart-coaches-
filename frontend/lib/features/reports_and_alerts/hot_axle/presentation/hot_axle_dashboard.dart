@@ -516,7 +516,16 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
     );
   }
 
-  HotAxleCoachModel _mapMasterDevicesToCoach(String masterId, List<HamsDataModel> devices) {
+  HotAxleCoachModel _mapMasterDevicesToCoach(String masterId, List<HamsDataModel> allDevices) {
+    final latestByDevice = <String, HamsDataModel>{};
+    for (final d in allDevices) {
+      if (!latestByDevice.containsKey(d.deviceId)) {
+        latestByDevice[d.deviceId] = d;
+      }
+    }
+    final devices = latestByDevice.values.toList();
+    devices.sort((a, b) => a.deviceId.compareTo(b.deviceId));
+
     double a11 = 0, a12 = 0, a21 = 0, a22 = 0, a31 = 0, a32 = 0, a41 = 0, a42 = 0;
     int batteryPct = 50;
     if (devices.isNotEmpty) {
@@ -526,7 +535,7 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
       else if (bat == 'high') batteryPct = 80;
     }
 
-    for (int i = 0; i < devices.length && i < 8; i++) {
+    for (int i = 0; i < devices.length && i < 9; i++) {
       final temp = devices[i].temperature;
       switch (i) {
         case 0: a11 = temp; break;
@@ -541,7 +550,7 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
     }
 
     final List<AxleModel> axles = [];
-    for (int i = 0; i < devices.length && i < 8; i++) {
+    for (int i = 0; i < devices.length && i < 9; i++) {
       final d = devices[i];
       final tempStr = '${d.temperature}°C';
       final status = d.temperature > 60 ? 'Warning' : 'Good';
@@ -553,9 +562,11 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
         sensorId: d.deviceId,
         speed: 'N/A',
         detectedAt: d.receivedTimestamp,
-        location: 'N/A',
+        location: 'Nagpur',
         lastMaintenance: 'N/A',
         updateTime: d.receivedTimestamp,
+        batteryStatus: d.batteryStatus,
+        batteryVoltage: d.batteryVoltage,
       ));
     }
 

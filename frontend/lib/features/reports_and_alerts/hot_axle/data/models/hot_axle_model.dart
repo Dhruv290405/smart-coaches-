@@ -76,14 +76,14 @@ class HotAxleCoachModel {
   List<AxleModel> get axles {
     if (customAxles != null) return customAxles!;
     return [
-      AxleModel(axleNumber: 1, status: a11Temp > 60 ? 'Warning' : 'Good', maxTemp: '${a11Temp}°C', currentTemp: '${a11Temp}°C', sensorId: 'A11', speed: 'N/A', detectedAt: timestamp, location: 'N/A', lastMaintenance: 'N/A', updateTime: timestamp),
-      AxleModel(axleNumber: 2, status: a12Temp > 60 ? 'Warning' : 'Good', maxTemp: '${a12Temp}°C', currentTemp: '${a12Temp}°C', sensorId: 'A12', speed: 'N/A', detectedAt: timestamp, location: 'N/A', lastMaintenance: 'N/A', updateTime: timestamp),
-      AxleModel(axleNumber: 3, status: a21Temp > 60 ? 'Warning' : 'Good', maxTemp: '${a21Temp}°C', currentTemp: '${a21Temp}°C', sensorId: 'A21', speed: 'N/A', detectedAt: timestamp, location: 'N/A', lastMaintenance: 'N/A', updateTime: timestamp),
-      AxleModel(axleNumber: 4, status: a22Temp > 60 ? 'Warning' : 'Good', maxTemp: '${a22Temp}°C', currentTemp: '${a22Temp}°C', sensorId: 'A22', speed: 'N/A', detectedAt: timestamp, location: 'N/A', lastMaintenance: 'N/A', updateTime: timestamp),
-      AxleModel(axleNumber: 5, status: a31Temp > 60 ? 'Warning' : 'Good', maxTemp: '${a31Temp}°C', currentTemp: '${a31Temp}°C', sensorId: 'A31', speed: 'N/A', detectedAt: timestamp, location: 'N/A', lastMaintenance: 'N/A', updateTime: timestamp),
-      AxleModel(axleNumber: 6, status: a32Temp > 60 ? 'Warning' : 'Good', maxTemp: '${a32Temp}°C', currentTemp: '${a32Temp}°C', sensorId: 'A32', speed: 'N/A', detectedAt: timestamp, location: 'N/A', lastMaintenance: 'N/A', updateTime: timestamp),
-      AxleModel(axleNumber: 7, status: a41Temp > 60 ? 'Warning' : 'Good', maxTemp: '${a41Temp}°C', currentTemp: '${a41Temp}°C', sensorId: 'A41', speed: 'N/A', detectedAt: timestamp, location: 'N/A', lastMaintenance: 'N/A', updateTime: timestamp),
-      AxleModel(axleNumber: 8, status: a42Temp > 60 ? 'Warning' : 'Good', maxTemp: '${a42Temp}°C', currentTemp: '${a42Temp}°C', sensorId: 'A42', speed: 'N/A', detectedAt: timestamp, location: 'N/A', lastMaintenance: 'N/A', updateTime: timestamp),
+      AxleModel(axleNumber: 1, status: a11Temp > 60 ? 'Warning' : 'Good', maxTemp: '${a11Temp}°C', currentTemp: '${a11Temp}°C', sensorId: 'A11', speed: 'N/A', detectedAt: timestamp, location: 'Nagpur', lastMaintenance: 'N/A', updateTime: timestamp),
+      AxleModel(axleNumber: 2, status: a12Temp > 60 ? 'Warning' : 'Good', maxTemp: '${a12Temp}°C', currentTemp: '${a12Temp}°C', sensorId: 'A12', speed: 'N/A', detectedAt: timestamp, location: 'Nagpur', lastMaintenance: 'N/A', updateTime: timestamp),
+      AxleModel(axleNumber: 3, status: a21Temp > 60 ? 'Warning' : 'Good', maxTemp: '${a21Temp}°C', currentTemp: '${a21Temp}°C', sensorId: 'A21', speed: 'N/A', detectedAt: timestamp, location: 'Nagpur', lastMaintenance: 'N/A', updateTime: timestamp),
+      AxleModel(axleNumber: 4, status: a22Temp > 60 ? 'Warning' : 'Good', maxTemp: '${a22Temp}°C', currentTemp: '${a22Temp}°C', sensorId: 'A22', speed: 'N/A', detectedAt: timestamp, location: 'Nagpur', lastMaintenance: 'N/A', updateTime: timestamp),
+      AxleModel(axleNumber: 5, status: a31Temp > 60 ? 'Warning' : 'Good', maxTemp: '${a31Temp}°C', currentTemp: '${a31Temp}°C', sensorId: 'A31', speed: 'N/A', detectedAt: timestamp, location: 'Nagpur', lastMaintenance: 'N/A', updateTime: timestamp),
+      AxleModel(axleNumber: 6, status: a32Temp > 60 ? 'Warning' : 'Good', maxTemp: '${a32Temp}°C', currentTemp: '${a32Temp}°C', sensorId: 'A32', speed: 'N/A', detectedAt: timestamp, location: 'Nagpur', lastMaintenance: 'N/A', updateTime: timestamp),
+      AxleModel(axleNumber: 7, status: a41Temp > 60 ? 'Warning' : 'Good', maxTemp: '${a41Temp}°C', currentTemp: '${a41Temp}°C', sensorId: 'A41', speed: 'N/A', detectedAt: timestamp, location: 'Nagpur', lastMaintenance: 'N/A', updateTime: timestamp),
+      AxleModel(axleNumber: 8, status: a42Temp > 60 ? 'Warning' : 'Good', maxTemp: '${a42Temp}°C', currentTemp: '${a42Temp}°C', sensorId: 'A42', speed: 'N/A', detectedAt: timestamp, location: 'Nagpur', lastMaintenance: 'N/A', updateTime: timestamp),
     ];
   }
 
@@ -120,6 +120,8 @@ class AxleModel {
   final String location;
   final String lastMaintenance;
   final String updateTime;
+  final String batteryStatus;
+  final double batteryVoltage;
 
   const AxleModel({
     required this.axleNumber,
@@ -132,6 +134,8 @@ class AxleModel {
     required this.location,
     required this.lastMaintenance,
     required this.updateTime,
+    this.batteryStatus = 'N/A',
+    this.batteryVoltage = 0.0,
   });
 }
 

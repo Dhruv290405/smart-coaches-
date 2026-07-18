@@ -90,7 +90,6 @@ const hotAxleController = {
 
         getHistory: async (req, res) => {
     try {
-        // Query params se filters uthana
         const { 
             deviceId, 
             coachNumber, 
@@ -99,6 +98,97 @@ const hotAxleController = {
             page = 1, 
             limit = 30 
         } = req.query;
+
+        if (coachNumber && coachNumber.startsWith('Master: ')) {
+            const masterId = coachNumber.replace('Master: ', '').trim();
+            const sOld = require('../config/supabaseOld');
+            if (!sOld) {
+                return res.status(500).json({ success: false, message: "Old Supabase not configured" });
+            }
+
+            let query = sOld.from('hams_data').select('*');
+            query = query.eq('master_id', masterId);
+
+            if (startDate && endDate) {
+                query = query
+                    .gte('received_timestamp', `${startDate}T00:00:00`)
+                    .lte('received_timestamp', `${endDate}T23:59:59`);
+            }
+
+            const { data, error } = await query
+                .order('received_timestamp', { ascending: false })
+                .limit(2000);
+
+            if (error) throw error;
+
+            const grouped = {};
+            for (let d of (data || [])) {
+                if (!d.received_timestamp) continue;
+                const dateObj = new Date(d.received_timestamp);
+                if (isNaN(dateObj.getTime())) continue;
+                const min = dateObj.getMinutes();
+                const roundedMin = min - (min % 15);
+                dateObj.setMinutes(roundedMin, 0, 0);
+                const bucket = dateObj.toISOString();
+                if (!grouped[bucket]) grouped[bucket] = [];
+                grouped[bucket].push(d);
+            }
+
+            let mappedHistory = [];
+            for (let bucket in grouped) {
+                const devices = grouped[bucket];
+                const axleDevices = [...devices];
+                axleDevices.sort((a, b) => a.device_id.localeCompare(b.device_id));
+
+                let temps = [0,0,0,0,0,0,0,0,0];
+                let maxTemp = 0;
+                for (let i = 0; i < axleDevices.length && i < 9; i++) {
+                    temps[i] = axleDevices[i].temperature || 0;
+                    if (temps[i] > maxTemp) maxTemp = temps[i];
+                }
+
+                let bat = 50;
+                let firstWithBat = devices.find(d => d.battery_status);
+                if (firstWithBat) {
+                    const bs = firstWithBat.battery_status.toLowerCase();
+                    if (bs === 'low') bat = 15;
+                    else if (bs === 'moderate') bat = 40;
+                    else if (bs === 'high') bat = 80;
+                }
+
+                mappedHistory.push({
+                    timestamp: bucket,
+                    device_id: masterId,
+                    coach_number: coachNumber,
+                    coach_type: 'HAMS',
+                    owning_rly: 'VASP',
+                    a11_temp: temps[0], a12_temp: temps[1],
+                    a21_temp: temps[2], a22_temp: temps[3],
+                    a31_temp: temps[4], a32_temp: temps[5],
+                    a41_temp: temps[6], a42_temp: temps[7],
+                    battery_percentage: bat,
+                    signal_strength: 0,
+                    alert_status: maxTemp > 60 ? 'Warning' : 'Good',
+                });
+            }
+
+            mappedHistory.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+
+            const total = mappedHistory.length;
+            const startIdx = (parseInt(page) - 1) * parseInt(limit);
+            const paged = mappedHistory.slice(startIdx, startIdx + parseInt(limit));
+
+            return res.status(200).json({
+                success: true,
+                meta: {
+                    totalRecords: total,
+                    currentPage: parseInt(page),
+                    totalPages: Math.ceil(total / parseInt(limit)),
+                    limit: parseInt(limit)
+                },
+                data: paged
+            });
+        }
 
         const offset = (parseInt(page) - 1) * parseInt(limit);
 
@@ -213,10 +303,12 @@ const hotAxleController = {
 
             if (error) throw error;
 
+            const filtered = (data || []).filter(d => d.master_id === 'HAMS-M1-001');
+
             return res.status(200).json({
                 success: true,
-                totalCoaches: (data || []).length,
-                data: data || []
+                totalCoaches: filtered.length,
+                data: filtered
             });
         } catch (error) {
             console.error("New Company Data Error:", error.message);

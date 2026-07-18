@@ -8,11 +8,13 @@ import 'package:smart_coach_new/features/reports_and_alerts/hot_axle/data/models
 class AxleListCard extends StatelessWidget {
   final AxleModel axle;
   final VoidCallback? onEyeIconTap;
+  final VoidCallback? onHistoryTap;
 
   const AxleListCard({
     super.key,
     required this.axle,
     this.onEyeIconTap,
+    this.onHistoryTap,
   });
 
   static Color _getStatusColor(String status) {
@@ -159,6 +161,21 @@ class AxleListCard extends StatelessWidget {
                   ),
                 ),
               ),
+              if (onHistoryTap != null) ...[
+                const SizedBox(width: 4),
+                GestureDetector(
+                  onTap: onHistoryTap,
+                  behavior: HitTestBehavior.opaque,
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(
+                      Icons.history,
+                      size: 20,
+                      color: ColorConstants.iconGrey,
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 8),
@@ -177,6 +194,56 @@ class AxleListCard extends StatelessWidget {
               ),
               Text(
                 axle.maxTemp,
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: ColorConstants.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+
+          // Battery row
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Battery:',
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: ColorConstants.textSecondary,
+                ),
+              ),
+              Text(
+                '${axle.batteryStatus} (${axle.batteryVoltage.toStringAsFixed(1)}V)',
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: axle.batteryStatus == 'Low'
+                      ? const Color(0xFFD32F2F)
+                      : ColorConstants.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+
+          // Location
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Location:',
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: ColorConstants.textSecondary,
+                ),
+              ),
+              Text(
+                axle.location,
                 style: GoogleFonts.poppins(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,

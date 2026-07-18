@@ -8,8 +8,9 @@ import 'package:smart_coach_new/features/reports_and_alerts/hot_axle/data/models
 
 class AxleDetailModal extends StatelessWidget {
   final AxleModel axle;
+  final VoidCallback? onHistoryTap;
 
-  const AxleDetailModal({super.key, required this.axle});
+  const AxleDetailModal({super.key, required this.axle, this.onHistoryTap});
 
   static Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
@@ -173,6 +174,7 @@ class AxleDetailModal extends StatelessWidget {
                 _buildDividerRow('Status', _getStatusLabel(axle.status)),
                 _buildDividerRow('Sensor ID', axle.sensorId),
                 _buildDividerRow('Speed', axle.speed),
+                _buildDividerRow('Battery', '${axle.batteryStatus} (${axle.batteryVoltage.toStringAsFixed(1)}V)'),
                 _buildDividerRow('Detected at', axle.detectedAt),
                 _buildDividerRow('Location', axle.location),
                 _buildDividerRow('Last maintenance', axle.lastMaintenance,
@@ -181,6 +183,44 @@ class AxleDetailModal extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 20),
+
+          // View History button
+          if (onHistoryTap != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: GestureDetector(
+                onTap: () {
+                  Navigator.of(context).pop();
+                  onHistoryTap!();
+                },
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  decoration: BoxDecoration(
+                    color: ColorConstants.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Center(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.history, size: 18, color: ColorConstants.primary),
+                        const SizedBox(width: 8),
+                        Text(
+                          'View Full History',
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: ColorConstants.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          const SizedBox(height: 12),
 
           // Close button
           Padding(
