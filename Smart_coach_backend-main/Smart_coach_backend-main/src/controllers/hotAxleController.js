@@ -1,4 +1,5 @@
 const HotAxleModel = require("../models/hotAxle.model");
+const supabaseAdmin = require("../config/supabaseAdmin");
 
 const hotAxleController = {
     receiveData: async (req, res) => {
@@ -158,6 +159,48 @@ const hotAxleController = {
 
     getNewCompanyData: async (req, res) => {
         try {
+            const userEmail = req.user?.email || '';
+            const isDanapur = userEmail === 'danapur.ops@test.com';
+
+            if (isDanapur) {
+                const { data, error } = await supabaseAdmin
+                    .from('hot_axle_logs')
+                    .select('*')
+                    .order('id', { ascending: false })
+                    .limit(500);
+
+                if (error) throw error;
+
+                const mapped = (data || []).map(item => {
+                    const temps = [item.a11_temp, item.a12_temp, item.a21_temp, item.a22_temp,
+                                   item.a31_temp, item.a32_temp, item.a41_temp, item.a42_temp]
+                                   .filter(t => t != null && t >= 0);
+                    const maxTemp = temps.length > 0 ? Math.max(...temps) : 0;
+                    let batteryStatus = 'Moderate';
+                    if (item.battery_percentage != null) {
+                        if (item.battery_percentage <= 20) batteryStatus = 'Low';
+                        else if (item.battery_percentage >= 80) batteryStatus = 'High';
+                    }
+                    return {
+                        id: item.id,
+                        device_id: item.device_id || '',
+                        master_id: item.coach_number || item.device_id || '',
+                        temperature: maxTemp,
+                        status: item.alert_status || 'Active',
+                        temp_state: maxTemp > 80 ? 'Critical' : (maxTemp > 60 ? 'Warning' : 'Normal'),
+                        received_timestamp: item.timestamp || '',
+                        battery_status: batteryStatus,
+                        battery_voltage: 0.0,
+                    };
+                });
+
+                return res.status(200).json({
+                    success: true,
+                    totalCoaches: mapped.length,
+                    data: mapped
+                });
+            }
+
             const supabaseOld = require('../config/supabaseOld');
             if (!supabaseOld) {
                 return res.status(500).json({ success: false, message: "Old Supabase not configured" });
