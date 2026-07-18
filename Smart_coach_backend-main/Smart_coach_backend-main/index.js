@@ -72,6 +72,25 @@ app.use("/smart_coach_api/api/coach-config", require("./src/routes/coachConfig.r
 app.use('/smart_coach_api/api/notifications', notificationRoutes);
 app.use('/smart_coach_api/api/diesel', require('./src/routes/diesel.routes'));
 
+app.get('/smart_coach_api/api', (req, res) => {
+  res.json({
+    success: true,
+    application: 'Smart Coaches API',
+    status: 'Running',
+    message: 'Try /health for the health endpoint',
+    timestamp: new Date().toISOString(),
+  });
+});
+
+app.get('/smart_coach_api/api/health', (req, res) => {
+  res.json({
+    success: true,
+    application: 'Smart Coaches API',
+    status: 'Running',
+    timestamp: new Date().toISOString(),
+  });
+});
+
 app.get('/test', async (req, res) => {
   let dbStatus = 'not checked';
   let supabaseUrl = process.env.SUPABASE_URL || 'not set';

@@ -18,11 +18,11 @@ import 'package:smart_coach_new/features/reports_and_alerts/hot_axle/data/models
 import 'package:smart_coach_new/features/reports_and_alerts/hot_axle/data/repository/hot_axle_repository.dart';
 import 'package:smart_coach_new/features/reports_and_alerts/hot_axle/presentation/hot_axle_alert_view.dart';
 import 'package:smart_coach_new/features/reports_and_alerts/hot_axle/presentation/hot_axle_chart_view.dart';
-import 'package:smart_coach_new/features/reports_and_alerts/hot_axle/presentation/widgets/hams_axle_modal.dart';
 import 'package:smart_coach_new/features/reports_and_alerts/hot_axle/presentation/widgets/hams_device_card.dart';
 import 'package:smart_coach_new/features/reports_and_alerts/hot_axle/presentation/widgets/hot_axle_device_card.dart';
 import 'package:smart_coach_new/features/reports_and_alerts/hot_axle/presentation/widgets/hot_axle_modal.dart';
 import 'package:smart_coach_new/features/reports_and_alerts/hot_axle/presentation/widgets/hot_axle_report_generator.dart';
+import 'package:smart_coach_new/features/reports_and_alerts/hot_axle/presentation/hot_axle_detail_screen.dart';
 import '../data/models/hot_axle_model.dart';
 
 class HotAxleDashboard extends StatefulWidget {
@@ -82,7 +82,7 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
         bool matchesCompany;
         if (selectedCompany == 'All') {
           matchesCompany = true;
-        } else if (selectedCompany == 'ECR (Legacy)') {
+        } else if (selectedCompany == 'Section 2') {
           matchesCompany = coach.owningRly == 'ECR';
         } else {
           matchesCompany = coach.owningRly != 'ECR';
@@ -278,7 +278,7 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
     return FilterDropdown(
       label: 'Company',
       value: selectedCompany,
-      items: const ['All', 'ECR (Legacy)', 'VASP Systemic'],
+      items: const ['All', 'Section 2', 'Section 1'],
       onChanged: (value) {
         setState(() => selectedCompany = value!);
         _applyFilters();
@@ -378,8 +378,8 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
   }
 
   Widget _buildDeviceSections() {
-    final showNewData = selectedCompany == 'All' || selectedCompany == 'VASP Systemic';
-    final showOldData = selectedCompany == 'All' || selectedCompany == 'ECR (Legacy)';
+    final showNewData = selectedCompany == 'All' || selectedCompany == 'Section 1';
+    final showOldData = selectedCompany == 'All' || selectedCompany == 'Section 2';
     final filteredNewData = _newCompanyData.where((d) {
       if (selectedStatus == 'All') return true;
       return d.tempState.toUpperCase() == selectedStatus.toUpperCase();
@@ -464,6 +464,13 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
   }
 
   Widget _buildHamsGridForList(List<HamsDataModel> dataList) {
+    // Group by masterId, each master has up to 8 devices
+    final Map<String, List<HamsDataModel>> grouped = {};
+    for (final d in dataList) {
+      grouped.putIfAbsent(d.masterId, () => []).add(d);
+    }
+    final masterEntries = grouped.entries.toList();
+
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -473,15 +480,84 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
         mainAxisSpacing: 12,
         childAspectRatio: 0.62,
       ),
-      itemCount: dataList.length,
+      itemCount: masterEntries.length,
       itemBuilder: (context, index) {
-        final hamData = dataList[index];
-        return HamsDeviceCard(
-          data: hamData,
+        final entry = masterEntries[index];
+        final masterId = entry.key;
+        final devices = entry.value;
+        final coach = _mapMasterDevicesToCoach(masterId, devices);
+        return HotAxleDeviceCard(
+          coach: coach,
           sequenceNumber: index + 1,
-          onTap: () => _showHamsDetailDialog(hamData),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => HotAxleDetailScreen(coach: coach),
+            ),
+          ),
         );
       },
+    );
+  }
+
+  HotAxleCoachModel _mapMasterDevicesToCoach(String masterId, List<HamsDataModel> devices) {
+    double a11 = 0, a12 = 0, a21 = 0, a22 = 0, a31 = 0, a32 = 0, a41 = 0, a42 = 0;
+    int batteryPct = 50;
+    if (devices.isNotEmpty) {
+      final bat = devices.first.batteryStatus.toLowerCase();
+      if (bat == 'low') batteryPct = 15;
+      else if (bat == 'moderate') batteryPct = 40;
+      else if (bat == 'high') batteryPct = 80;
+    }
+
+    for (int i = 0; i < devices.length && i < 8; i++) {
+      final temp = devices[i].temperature;
+      switch (i) {
+        case 0: a11 = temp; break;
+        case 1: a12 = temp; break;
+        case 2: a21 = temp; break;
+        case 3: a22 = temp; break;
+        case 4: a31 = temp; break;
+        case 5: a32 = temp; break;
+        case 6: a41 = temp; break;
+        case 7: a42 = temp; break;
+      }
+    }
+
+    final List<AxleModel> axles = [];
+    for (int i = 0; i < devices.length && i < 8; i++) {
+      final d = devices[i];
+      final tempStr = '${d.temperature}°C';
+      final status = d.temperature > 60 ? 'Warning' : 'Good';
+      axles.add(AxleModel(
+        axleNumber: i + 1,
+        status: status,
+        maxTemp: tempStr,
+        currentTemp: tempStr,
+        sensorId: d.deviceId,
+        speed: 'N/A',
+        detectedAt: d.receivedTimestamp,
+        location: 'N/A',
+        lastMaintenance: 'N/A',
+        updateTime: d.receivedTimestamp,
+      ));
+    }
+
+    return HotAxleCoachModel(
+      deviceId: masterId,
+      coachNumber: 'Master: $masterId',
+      coachType: 'HAMS',
+      owningRly: 'VASP',
+      trainNo: '',
+      timestamp: devices.isNotEmpty ? devices.first.receivedTimestamp : '',
+      batteryPercentage: batteryPct,
+      signalStrength: 0,
+      a11Temp: a11, a12Temp: a12,
+      a21Temp: a21, a22Temp: a22,
+      a31Temp: a31, a32Temp: a32,
+      a41Temp: a41, a42Temp: a42,
+      apiStatus: axles.any((a) => a.status == 'Warning') ? 'Warning' : 'Good',
+      customAxles: axles,
     );
   }
 
@@ -587,13 +663,6 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
         borderRadius: BorderRadius.circular(AppDimensions.radiusLarge),
       ),
       child: child,
-    );
-  }
-
-  void _showHamsDetailDialog(HamsDataModel data) {
-    showDialog(
-      context: context,
-      builder: (_) => HamsAxleModal(data: data),
     );
   }
 
