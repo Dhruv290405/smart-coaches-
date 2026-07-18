@@ -60,7 +60,7 @@ const AcpModel = {
         try {
             const { data, error } = await acpSupabase
                 .from(TABLE)
-                .select('id, loc_name, asset_name, msg_type, metric_timestamp, count_value, totalized_count, created_at')
+                .select('id, loc_name, asset_name, msg_type, metric_timestamp, count_value, totalized_count, device_id, created_at')
                 .not('loc_name', 'is', null)
                 .not('asset_name', 'is', null)
                 .eq('msg_type', 'METRICS')
@@ -78,6 +78,7 @@ const AcpModel = {
                 train_no: row.loc_name,
                 comm_coach_no: extractCoachNo(row.asset_name),
                 tech_coach_no: extractCoachNo(row.asset_name),
+                device_id: row.device_id || 'N/A',
                 power_car_no: null
             }));
         } catch (error) {
@@ -181,7 +182,7 @@ const AcpModel = {
         try {
             const { data, error } = await acpSupabase
                 .from(TABLE)
-                .select('id, loc_name, asset_name, msg_type, metric_timestamp, count_value, totalized_count, created_at')
+                .select('id, loc_name, asset_name, msg_type, metric_timestamp, count_value, totalized_count, device_id, created_at')
                 .not('loc_name', 'is', null)
                 .not('asset_name', 'is', null)
                 .eq('msg_type', 'METRICS')
@@ -212,11 +213,13 @@ const AcpModel = {
                 train_no: g.loc_name || 'Unknown',
                 comm_coach_no: g.coach_no,
                 tech_coach_no: g.coach_no,
-                device_id: 'N/A',
+                device_id: g.latest.device_id || 'N/A',
                 last_heartbeat: toIST(g.latest.metric_timestamp || g.latest.created_at),
                 last_trigger: null,
                 today_count: g.todayCount,
                 total_count: g.totalCount,
+                acp_status: String(g.latest.count_value ?? 0),
+                totalized_count: g.latest.totalized_count ?? 0,
                 train_location: g.loc_name || null,
                 status: g.todayCount > 0 ? 'Active' : 'Inactive',
                 fsds_status: null,
@@ -233,7 +236,7 @@ const AcpModel = {
         try {
             let query = acpSupabase
                 .from(TABLE)
-                .select('id, loc_name, asset_name, msg_type, metric_timestamp, count_value, created_at')
+                .select('id, loc_name, asset_name, msg_type, metric_timestamp, count_value, device_id, created_at')
                 .not('asset_name', 'is', null)
                 .eq('msg_type', 'METRICS');
 
@@ -260,6 +263,7 @@ const AcpModel = {
                 log_id: row.id,
                 event_time: toIST(row.metric_timestamp || row.created_at),
                 acp_status: row.count_value ?? 0,
+                device_id: row.device_id || 'N/A',
                 train_location: row.loc_name,
                 raw_asset_name: row.asset_name,
                 history_sequence_no: totalCount - i,
@@ -276,7 +280,7 @@ const AcpModel = {
         try {
             let query = acpSupabase
                 .from(TABLE)
-                .select('id, loc_name, asset_name, msg_type, metric_timestamp, count_value, totalized_count, created_at')
+                .select('id, loc_name, asset_name, msg_type, metric_timestamp, count_value, totalized_count, device_id, created_at')
                 .not('loc_name', 'is', null)
                 .not('asset_name', 'is', null)
                 .eq('msg_type', 'METRICS');
@@ -312,11 +316,13 @@ const AcpModel = {
                 train_no: g.loc_name || trainNo || 'Unknown',
                 comm_coach_no: g.coach_no,
                 tech_coach_no: g.coach_no,
-                device_id: null,
+                device_id: g.latest.device_id || 'N/A',
                 last_heartbeat: toIST(g.latest.metric_timestamp || g.latest.created_at),
                 last_trigger: null,
                 today_count: g.todayCount,
                 total_count: g.totalCount,
+                acp_status: String(g.latest.count_value ?? 0),
+                totalized_count: g.latest.totalized_count ?? 0,
                 train_location: g.loc_name || null,
                 status: g.todayCount > 0 ? 'Active' : 'Inactive',
                 fsds_status: null,

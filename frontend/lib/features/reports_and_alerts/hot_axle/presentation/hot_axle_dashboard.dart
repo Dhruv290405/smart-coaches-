@@ -405,9 +405,9 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (hasNew) _buildExpandableSection('VASP Systemic', filteredNewData.length, 'our', _buildHamsGridForList(filteredNewData)),
+        if (hasNew) _buildExpandableSection('Section 1', filteredNewData.length, 'our', _buildHamsGridForList(filteredNewData)),
         if (hasNew && hasOld) const SizedBox(height: 8),
-        if (hasOld) _buildExpandableSection('ECR (Legacy)', _filteredCoaches.length, 'ecr', _buildDeviceGridForList(_filteredCoaches)),
+        if (hasOld) _buildExpandableSection('Section 2', _filteredCoaches.length, 'ecr', _buildDeviceGridForList(_filteredCoaches)),
       ],
     );
   }
@@ -441,12 +441,6 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
                   ),
                   const SizedBox(width: 10),
                   Text(title, style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: const Color(0xFF1A1D21))),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(color: ColorConstants.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
-                    child: Text('$count', style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: ColorConstants.primary)),
-                  ),
                   const Spacer(),
                   AnimatedRotation(
                     turns: expanded ? 0.5 : 0,

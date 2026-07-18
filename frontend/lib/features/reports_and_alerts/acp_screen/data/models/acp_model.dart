@@ -15,6 +15,7 @@ class AcpCoachModel {
   final bool isRecent;
   final String trainNo;
   final String deviceId;
+  final int totalizedCount;
   final String? lastTrigger;
   final String statusLabel;
   final String fsdsStatus;
@@ -37,6 +38,7 @@ class AcpCoachModel {
     this.isRecent = false,
     this.trainNo = 'N/A',
     this.deviceId = 'N/A',
+    this.totalizedCount = 0,
     this.lastTrigger,
     this.statusLabel = 'Not Pulled',
     this.fsdsStatus = 'OFF',

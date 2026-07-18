@@ -68,16 +68,27 @@ class HamsAxleModal extends StatelessWidget {
                           ),
                           const SizedBox(width: 12),
                           Expanded(
-                            child: Text(
-                              'Device ${data.deviceId}',
-                              style: GoogleFonts.poppins(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                                color: ColorConstants.primary,
-                              ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Device ${data.deviceId}',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                    color: ColorConstants.primary,
+                                  ),
+                                ),
+                                Text(
+                                  'Master: ${data.masterId}',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 12,
+                                    color: ColorConstants.textSecondary,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          const SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
@@ -85,8 +96,12 @@ class HamsAxleModal extends StatelessWidget {
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
-                              '\u2022 ${data.status.toUpperCase()}',
-                              style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: isAlert ? const Color(0xFFD32F2F) : const Color(0xFF2E7D32)),
+                              '${data.temperature.toStringAsFixed(1)}°C',
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: isAlert ? const Color(0xFFD32F2F) : const Color(0xFF2E7D32),
+                              ),
                             ),
                           ),
                         ],
@@ -155,7 +170,7 @@ class HamsAxleModal extends StatelessWidget {
     );
   }
 
-  Widget _buildDetailRow(String label, String value, {bool showTopBorder = true}) {
+  Widget _buildDetailRow(String label, String value, {bool showTopBorder = true, Color? valueColor}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -165,7 +180,7 @@ class HamsAxleModal extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label, style: AppTextStyles.bodyMedium),
-          Text(value, style: AppTextStyles.bodyLarge.copyWith(fontWeight: FontWeight.w500)),
+          Text(value, style: AppTextStyles.bodyLarge.copyWith(fontWeight: FontWeight.w500, color: valueColor)),
         ],
       ),
     );

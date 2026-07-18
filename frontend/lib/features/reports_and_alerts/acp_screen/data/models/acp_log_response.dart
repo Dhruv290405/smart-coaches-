@@ -48,6 +48,8 @@ class AcpLogData {
   final int? totalCount;
   @JsonKey(name: 'device_id')
   final String? deviceId;
+  @JsonKey(name: 'totalized_count')
+  final int? totalizedCount;
   final String? fsdsStatus;
   final String? fsdsTimestamp;
 
@@ -68,6 +70,7 @@ class AcpLogData {
     this.powerCarNo,
     this.totalCount,
     this.deviceId,
+    this.totalizedCount,
     this.fsdsStatus,
     this.fsdsTimestamp,
   });
@@ -92,6 +95,7 @@ class AcpLogData {
       powerCarNo: _safeString(json['power_car_no']),
       totalCount: (json['total_count'] as num?)?.toInt(),
       deviceId: _safeString(json['device_id']),
+      totalizedCount: (json['totalized_count'] as num?)?.toInt(),
       fsdsStatus: json['fsds_status']?.toString(),
       fsdsTimestamp: _safeString(json['fsds_timestamp']),
     );
@@ -113,6 +117,7 @@ class AcpLogData {
       'total_count': totalCount,
       'today_count': todayCount,
       'device_id': deviceId,
+      'totalized_count': totalizedCount,
       'fsds_status': fsdsStatus,
       'fsds_timestamp': fsdsTimestamp,
     };

@@ -25,7 +25,7 @@ class ChainPulledModal extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isAlert = coach.isChainPulled;
+    final isAlert = coach.isRecent;
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
@@ -111,10 +111,8 @@ class ChainPulledModal extends StatelessWidget {
                     ),
                     child: Column(
                       children: [
-                        _buildDetailRow('Coach No.', coach.coachNumber, showTopBorder: false),
-                        _buildDetailRow('Technical ID', coach.sensorId),
-                        if (coach.deviceId != 'N/A' && coach.deviceId.isNotEmpty)
-                          _buildDetailRow('Device ID', coach.deviceId),
+                        _buildDetailRow('Tech Coach #', coach.sensorId, showTopBorder: false),
+                        _buildDetailRow('Device ID', coach.deviceId),
                         _buildDetailRow('Train No', coach.trainNo),
                         _buildDetailRow('Location', coach.location),
                         _buildDetailRow('TODAY COUNT', '${coach.todayCount}'),
