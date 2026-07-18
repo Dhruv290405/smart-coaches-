@@ -52,6 +52,8 @@ class ApiConstants {
   static const String password = 'password';
   static const String userId = 'user_id';
 
+  static const String healthApiEndpoint = '/health';
+
   // ─── URL CONFIGURATION ────────────────────────────────────────────────────
   // PRODUCTION: deployed Railway backend
   static const String devUrl =

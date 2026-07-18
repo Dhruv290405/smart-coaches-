@@ -4,8 +4,11 @@ import 'package:intl/intl.dart';
 import 'package:smart_coach_new/core/utils/app_dimensions.dart';
 import 'package:smart_coach_new/core/utils/app_text_styles.dart';
 import 'package:smart_coach_new/core/utils/color_constants.dart';
+import 'package:smart_coach_new/core/utils/logger.dart';
+import 'package:smart_coach_new/features/reports_and_alerts/odour_management/data/models/odour_model.dart';
 import 'package:smart_coach_new/supabase_config.dart';
-import '../../data/models/odour_model.dart';
+
+final Logger _log = Logger('OdourAlerts');
 
 class OdourAlertItem {
   final OdourCoachModel record;
@@ -150,7 +153,7 @@ class _OdourAlertsViewState extends State<OdourAlertsView> {
                         );
                       }
                     } catch (e) {
-                      debugPrint('Error sending resolve command: $e');
+                      _log.error('Error sending resolve command', e);
                     }
                   },
                   child: Text('Resolve', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),

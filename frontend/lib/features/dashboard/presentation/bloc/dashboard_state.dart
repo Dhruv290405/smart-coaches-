@@ -19,6 +19,7 @@ class DashboardDataLoaded extends DashboardState {
   final List<AcpLogData> recentAlerts;
   final List<PneumaticHistoryData> recentPneumaticAlerts;
   final int acpDeployed;
+  final bool serverOnline;
 
   DashboardDataLoaded({
     required this.totalTrains,
@@ -32,6 +33,7 @@ class DashboardDataLoaded extends DashboardState {
     required this.recentAlerts,
     required this.recentPneumaticAlerts,
     this.acpDeployed = 0,
+    this.serverOnline = true,
   });
 }
 

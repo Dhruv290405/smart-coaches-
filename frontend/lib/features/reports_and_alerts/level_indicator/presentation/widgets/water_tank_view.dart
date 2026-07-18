@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:smart_coach_new/core/utils/logger.dart';
+import 'package:smart_coach_new/features/reports_and_alerts/level_indicator/data/datasources/sensor_api_service.dart';
+import 'package:smart_coach_new/features/reports_and_alerts/level_indicator/data/models/sensor_data.dart';
+import 'package:smart_coach_new/features/reports_and_alerts/level_indicator/data/models/train_list_response.dart';
 import 'package:smart_coach_new/features/reports_and_alerts/level_indicator/presentation/widgets/water_tank_card.dart';
 
-import '../../data/datasources/sensor_api_service.dart';
-import '../../data/models/sensor_data.dart';
-import '../../data/models/train_list_response.dart';
+final Logger _log = Logger('WaterTank');
 
 class WaterTank {
   final int id;
@@ -80,7 +82,7 @@ class _WaterTankViewState extends State<WaterTankView> {
           sensorDataMap[sensor.sensor_id] = data;
         });
       } catch (e) {
-        debugPrint("Error fetching data for sensor ${sensor.sensor_id}: $e");
+        _log.error('Error fetching data for sensor ${sensor.sensor_id}', e);
       }
     }
   }

@@ -1,3 +1,5 @@
+import 'dart:ui' show PlatformDispatcher;
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
@@ -8,6 +10,7 @@ import 'package:sizer/sizer.dart';
 import 'package:smart_coach_new/core/di/inject.dart';
 import 'package:smart_coach_new/core/permissions/bloc/permission_bloc.dart';
 import 'package:smart_coach_new/core/services/socket_service.dart';
+import 'package:smart_coach_new/core/utils/logger.dart';
 import 'package:smart_coach_new/features/notifications/presentation/bloc/notification_bloc.dart';
 import 'package:smart_coach_new/features/notifications/presentation/bloc/notification_event.dart';
 import 'package:smart_coach_new/services/fcm_service.dart';
@@ -17,33 +20,45 @@ import 'firebase_options.dart';
 import 'package:smart_coach_new/routes/app_router.dart';
 import 'core/theme/app_theme.dart';
 
-void main() async {
+final Logger _log = Logger('Main');
+
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await configureDependencies();
+  PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
+    _log.error('Uncaught error', error, stack);
+    return true;
+  };
 
-  // Initialize Supabase
+  FlutterError.onError = (FlutterErrorDetails details) {
+    _log.error('Flutter error: ${details.exception}', details.exception, details.stack);
+  };
+
+  await configureDependencies();
+  Logger.setLevel(LogLevel.debug);
+
   try {
     await Supabase.initialize(
       url: SupabaseConfig.url,
       anonKey: SupabaseConfig.anonKey,
     );
-    debugPrint('Supabase initialized successfully');
   } catch (e) {
-    debugPrint('Supabase initialization failed: $e');
+    _log.warn('Supabase init failed (non-critical)', e);
   }
 
-  // Firebase initialize karo
+  _initFirebaseAndFcm();
+
+  runApp(const MyApp());
+}
+
+Future<void> _initFirebaseAndFcm() async {
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
   } catch (e) {
-    debugPrint('Firebase initialization failed: $e');
+    _log.warn('Firebase init failed (non-critical)', e);
   }
-
-  // App pehle start karo
-  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
@@ -72,7 +87,6 @@ class MyApp extends StatelessWidget {
   }
 }
 
-// Firebase aur FCM ko app render hone ke baad initialize karta hai
 class _AppBootstrap extends StatefulWidget {
   final Widget child;
   const _AppBootstrap({required this.child});
@@ -85,7 +99,6 @@ class _AppBootstrapState extends State<_AppBootstrap> {
   @override
   void initState() {
     super.initState();
-    // First frame render ke baad FCM setup karo
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initSocketIo();
       _initFcm();
@@ -93,7 +106,11 @@ class _AppBootstrapState extends State<_AppBootstrap> {
   }
 
   void _initSocketIo() {
-    SocketService().connect();
+    try {
+      SocketService().connect();
+    } catch (e) {
+      _log.warn('Socket init failed', e);
+    }
   }
 
   Future<void> _initFcm() async {
@@ -101,7 +118,6 @@ class _AppBootstrapState extends State<_AppBootstrap> {
       await FCMService.initializeFCM();
       if (!mounted) return;
 
-      // Foreground message listener wire karo
       FCMService.listenForeground(
         onMessage: (RemoteMessage message) {
           final notification = message.notification;
@@ -118,7 +134,7 @@ class _AppBootstrapState extends State<_AppBootstrap> {
         },
       );
     } catch (e) {
-      debugPrint('FCM initialization failed: $e');
+      _log.warn('FCM init failed (non-critical)', e);
     }
   }
 

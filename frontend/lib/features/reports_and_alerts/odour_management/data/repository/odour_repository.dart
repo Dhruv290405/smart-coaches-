@@ -1,6 +1,9 @@
+import 'package:smart_coach_new/core/utils/logger.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:smart_coach_new/supabase_config.dart';
 import '../models/odour_model.dart';
+
+final Logger _log = Logger('OdourRepo');
 
 class OdourRepository {
   Future<List<OdourCoachModel>> getOdourData() async {
@@ -17,7 +20,7 @@ class OdourRepository {
         }
       }
     } catch (e) {
-      print('[OdourRepository] Supabase unavailable ($e), using sample data.');
+      _log.warn('Supabase unavailable ($e), using sample data.');
     }
 
     return getSampleData();
@@ -37,13 +40,13 @@ class OdourRepository {
             return maps.map((map) => _buildModelFromSupabase(map)).toList();
           })
           .handleError((error) {
-            print('[OdourRepository] Supabase stream error: $error');
+            _log.warn('Supabase stream error: $error');
             return getSampleData();
           });
 
       yield* stream;
     } catch (e) {
-      print('[OdourRepository] Supabase stream subscription failed: $e. Falling back to sample data.');
+      _log.warn('Supabase stream subscription failed: $e. Falling back to sample data.');
     }
   }
 
@@ -274,7 +277,7 @@ class OdourRepository {
           .from('iot_bad_odour')
           .insert(dbPayload);
     } catch (e) {
-      print('[OdourRepository] Supabase sendOdourData failed: $e');
+      _log.warn('Supabase sendOdourData failed: $e');
     }
   }
 }

@@ -9,6 +9,9 @@ import 'package:sizer/sizer.dart';
 import 'package:smart_coach_new/core/network/api_constants.dart';
 import 'package:smart_coach_new/core/utils/color_constants.dart';
 import 'package:smart_coach_new/core/utils/enums.dart';
+import 'package:smart_coach_new/core/utils/logger.dart';
+
+final Logger _log = Logger('ChartView');
 
 class ChartView extends StatefulWidget {
   final int? coachId;
@@ -70,7 +73,7 @@ class _ChartViewState extends State<ChartView> {
         });
       }
     } catch (e) {
-      debugPrint("Error fetching chart data: $e");
+      _log.error('Error fetching chart data', e);
       if (mounted) {
         setState(() => isLoading = false);
       }
