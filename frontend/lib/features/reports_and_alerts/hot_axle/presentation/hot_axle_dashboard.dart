@@ -7,6 +7,7 @@ import 'package:smart_coach_new/core/network/api_client.dart';
 import 'package:smart_coach_new/core/utils/app_dimensions.dart';
 import 'package:smart_coach_new/core/utils/app_icons.dart';
 import 'package:smart_coach_new/core/utils/app_strings.dart';
+import 'package:smart_coach_new/core/utils/prefs.dart';
 import 'package:smart_coach_new/core/utils/app_text_styles.dart';
 import 'package:smart_coach_new/core/utils/color_constants.dart';
 import 'package:smart_coach_new/core/widgets/action_button.dart';
@@ -52,6 +53,8 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
   List<HotAxleCoachModel> _filteredCoaches = [];
   List<HamsDataModel> _newCompanyData = [];
   final Set<String> _expandedSections = {'our', 'ecr'};
+
+  bool get _isDanapur => getIt<Prefs>().getUser()?.email == 'danapur.ops@test.com';
 
   @override
   void initState() {
@@ -139,13 +142,15 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
       final List<HotAxleCoachModel> coaches = rawData.map(_mapDataToModel).toList();
 
       List<HamsDataModel> newData = [];
-      try {
-        final resp = await getIt<ApiClient>().get('/hot-axle/new-company-data');
-        if (resp is Map && resp['success'] == true && resp['data'] is List) {
-          newData = (resp['data'] as List).map((e) => HamsDataModel.fromJson(e as Map<String, dynamic>)).toList();
+      if (!_isDanapur) {
+        try {
+          final resp = await getIt<ApiClient>().get('/hot-axle/new-company-data');
+          if (resp is Map && resp['success'] == true && resp['data'] is List) {
+            newData = (resp['data'] as List).map((e) => HamsDataModel.fromJson(e as Map<String, dynamic>)).toList();
+          }
+        } catch (e) {
+          log('New company data fetch error: $e');
         }
-      } catch (e) {
-        log('New company data fetch error: $e');
       }
 
       if (mounted) {
@@ -250,9 +255,9 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildSectionCard(child: _buildCompanyFilter()),
+                      if (!_isDanapur) _buildSectionCard(child: _buildCompanyFilter()),
                       const SizedBox(height: 8),
-                      _buildSectionCard(child: _buildFiltersSection()),
+                      if (!_isDanapur) _buildSectionCard(child: _buildFiltersSection()),
                       const SizedBox(height: 8),
                       _buildSectionCard(child: _buildQuickActionsSection()),
                       const SizedBox(height: 8),
@@ -370,6 +375,24 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
   }
 
   Widget _buildDeviceSections() {
+    if (_isDanapur) {
+      if (_filteredCoaches.isEmpty) {
+        return Container(
+          height: 200,
+          alignment: Alignment.center,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.sensors_off, size: 48, color: Colors.grey[400]),
+              const SizedBox(height: 12),
+              Text('No devices found', style: GoogleFonts.poppins(fontSize: 14, color: const Color(0xFF6B7280))),
+            ],
+          ),
+        );
+      }
+      return _buildDeviceGridForList(_filteredCoaches);
+    }
+
     final showNewData = selectedCompany == 'All' || selectedCompany == 'Section 1';
     final showOldData = selectedCompany == 'All' || selectedCompany == 'Section 2';
     final filteredNewData = _newCompanyData.where((d) {
