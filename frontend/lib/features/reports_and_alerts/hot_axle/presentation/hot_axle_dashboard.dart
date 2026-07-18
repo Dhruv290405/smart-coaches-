@@ -35,7 +35,7 @@ class HotAxleDashboard extends StatefulWidget {
 class _HotAxleDashboardState extends State<HotAxleDashboard> {
   String selectedTrainNumber = 'All Trains';
   String selectedCoachType = 'All Types';
-  String selectedOwningRly = 'All Railways';
+  String selectedCoachNumber = 'All Coach Numbers';
   String selectedStatus = 'All';
   String selectedCompany = 'All';
   String lastUpdated = 'Never';
@@ -46,7 +46,7 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
 
   List<String> trainNumbers = ['All Trains'];
   List<String> coachTypes = ['All Types'];
-  List<String> owningRlys = ['All Railways'];
+  List<String> coachNumbers = ['All Coach Numbers'];
 
   List<HotAxleCoachModel> _allCoaches = [];
   List<HotAxleCoachModel> _filteredCoaches = [];
@@ -77,7 +77,7 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
       _filteredCoaches = _allCoaches.where((coach) {
         final matchesTrain = selectedTrainNumber == 'All Trains' || coach.trainNo == selectedTrainNumber;
         final matchesCoachType = selectedCoachType == 'All Types' || coach.coachType == selectedCoachType;
-        final matchesOwningRly = selectedOwningRly == 'All Railways' || coach.owningRly == selectedOwningRly;
+        final matchesCoachNumber = selectedCoachNumber == 'All Coach Numbers' || coach.coachNumber == selectedCoachNumber;
         final matchesStatus = selectedStatus == 'All' || coach.status.toUpperCase() == selectedStatus.toUpperCase();
         bool matchesCompany;
         if (selectedCompany == 'All') {
@@ -87,7 +87,7 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
         } else {
           matchesCompany = coach.owningRly != 'ECR';
         }
-        return matchesTrain && matchesCoachType && matchesOwningRly && matchesStatus && matchesCompany;
+        return matchesTrain && matchesCoachType && matchesCoachNumber && matchesStatus && matchesCompany;
       }).toList();
     });
   }
@@ -132,11 +132,9 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
     try {
       final String? trainFilter = selectedTrainNumber == 'All Trains' ? null : selectedTrainNumber;
       final String? coachTypeFilter = selectedCoachType == 'All Types' ? null : selectedCoachType;
-      final String? owningRlyFilter = selectedOwningRly == 'All Railways' ? null : selectedOwningRly;
       final List<HotAxleData> rawData = await getIt<HotAxleRepository>().getHotAxleDashboard(
         trainNo: trainFilter,
         coachType: coachTypeFilter,
-        owningRly: owningRlyFilter,
       );
       final List<HotAxleCoachModel> coaches = rawData.map(_mapDataToModel).toList();
 
@@ -160,11 +158,11 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
 
           trainNumbers = ['All Trains', ...coaches.map((e) => e.trainNo).where((e) => e.isNotEmpty).toSet()];
           coachTypes = ['All Types', ...coaches.map((e) => e.coachType).where((e) => e.isNotEmpty).toSet()];
-          owningRlys = ['All Railways', ...coaches.map((e) => e.owningRly).where((e) => e.isNotEmpty).toSet()];
+          coachNumbers = ['All Coach Numbers', ...coaches.map((e) => e.coachNumber).where((e) => e.isNotEmpty).toSet()];
 
           if (!trainNumbers.contains(selectedTrainNumber)) selectedTrainNumber = 'All Trains';
           if (!coachTypes.contains(selectedCoachType)) selectedCoachType = 'All Types';
-          if (!owningRlys.contains(selectedOwningRly)) selectedOwningRly = 'All Railways';
+          if (!coachNumbers.contains(selectedCoachNumber)) selectedCoachNumber = 'All Coach Numbers';
 
           _applyFilters();
         });
@@ -184,7 +182,7 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
     setState(() {
       selectedTrainNumber = 'All Trains';
       selectedCoachType = 'All Types';
-      selectedOwningRly = 'All Railways';
+      selectedCoachNumber = 'All Coach Numbers';
       selectedStatus = 'All';
       selectedCompany = 'All';
     });
@@ -327,7 +325,7 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
                 },
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
             Expanded(
               child: FilterDropdown(
                 label: 'Coach Type',
@@ -339,24 +337,18 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
                 },
               ),
             ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
+            const SizedBox(width: 8),
             Expanded(
               child: FilterDropdown(
-                label: 'Owning Railway',
-                value: selectedOwningRly,
-                items: owningRlys,
+                label: 'Coach Number',
+                value: selectedCoachNumber,
+                items: coachNumbers,
                 onChanged: (value) {
-                  setState(() => selectedOwningRly = value!);
-                  _refreshData();
+                  setState(() => selectedCoachNumber = value!);
+                  _applyFilters();
                 },
               ),
             ),
-            const SizedBox(width: 10),
-            Expanded(child: Container()),
           ],
         ),
         const SizedBox(height: 12),
