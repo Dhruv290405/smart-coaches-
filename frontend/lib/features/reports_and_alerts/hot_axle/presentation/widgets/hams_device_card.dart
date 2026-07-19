@@ -13,6 +13,11 @@ class HamsDataModel {
   final String receivedTimestamp;
   final String batteryStatus;
   final double batteryVoltage;
+  final String coachNumber;
+  final String trainNo;
+  final String technicalId;
+  final String coachType;
+  final String location;
 
   HamsDataModel({
     required this.id,
@@ -24,6 +29,11 @@ class HamsDataModel {
     required this.receivedTimestamp,
     required this.batteryStatus,
     required this.batteryVoltage,
+    this.coachNumber = '',
+    this.trainNo = '',
+    this.technicalId = '',
+    this.coachType = 'HAMS',
+    this.location = '',
   });
 
   factory HamsDataModel.fromJson(Map<String, dynamic> json) {
@@ -37,6 +47,11 @@ class HamsDataModel {
       receivedTimestamp: json['received_timestamp']?.toString() ?? '',
       batteryStatus: json['battery_status']?.toString() ?? 'Low',
       batteryVoltage: (json['battery_voltage'] ?? 0.0).toDouble(),
+      coachNumber: json['coach_number']?.toString() ?? '',
+      trainNo: json['train_no']?.toString() ?? '',
+      technicalId: json['technical_id']?.toString() ?? '',
+      coachType: json['coach_type']?.toString() ?? 'HAMS',
+      location: json['location']?.toString() ?? '',
     );
   }
 }

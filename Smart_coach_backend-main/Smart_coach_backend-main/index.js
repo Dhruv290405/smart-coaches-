@@ -15,6 +15,7 @@ const notificationRoutes = require('./src/routes/notification.routes');
 const { startSupabaseListener } = require('./src/services/supabaseListener');
 
 const { apiLimiter } = require('./src/middleware/rateLimiter');
+const { logRequest } = require('./src/middleware/logger.middleware');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -27,6 +28,9 @@ app.use('/smart_coach_api/api', apiLimiter);
 if (process.env.NODE_ENV !== 'test') {
   app.use(morgan('dev'));
 }
+
+// Structured request logging — captures user info, endpoint, duration, errors
+app.use('/smart_coach_api/api', logRequest);
 
 const httpServer = createServer(app);
 const io = new Server(httpServer, {

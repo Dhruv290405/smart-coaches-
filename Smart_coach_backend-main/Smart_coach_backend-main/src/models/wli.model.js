@@ -13,13 +13,24 @@ class WliModel {
         }
     }
 
-    async getLatestStatusForAllCoaches() {
+    async getLatestStatusForAllCoaches(authorizedCoaches = null) {
         try {
             const { data, error } = await supabaseAdmin
                 .rpc('get_latest_wli_per_device');
 
             if (error) throw error;
-            return data || [];
+
+            let results = data || [];
+
+            if (authorizedCoaches !== null && authorizedCoaches.length === 0) {
+                return [];
+            }
+
+            if (authorizedCoaches !== null && authorizedCoaches.length > 0) {
+                results = results.filter(r => authorizedCoaches.includes(r.coach_name));
+            }
+
+            return results;
         } catch (err) {
             console.error("WLI Dashboard Error:", err.message);
             throw err;

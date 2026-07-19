@@ -9,12 +9,13 @@ const {
     getCoachHistory
 } = require('../controllers/acpController');
 const { authenticate } = require('../middleware/auth.middleware');
+const { requireLocation } = require('../middleware/rbac.middleware');
 
-router.get('/logs', authenticate, getAcpLogs);
+router.get('/logs', authenticate, requireLocation, getAcpLogs);
 router.all('/receive-data', receiveAcpData);
-router.get('/filters', authenticate, getFilterOptions);
-router.get('/filtered-logs', authenticate, getFilteredData);
-router.get('/summary', authenticate, getAcpSummary);
-router.get('/coach-history', authenticate, getCoachHistory); 
+router.get('/filters', authenticate, requireLocation, getFilterOptions);
+router.get('/filtered-logs', authenticate, requireLocation, getFilteredData);
+router.get('/summary', authenticate, requireLocation, getAcpSummary);
+router.get('/coach-history', authenticate, requireLocation, getCoachHistory); 
 
 module.exports = router;

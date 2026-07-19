@@ -173,7 +173,7 @@ class AxleDetailModal extends StatelessWidget {
                 _buildDividerRow('Current Temp', axle.currentTemp),
                 _buildDividerRow('Status', _getStatusLabel(axle.status)),
                 _buildDividerRow('Sensor ID', axle.sensorId),
-                _buildDividerRow('Speed', axle.speed),
+
                 _buildDividerRow('Battery', '${axle.batteryStatus} (${axle.batteryVoltage.toStringAsFixed(1)}V)'),
                 _buildDividerRow('Detected at', axle.detectedAt),
                 _buildDividerRow('Location', axle.location),

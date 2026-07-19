@@ -1,12 +1,10 @@
 const jwt = require('jsonwebtoken');
 const { errorResponse } = require('../utils/response');
-const userModel = require('../models/user.model');
-const roleModel = require('../models/role.model');
+const supabaseAdmin = require('../config/supabaseAdmin');
 
 // Middleware to verify JWT token
 const authenticate = async (req, res, next) => {
   try {
-    // Get token from header
     const authHeader = req.header('Authorization');
     const token = authHeader?.split(' ')[1];
     
@@ -14,24 +12,68 @@ const authenticate = async (req, res, next) => {
       return errorResponse(res, 'No token, authorization denied', 401);
     }
 
-    // Verify token
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your_jwt_secret');
       
-      // Check if user still exists
-      console.log('Decoded token:', decoded);
-      const user = await userModel.findOne({ email: decoded.email });
+      // Lightweight query: check user exists + is approved + get hierarchy names
+      const { data: user, error } = await supabaseAdmin
+        .from('user_master')
+        .select(`
+          user_id, email, role_id, zone_id, division_id, region_id, employee_id,
+          approval_status,
+          zone_master!left(name),
+          division_master!left(name),
+          region_master!left(name)
+        `)
+        .eq('user_id', decoded.user_id)
+        .maybeSingle();
+
+      if (error) throw error;
       if (!user) {
         return errorResponse(res, 'User not found', 404);
       }
 
-      // Check if user is approved
       if (user.approval_status !== 'Approved') {
         return errorResponse(res, 'Your account is pending approval', 403);
       }
 
-      // Attach user to request object
-      req.user = user;
+      req.user = {
+        user_id: user.user_id,
+        email: user.email,
+        role_id: user.role_id,
+        zone_id: user.zone_id,
+        division_id: user.division_id,
+        region_id: user.region_id,
+        employee_id: user.employee_id,
+        zone_name: user.zone_master?.name || null,
+        division_name: user.division_master?.name || null,
+        region_name: user.region_master?.name || null
+      };
+
+      // Fallback: resolve region_name from user_region_mapping if not set directly
+      if (!req.user.region_name && req.user.region_id) {
+        const { data: reg } = await supabaseAdmin
+          .from('region_master')
+          .select('name')
+          .eq('region_id', req.user.region_id)
+          .maybeSingle();
+        if (reg) req.user.region_name = reg.name;
+      }
+      if (!req.user.region_name) {
+        const { data: mappings } = await supabaseAdmin
+          .from('user_region_mapping')
+          .select('region_id')
+          .eq('user_id', req.user.user_id)
+          .limit(1);
+        if (mappings && mappings.length > 0) {
+          const { data: reg } = await supabaseAdmin
+            .from('region_master')
+            .select('name')
+            .eq('region_id', mappings[0].region_id)
+            .maybeSingle();
+          if (reg) req.user.region_name = reg.name;
+        }
+      }
       next();
     } catch (err) {
       if (err.name === 'TokenExpiredError') {

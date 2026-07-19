@@ -179,11 +179,20 @@ class _HotAxleDeviceCardState extends State<HotAxleDeviceCard>
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'Slave ID: ${coach.deviceId}',
+                coach.coachNumber.isNotEmpty ? coach.coachNumber : 'N/A',
                 style: GoogleFonts.poppins(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: const Color(0xFF1A1D21),
+                ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
+              Text(
+                'Device: ${coach.deviceId}',
+                style: GoogleFonts.poppins(
+                  fontSize: 10,
+                  color: const Color(0xFF6B7280),
                 ),
                 overflow: TextOverflow.ellipsis,
                 maxLines: 1,
@@ -294,6 +303,17 @@ class _HotAxleDeviceCardState extends State<HotAxleDeviceCard>
           '${coach.batteryPercentage}%',
           _getBatteryColor(coach.batteryPercentage),
         ),
+        const SizedBox(height: 4),
+        if (coach.technicalId.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: _buildInfoRow(
+              Icons.qr_code,
+              'Tech ID',
+              coach.technicalId,
+              const Color(0xFF6B7280),
+            ),
+          ),
         const SizedBox(height: 4),
         _buildInfoRow(
           Icons.access_time,

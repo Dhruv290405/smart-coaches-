@@ -78,6 +78,9 @@ class _HotAxleDetailScreenState extends State<HotAxleDetailScreen> {
             _card(child: _liveAxlesList()),
             const SizedBox(height: 16),
 
+            _card(child: _fullHistorySection()),
+            const SizedBox(height: 16),
+
             _card(child: _historySection()),
           ],
         ),
@@ -92,28 +95,52 @@ class _HotAxleDetailScreenState extends State<HotAxleDetailScreen> {
     child: child,
   );
 
-  Widget _trainInfoCard() => Container(
-    width: double.infinity,
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: ColorConstants.white,
-      borderRadius: BorderRadius.circular(12),
-      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 8, offset: const Offset(0, 2))],
-    ),
-    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(children: [
-        SvgPicture.asset(AppIcons.train, width: 18, height: 18, colorFilter: const ColorFilter.mode(ColorConstants.primary, BlendMode.srcIn)),
-        const SizedBox(width: 8),
-        Text('Train ${widget.coach.trainNo}', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w700, color: ColorConstants.primary)),
-      ]),
-      const SizedBox(height: 8),
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(color: ColorConstants.cardBackground, borderRadius: BorderRadius.circular(8)),
-        child: Text('Last Updated: ${_formatTimestamp(widget.coach.timestamp)}', style: AppTextStyles.bodySmall),
+  Widget _trainInfoCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: ColorConstants.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 8, offset: const Offset(0, 2))],
       ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          SvgPicture.asset(AppIcons.train, width: 18, height: 18, colorFilter: const ColorFilter.mode(ColorConstants.primary, BlendMode.srcIn)),
+          const SizedBox(width: 8),
+          Expanded(child: Text(
+            'Train ${widget.coach.trainNo.isNotEmpty ? widget.coach.trainNo : "N/A"}',
+            style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w700, color: ColorConstants.primary),
+          )),
+        ]),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(color: ColorConstants.cardBackground, borderRadius: BorderRadius.circular(8)),
+          child: Text('Last Updated: ${_formatTimestamp(widget.coach.timestamp)}', style: AppTextStyles.bodySmall),
+        ),
+        const SizedBox(height: 12),
+        const Divider(height: 1),
+        const SizedBox(height: 10),
+        _infoRow('Train No', widget.coach.trainNo.isNotEmpty ? widget.coach.trainNo : 'N/A'),
+        _infoRow('Coach No', widget.coach.coachNumber.isNotEmpty ? widget.coach.coachNumber : 'N/A'),
+        _infoRow('Master ID', widget.coach.deviceId.isNotEmpty ? widget.coach.deviceId : 'N/A'),
+        _infoRow('Device ID', widget.coach.deviceId.isNotEmpty ? widget.coach.deviceId : 'N/A'),
+        _infoRow('Coach Type', widget.coach.coachType.isNotEmpty ? widget.coach.coachType : 'N/A'),
+        if (widget.coach.technicalId.isNotEmpty)
+          _infoRow('Technical ID', widget.coach.technicalId),
+      ]),
+    );
+  }
+
+  Widget _infoRow(String label, String value) => Padding(
+    padding: const EdgeInsets.only(bottom: 6),
+    child: Row(children: [
+      Expanded(flex: 2, child: Text(label, style: GoogleFonts.poppins(fontSize: 11, color: ColorConstants.textSecondary))),
+      Expanded(flex: 3, child: Text(value, overflow: TextOverflow.ellipsis, style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600, color: ColorConstants.textPrimary))),
     ]),
   );
+
 
   Widget _coachSummaryStrip() {
     final statusColor = _statusColor(widget.coach.status);
@@ -174,6 +201,8 @@ class _HotAxleDetailScreenState extends State<HotAxleDetailScreen> {
                     MaterialPageRoute(
                       builder: (_) => HotAxleHistoryScreen(
                         coach: widget.coach,
+                        axleNumber: (widget.coach.coachType == 'HAMS' || widget.coach.coachNumber.startsWith('Master:')) ? null : axle.axleNumber,
+                        deviceId: (widget.coach.coachType == 'HAMS' || widget.coach.coachNumber.startsWith('Master:')) ? axle.sensorId : null,
                       ),
                     ),
                   ),
@@ -184,11 +213,37 @@ class _HotAxleDetailScreenState extends State<HotAxleDetailScreen> {
                 MaterialPageRoute(
                   builder: (_) => HotAxleHistoryScreen(
                     coach: widget.coach,
+                    axleNumber: (widget.coach.coachType == 'HAMS' || widget.coach.coachNumber.startsWith('Master:')) ? null : axle.axleNumber,
+                    deviceId: (widget.coach.coachType == 'HAMS' || widget.coach.coachNumber.startsWith('Master:')) ? axle.sensorId : null,
                   ),
                 ),
               ),
             );
           },
+        ),
+      ],
+    );
+  }
+
+  Widget _fullHistorySection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Full History (All Axles)', style: AppTextStyles.header2),
+            TextButton.icon(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => HotAxleHistoryScreen(coach: widget.coach),
+                ),
+              ),
+              icon: const Icon(Icons.history, size: 16),
+              label: const Text('View All'),
+            ),
+          ],
         ),
       ],
     );
@@ -234,8 +289,6 @@ class _HotAxleDetailScreenState extends State<HotAxleDetailScreen> {
         _hRow('Current Temp', e.currentTemp),
         const Divider(color: ColorConstants.divider),
         _hRow('Status', e.status, valueColor: statusColor),
-        const Divider(color: ColorConstants.divider),
-        _hRow('Speed', e.speed),
         const Divider(color: ColorConstants.divider),
         _hRow('Detected At', e.detectedAt),
       ]),

@@ -48,15 +48,15 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
   List<String> trainNumbers = ['All Trains'];
   List<String> coachTypes = ['All Types'];
   List<String> coachNumbers = ['All Coach Numbers'];
-  List<String> _hamsMasterIds = ['All Trains'];
-  List<String> _hamsDeviceIds = ['All Types'];
 
   List<HotAxleCoachModel> _allCoaches = [];
   List<HotAxleCoachModel> _filteredCoaches = [];
+  List<HotAxleCoachModel> _allHamsCoaches = [];
+  List<HotAxleCoachModel> _filteredHamsCoaches = [];
   List<HamsDataModel> _newCompanyData = [];
   final Set<String> _expandedSections = {'our', 'ecr'};
 
-  bool get _isDanapur => getIt<Prefs>().getUser()?.email == 'danapur.ops@test.com';
+  bool get _isDanapur => (getIt<Prefs>().getUser()?.regionName ?? '').toLowerCase() == 'danapur';
 
   @override
   void initState() {
@@ -77,6 +77,69 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
     });
   }
 
+  int _getHamsAxleIndex(String deviceId) {
+    final cleanId = deviceId.trim().toUpperCase();
+    const mapping = {
+      'HAMS001': 0,
+      'HAMS002': 1,
+      'HAMS003': 2,
+      'HAMS004': 3,
+      'HAMS005': 4,
+      'HAMS006': 5,
+      'HAMS008': 6,
+      'HAMS009': 7,
+    };
+    if (mapping.containsKey(cleanId)) {
+      return mapping[cleanId]!;
+    }
+    final numStr = cleanId.replaceAll(RegExp(r'\D'), '');
+    final num = int.tryParse(numStr);
+    if (num != null) {
+      if (num <= 6) return num - 1;
+      if (num >= 8 && num <= 9) return num - 2;
+    }
+    return -1;
+  }
+
+  void _updateFilterLists() {
+    final showNewData = _isDanapur || selectedCompany == 'All' || selectedCompany == 'Section 1';
+    final showOldData = !_isDanapur && (selectedCompany == 'All' || selectedCompany == 'Section 2');
+
+    final Set<String> trains = {};
+    final Set<String> types = {};
+    final Set<String> coaches = {};
+
+    if (showOldData) {
+      trains.addAll(_allCoaches.map((e) => e.trainNo).where((e) => e.isNotEmpty));
+      types.addAll(_allCoaches.map((e) => e.coachType).where((e) => e.isNotEmpty));
+      coaches.addAll(_allCoaches.map((e) => e.coachNumber).where((e) => e.isNotEmpty));
+    }
+
+    if (showNewData) {
+      trains.addAll(_allHamsCoaches.map((e) => e.trainNo).where((e) => e.isNotEmpty));
+      types.addAll(_allHamsCoaches.map((e) => e.coachType).where((e) => e.isNotEmpty));
+      coaches.addAll(_allHamsCoaches.map((e) => e.coachNumber).where((e) => e.isNotEmpty));
+    }
+
+    final sortedTrains = trains.toList()..sort();
+    final sortedTypes = types.toList()..sort();
+    final sortedCoaches = coaches.toList()..sort();
+
+    trainNumbers = ['All Trains', ...sortedTrains];
+    coachTypes = ['All Types', ...sortedTypes];
+    coachNumbers = ['All Coach Numbers', ...sortedCoaches];
+
+    if (selectedTrainNumber != 'All Trains' && !trains.contains(selectedTrainNumber)) {
+      selectedTrainNumber = 'All Trains';
+    }
+    if (selectedCoachType != 'All Types' && !types.contains(selectedCoachType)) {
+      selectedCoachType = 'All Types';
+    }
+    if (selectedCoachNumber != 'All Coach Numbers' && !coaches.contains(selectedCoachNumber)) {
+      selectedCoachNumber = 'All Coach Numbers';
+    }
+  }
+
   void _applyFilters() {
     setState(() {
       _filteredCoaches = _allCoaches.where((coach) {
@@ -91,6 +154,22 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
           matchesCompany = coach.owningRly == 'ECR';
         } else {
           matchesCompany = coach.owningRly != 'ECR';
+        }
+        return matchesTrain && matchesCoachType && matchesCoachNumber && matchesStatus && matchesCompany;
+      }).toList();
+
+      _filteredHamsCoaches = _allHamsCoaches.where((coach) {
+        final matchesTrain = selectedTrainNumber == 'All Trains' || coach.trainNo == selectedTrainNumber;
+        final matchesCoachType = selectedCoachType == 'All Types' || coach.coachType == selectedCoachType;
+        final matchesCoachNumber = selectedCoachNumber == 'All Coach Numbers' || coach.coachNumber == selectedCoachNumber;
+        final matchesStatus = selectedStatus == 'All' || coach.status.toUpperCase() == selectedStatus.toUpperCase();
+        bool matchesCompany;
+        if (selectedCompany == 'All') {
+          matchesCompany = true;
+        } else if (selectedCompany == 'Section 1') {
+          matchesCompany = true;
+        } else {
+          matchesCompany = false;
         }
         return matchesTrain && matchesCoachType && matchesCoachNumber && matchesStatus && matchesCompany;
       }).toList();
@@ -144,15 +223,13 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
       final List<HotAxleCoachModel> coaches = rawData.map(_mapDataToModel).toList();
 
       List<HamsDataModel> newData = [];
-      if (!_isDanapur) {
-        try {
-          final resp = await getIt<ApiClient>().get('/hot-axle/new-company-data');
-          if (resp is Map && resp['success'] == true && resp['data'] is List) {
-            newData = (resp['data'] as List).map((e) => HamsDataModel.fromJson(e as Map<String, dynamic>)).toList();
-          }
-        } catch (e) {
-          log('New company data fetch error: $e');
+      try {
+        final resp = await getIt<ApiClient>().get('/hot-axle/new-company-data');
+        if (resp is Map && resp['success'] == true && resp['data'] is List) {
+          newData = (resp['data'] as List).map((e) => HamsDataModel.fromJson(e as Map<String, dynamic>)).toList();
         }
+      } catch (e) {
+        log('New company data fetch error: $e');
       }
 
       if (mounted) {
@@ -163,12 +240,17 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
           _allCoaches = coaches;
           _newCompanyData = newData;
 
-          trainNumbers = ['All Trains', ...coaches.map((e) => e.trainNo).where((e) => e.isNotEmpty).toSet()];
-          coachTypes = ['All Types', ...coaches.map((e) => e.coachType).where((e) => e.isNotEmpty).toSet()];
-          coachNumbers = ['All Coach Numbers', ...coaches.map((e) => e.coachNumber).where((e) => e.isNotEmpty).toSet()];
-          _hamsMasterIds = ['All Trains', ...newData.map((e) => e.masterId).where((e) => e.isNotEmpty).toSet()];
-          _hamsDeviceIds = ['All Types', ...newData.map((e) => e.deviceId).where((e) => e.isNotEmpty).toSet()];
+          final Map<String, List<HamsDataModel>> grouped = {};
+          for (final d in newData) {
+            if (d.masterId.isEmpty) continue;
+            grouped.putIfAbsent(d.masterId, () => []).add(d);
+          }
+          _allHamsCoaches = [];
+          for (final entry in grouped.entries) {
+            _allHamsCoaches.add(_mapMasterDevicesToCoach(entry.key, entry.value));
+          }
 
+          _updateFilterLists();
           _applyFilters();
         });
       }
@@ -190,6 +272,7 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
       selectedCoachNumber = 'All Coach Numbers';
       selectedStatus = 'All';
       selectedCompany = 'All';
+      _updateFilterLists();
     });
     _applyFilters();
   }
@@ -283,7 +366,10 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
       value: selectedCompany,
       items: const ['All', 'Section 2', 'Section 1'],
       onChanged: (value) {
-        setState(() => selectedCompany = value!);
+        setState(() {
+          selectedCompany = value!;
+          _updateFilterLists();
+        });
         _applyFilters();
       },
     );
@@ -317,74 +403,45 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
           ],
         ),
         const SizedBox(height: 8),
-        if (selectedCompany == 'Section 1')
-          Row(
-            children: [
-              Expanded(
-                child: FilterDropdown(
-                  label: 'Master ID',
-                  value: selectedTrainNumber,
-                  items: _hamsMasterIds,
-                  onChanged: (value) {
-                    setState(() => selectedTrainNumber = value!);
-                  },
-                ),
+        Row(
+          children: [
+            Expanded(
+              child: FilterDropdown(
+                label: 'Train Number',
+                value: selectedTrainNumber,
+                items: trainNumbers,
+                onChanged: (value) {
+                  setState(() => selectedTrainNumber = value!);
+                  _refreshData();
+                },
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: FilterDropdown(
-                  label: 'Device ID',
-                  value: selectedCoachType,
-                  items: _hamsDeviceIds,
-                  onChanged: (value) {
-                    setState(() => selectedCoachType = value!);
-                  },
-                ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: FilterDropdown(
+                label: 'Coach Type',
+                value: selectedCoachType,
+                items: coachTypes,
+                onChanged: (value) {
+                  setState(() => selectedCoachType = value!);
+                  _refreshData();
+                },
               ),
-              const SizedBox(width: 8),
-              Expanded(child: Container()),
-            ],
-          )
-        else
-          Row(
-            children: [
-              Expanded(
-                child: FilterDropdown(
-                  label: 'Train Number',
-                  value: selectedTrainNumber,
-                  items: trainNumbers,
-                  onChanged: (value) {
-                    setState(() => selectedTrainNumber = value!);
-                    _refreshData();
-                  },
-                ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: FilterDropdown(
+                label: 'Coach Number',
+                value: selectedCoachNumber,
+                items: coachNumbers,
+                onChanged: (value) {
+                  setState(() => selectedCoachNumber = value!);
+                  _applyFilters();
+                },
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: FilterDropdown(
-                  label: 'Coach Type',
-                  value: selectedCoachType,
-                  items: coachTypes,
-                  onChanged: (value) {
-                    setState(() => selectedCoachType = value!);
-                    _refreshData();
-                  },
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: FilterDropdown(
-                  label: 'Coach Number',
-                  value: selectedCoachNumber,
-                  items: coachNumbers,
-                  onChanged: (value) {
-                    setState(() => selectedCoachNumber = value!);
-                    _applyFilters();
-                  },
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
+        ),
         const SizedBox(height: 12),
         Text('Status', style: AppTextStyles.label),
         const SizedBox(height: 4),
@@ -405,7 +462,7 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
 
   Widget _buildDeviceSections() {
     if (_isDanapur) {
-      if (_filteredCoaches.isEmpty) {
+      if (_filteredHamsCoaches.isEmpty) {
         return Container(
           height: 200,
           alignment: Alignment.center,
@@ -419,23 +476,13 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
           ),
         );
       }
-      return _buildDeviceGridForList(_filteredCoaches);
+      return _buildHamsGridForList(_filteredHamsCoaches);
     }
 
     final showNewData = selectedCompany == 'All' || selectedCompany == 'Section 1';
     final showOldData = selectedCompany == 'All' || selectedCompany == 'Section 2';
-    final filteredNewData = _newCompanyData.where((d) {
-      if (selectedStatus != 'All') {
-        final state = d.tempState == 'Normal' ? 'Good' : d.tempState;
-        if (state.toUpperCase() != selectedStatus.toUpperCase()) return false;
-      }
-      if (selectedCompany == 'Section 1') {
-        if (selectedTrainNumber != 'All Trains' && d.masterId != selectedTrainNumber) return false;
-        if (selectedCoachType != 'All Types' && d.deviceId != selectedCoachType) return false;
-      }
-      return true;
-    }).toList();
-    final hasNew = filteredNewData.isNotEmpty && showNewData;
+
+    final hasNew = _filteredHamsCoaches.isNotEmpty && showNewData;
     final hasOld = _filteredCoaches.isNotEmpty && showOldData;
 
     if (!hasNew && !hasOld) {
@@ -456,7 +503,7 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (hasNew) _buildExpandableSection('Section 1', filteredNewData.length, 'our', _buildHamsGridForList(filteredNewData)),
+        if (hasNew) _buildExpandableSection('Section 1', _filteredHamsCoaches.length, 'our', _buildHamsGridForList(_filteredHamsCoaches)),
         if (hasNew && hasOld) const SizedBox(height: 8),
         if (hasOld) _buildExpandableSection('Section 2', _filteredCoaches.length, 'ecr', _buildDeviceGridForList(_filteredCoaches)),
       ],
@@ -514,15 +561,7 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
     );
   }
 
-  Widget _buildHamsGridForList(List<HamsDataModel> dataList) {
-    // Group by masterId, each master has up to 8 devices
-    final Map<String, List<HamsDataModel>> grouped = {};
-    for (final d in dataList) {
-      if (d.masterId.isEmpty) continue;
-      grouped.putIfAbsent(d.masterId, () => []).add(d);
-    }
-    final masterEntries = grouped.entries.toList();
-
+  Widget _buildHamsGridForList(List<HotAxleCoachModel> coaches) {
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -532,12 +571,9 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
         mainAxisSpacing: 12,
         childAspectRatio: 0.62,
       ),
-      itemCount: masterEntries.length,
+      itemCount: coaches.length,
       itemBuilder: (context, index) {
-        final entry = masterEntries[index];
-        final masterId = entry.key;
-        final devices = entry.value;
-        final coach = _mapMasterDevicesToCoach(masterId, devices);
+        final coach = coaches[index];
         return HotAxleDeviceCard(
           coach: coach,
           sequenceNumber: index + 1,
@@ -561,59 +597,71 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
     }
     final devices = latestByDevice.values.toList();
     devices.removeWhere((d) => d.deviceId == 'HAMS007');
-    devices.sort((a, b) => a.deviceId.compareTo(b.deviceId));
 
+    final firstDev = devices.isNotEmpty ? devices.first : null;
     double a11 = 0, a12 = 0, a21 = 0, a22 = 0, a31 = 0, a32 = 0, a41 = 0, a42 = 0;
     int batteryPct = 50;
-    if (devices.isNotEmpty) {
-      final bat = devices.first.batteryStatus.toLowerCase();
+    if (firstDev != null) {
+      final bat = firstDev.batteryStatus.toLowerCase();
       if (bat == 'low') batteryPct = 15;
       else if (bat == 'moderate') batteryPct = 40;
       else if (bat == 'high') batteryPct = 80;
     }
 
-    for (int i = 0; i < devices.length && i < 8; i++) {
-      final temp = devices[i].temperature;
-      switch (i) {
-        case 0: a11 = temp; break;
-        case 1: a12 = temp; break;
-        case 2: a21 = temp; break;
-        case 3: a22 = temp; break;
-        case 4: a31 = temp; break;
-        case 5: a32 = temp; break;
-        case 6: a41 = temp; break;
-        case 7: a42 = temp; break;
-      }
+    for (final d in devices) {
+      final temp = d.temperature;
+      final idx = _getHamsAxleIndex(d.deviceId);
+      if (idx == 0) a11 = temp;
+      else if (idx == 1) a12 = temp;
+      else if (idx == 2) a21 = temp;
+      else if (idx == 3) a22 = temp;
+      else if (idx == 4) a31 = temp;
+      else if (idx == 5) a32 = temp;
+      else if (idx == 6) a41 = temp;
+      else if (idx == 7) a42 = temp;
     }
 
     final List<AxleModel> axles = [];
-    for (int i = 0; i < devices.length && i < 8; i++) {
-      final d = devices[i];
-      final tempStr = '${d.temperature}°C';
-      final status = d.temperature > 60 ? 'Warning' : 'Good';
+    final hamsDeviceIds = ['HAMS001', 'HAMS002', 'HAMS003', 'HAMS004', 'HAMS005', 'HAMS006', 'HAMS008', 'HAMS009'];
+    for (int i = 0; i < 8; i++) {
+      final devId = hamsDeviceIds[i];
+      final match = devices.firstWhere((d) => d.deviceId.toUpperCase() == devId.toUpperCase(), orElse: () => HamsDataModel(
+        id: 0,
+        deviceId: devId,
+        masterId: masterId,
+        temperature: 0,
+        status: 'Low',
+        tempState: 'Normal',
+        receivedTimestamp: firstDev?.receivedTimestamp ?? '',
+        batteryStatus: 'N/A',
+        batteryVoltage: 0.0,
+      ));
+      final tempStr = '${match.temperature}°C';
+      final status = match.temperature > 60 ? 'Warning' : 'Good';
       axles.add(AxleModel(
         axleNumber: i + 1,
         status: status,
         maxTemp: tempStr,
         currentTemp: tempStr,
-        sensorId: d.deviceId,
+        sensorId: match.deviceId,
         speed: 'N/A',
-        detectedAt: d.receivedTimestamp,
-        location: 'Nagpur',
+        detectedAt: match.receivedTimestamp,
+        location: match.location.isNotEmpty ? match.location : 'N/A',
         lastMaintenance: 'N/A',
-        updateTime: d.receivedTimestamp,
-        batteryStatus: d.batteryStatus,
-        batteryVoltage: d.batteryVoltage,
+        updateTime: match.receivedTimestamp,
+        batteryStatus: match.batteryStatus,
+        batteryVoltage: match.batteryVoltage,
       ));
     }
 
     return HotAxleCoachModel(
       deviceId: masterId,
-      coachNumber: 'Master: $masterId',
+      coachNumber: firstDev?.coachNumber ?? 'Master: $masterId',
+      technicalId: firstDev?.technicalId ?? '',
       coachType: 'HAMS',
       owningRly: 'VASP',
-      trainNo: '',
-      timestamp: devices.isNotEmpty ? devices.first.receivedTimestamp : '',
+      trainNo: firstDev?.trainNo ?? '',
+      timestamp: firstDev?.receivedTimestamp ?? '',
       batteryPercentage: batteryPct,
       signalStrength: 0,
       a11Temp: a11, a12Temp: a12,
@@ -691,7 +739,7 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
               child: ActionButton(
                 label: AppStrings.generateReport,
                 svgIcon: AppIcons.report,
-                onTap: () => HotAxleReportGenerator.generate(context, _filteredCoaches),
+                onTap: () => HotAxleReportGenerator.generate(context, [..._filteredHamsCoaches, ..._filteredCoaches]),
                 isFullWidth: true,
               ),
             ),
@@ -733,7 +781,7 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
   }
 
   List<Map<String, dynamic>> _buildAlertData() {
-    return _filteredCoaches
+    return [..._filteredHamsCoaches, ..._filteredCoaches]
         .where((c) => c.status == 'Warning' || c.status == 'Critical')
         .map((c) => {
               'type': c.status.toLowerCase(),

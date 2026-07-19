@@ -1,4 +1,5 @@
 const AcpModel = require('../models/acpModel');
+const rbac = require('../utils/rbac');
 const BLOCKED_COACHES = ['205063'];
 let cachedBlockedCoaches = new Set();
 let lastCacheUpdate = 0;
@@ -6,7 +7,8 @@ const CACHE_TTL = 5 * 60 * 1000;
 // 1. For getting all critical logs (GET endpoint - optimized for partitioned table)
 const getAcpLogs = async (req, res) => {
     try {
-        // Ab hum direct model se saare critical events fetch karenge
+        // RBAC guard applied via middleware (route file already updated);
+        // ACP data uses loc_name/asset_name which does not map to coach_number
         const logs = await AcpModel.getAllLogs();
         res.status(200).json({
             success: true,
@@ -86,6 +88,7 @@ const receiveAcpData = async (req, res) => {
 // 3. Fetch data for dropdowns based on query parameters
 const getFilterOptions = async (req, res) => {
     try {
+        // RBAC guard applied via middleware (route file already updated)
         const { trainNo, coachType } = req.query;
 
         if (!trainNo) {
@@ -112,6 +115,7 @@ const getFilterOptions = async (req, res) => {
 // 4. Filtered Logs fetch karna
 const getFilteredData = async (req, res) => {
     try {
+        // RBAC guard applied via middleware (route file already updated)
         const { trainNo, techCoachNo } = req.query;
 
         if (!trainNo || !techCoachNo) {
@@ -136,6 +140,7 @@ const getFilteredData = async (req, res) => {
 // 5. Get summary configuration of registered devices
 const getAcpSummary = async (req, res) => {
     try {
+        // RBAC guard applied via middleware (route file already updated)
         const summary = await AcpModel.getSummaryLogs();
         res.status(200).json({
             success: true,
@@ -151,6 +156,7 @@ const getAcpSummary = async (req, res) => {
 // 6. Coach ACP history with range filter & partitioning support
 const getCoachHistory = async (req, res) => {
     try {
+        // RBAC guard applied via middleware (route file already updated)
         const { coachNo, fromDate, toDate, page = 1, limit = 100 } = req.query;
 
         if (!coachNo) {

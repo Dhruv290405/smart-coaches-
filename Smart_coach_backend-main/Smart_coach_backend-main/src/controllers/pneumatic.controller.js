@@ -93,7 +93,7 @@ exports.getBreakBindingData = async (req, res) => {
             .eq('device_id', activeDeviceId);
 
         if (req.user && req.user.role_id !== 1) {
-            const userLoc = req.user.region_name || req.user.division_name;
+            const userLoc = req.user.division_name || req.user.region_name;
             if (userLoc) coachQuery = coachQuery.ilike('Location', userLoc);
         }
 
@@ -133,6 +133,9 @@ exports.getBreakBindingData = async (req, res) => {
         ]);
 
         const deviceMapping = {
+            'SCBB NP001': { technical_id: 'NP001', coach_no: 'NP1', Train_no: 'NAGPUR01', location: 'Nagpur' },
+            'SCBB NP002': { technical_id: 'NP002', coach_no: 'NP2', Train_no: 'NAGPUR01', location: 'Nagpur' },
+            'SCBB NP003': { technical_id: 'NP003', coach_no: 'NP3', Train_no: 'NAGPUR01', location: 'Nagpur' },
             'Raspberry4_4': { technical_id: '231035', coach_no: 'M3', Train_no: '13071', location: 'Kolkatta' },
             'Raspberry4_1': { technical_id: '231545', coach_no: 'S4', Train_no: '13277', location: 'Jaipur' },
             'Raspberry4_2': { technical_id: '234534', coach_no: 'S3', Train_no: '12578', location: 'Jaipur' },
@@ -250,6 +253,9 @@ exports.getBreakBindingData = async (req, res) => {
 exports.getCoachesByLocation = async (req, res) => {
     if (!supabase) {
         const deviceMapping = {
+            'SCBB NP001': { technical_id: 'NP001', coach_no: 'NP1', Train_no: 'NAGPUR01', location: 'Nagpur' },
+            'SCBB NP002': { technical_id: 'NP002', coach_no: 'NP2', Train_no: 'NAGPUR01', location: 'Nagpur' },
+            'SCBB NP003': { technical_id: 'NP003', coach_no: 'NP3', Train_no: 'NAGPUR01', location: 'Nagpur' },
             'Raspberry4_4': { technical_id: '231035', coach_no: 'M3', Train_no: '13071', location: 'Kolkatta' },
             'Raspberry4_1': { technical_id: '231545', coach_no: 'S4', Train_no: '13277', location: 'Jaipur' },
             'Raspberry4_2': { technical_id: '234534', coach_no: 'S3', Train_no: '12578', location: 'Jaipur' },
@@ -286,7 +292,7 @@ exports.getCoachesByLocation = async (req, res) => {
             .select('id, technical_id, coach_no, device_id, Train_no, Location, Actual_id');
 
         if (role_id !== 1) {
-            const userLocation = region_name || division_name;
+            const userLocation = division_name || region_name;
 
             if (!userLocation) {
                 return res.status(403).json({

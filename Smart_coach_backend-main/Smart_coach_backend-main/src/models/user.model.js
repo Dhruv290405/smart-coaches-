@@ -91,7 +91,11 @@ class UserModel extends BaseModel {
     const payload = {
       user_id: user.user_id,
       email: user.email,
-      role_id: user.role_id
+      role_id: user.role_id,
+      zone_id: user.zone_id,
+      division_id: user.division_id,
+      region_id: user.region_id,
+      employee_id: user.employee_id
     };
 
     return jwt.sign(

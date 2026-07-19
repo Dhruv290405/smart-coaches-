@@ -13,7 +13,7 @@ class HotAxleModel {
         }
     }
 
-    async getData(deviceId, limit) {
+    async getData(deviceId, limit, authorizedCoaches = null) {
         try {
             let query = supabaseAdmin
                 .from('hot_axle_logs')
@@ -21,6 +21,10 @@ class HotAxleModel {
 
             if (deviceId) {
                 query = query.eq('device_id', deviceId);
+            }
+
+            if (authorizedCoaches && authorizedCoaches.length > 0) {
+                query = query.in('coach_number', authorizedCoaches);
             }
 
             const { data, error } = await query
@@ -35,7 +39,7 @@ class HotAxleModel {
         }
     }
 
-    async getHistoryData({ deviceId, coachNumber, startDate, endDate, limit, offset }) {
+    async getHistoryData({ deviceId, coachNumber, startDate, endDate, limit, offset, authorizedCoaches = null }) {
         try {
             let query = supabaseAdmin
                 .from('hot_axle_logs')
@@ -47,6 +51,10 @@ class HotAxleModel {
 
             if (coachNumber && coachNumber !== 'All') {
                 query = query.eq('coach_number', coachNumber);
+            }
+
+            if (authorizedCoaches && authorizedCoaches.length > 0) {
+                query = query.in('coach_number', authorizedCoaches);
             }
 
             if (startDate && endDate) {
@@ -76,7 +84,7 @@ class HotAxleModel {
             const deviceIds = [...new Set((data || []).map(r => r.device_id).filter(Boolean))].sort();
             const coachTypes = [...new Set((data || []).map(r => r.coach_type).filter(Boolean))].sort();
             const owningRlys = [...new Set((data || []).map(r => r.owning_rly).filter(Boolean))].sort();
-            const trainNos = [...new Set((data || []).map(r => r.train_no).filter(Boolean))].sort();
+            const trainNos = [...new Set((data || []).filter(r => r.coach_type !== 'HAMS').map(r => r.train_no).filter(Boolean))].sort();
             const coachNumbers = [...new Set((data || []).map(r => r.coach_number).filter(Boolean))].sort();
             return { deviceIds, coachTypes, owningRlys, trainNos, coachNumbers };
         } catch (err) {
@@ -85,7 +93,7 @@ class HotAxleModel {
         }
     }
 
-    async getLatestStatusForAllCoaches(filters = {}) {
+    async getLatestStatusForAllCoaches(filters = {}, authorizedCoaches = null) {
         try {
             const { data, error } = await supabaseAdmin
                 .rpc('get_latest_per_device');
@@ -93,6 +101,10 @@ class HotAxleModel {
             if (error) throw error;
 
             let result = data || [];
+
+            if (authorizedCoaches && authorizedCoaches.length > 0) {
+                result = result.filter(r => authorizedCoaches.includes(r.coach_number));
+            }
 
             if (filters.trainNo && filters.trainNo !== 'All Trains') {
                 result = result.filter(r => r.train_no?.toString() === filters.trainNo);

@@ -2,16 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:smart_coach_new/core/di/inject.dart';
+import 'package:smart_coach_new/core/network/api_client.dart';
 import 'package:smart_coach_new/core/utils/app_text_styles.dart';
 import 'package:smart_coach_new/core/utils/color_constants.dart';
 import 'package:smart_coach_new/core/widgets/period_filter.dart';
 import 'package:smart_coach_new/features/reports_and_alerts/hot_axle/data/models/hot_axle_history_response.dart';
 import 'package:smart_coach_new/features/reports_and_alerts/hot_axle/data/models/hot_axle_model.dart';
-import 'package:smart_coach_new/features/reports_and_alerts/hot_axle/data/repository/hot_axle_repository.dart';
 
 class HotAxleHistoryScreen extends StatefulWidget {
   final HotAxleCoachModel coach;
-  const HotAxleHistoryScreen({super.key, required this.coach});
+  final int? axleNumber;
+  final String? deviceId;
+  const HotAxleHistoryScreen({super.key, required this.coach, this.axleNumber, this.deviceId});
 
   @override
   State<HotAxleHistoryScreen> createState() => _HotAxleHistoryScreenState();
@@ -70,17 +72,28 @@ class _HotAxleHistoryScreenState extends State<HotAxleHistoryScreen> {
 
     try {
       final page = reset ? 1 : _currentPage + 1;
-      final response = await getIt<HotAxleRepository>().getHotAxleHistory(
-        coachNumber: widget.coach.coachNumber,
-        startDate: _startDate,
-        endDate: _endDate,
-        page: page,
-      );
+      final isHams = widget.coach.coachType == 'HAMS' || widget.coach.coachNumber.startsWith('Master:');
+      final params = <String, dynamic>{
+        'coachNumber': widget.coach.coachNumber,
+        'coachType': widget.coach.coachType,
+        'coachDeviceId': widget.coach.deviceId,
+        'startDate': _startDate,
+        'endDate': _endDate,
+        'page': page,
+        'limit': 30,
+      };
+      if (widget.deviceId != null) {
+        params['deviceId'] = widget.deviceId;
+      } else if (widget.axleNumber != null && !isHams) {
+        params['axleNumber'] = widget.axleNumber.toString();
+      }
+      final resp = await getIt<ApiClient>().get('/hot-axle/history', queryParams: params);
+      final parsed = HotAxleHistoryResponse.fromJson(resp as Map<String, dynamic>);
       setState(() {
         if (reset) _items.clear();
-        _items.addAll(response.data ?? []);
-        _currentPage = response.meta?.currentPage ?? page;
-        _totalPages = response.meta?.totalPages ?? 1;
+        _items.addAll(parsed.data ?? []);
+        _currentPage = parsed.meta?.currentPage ?? page;
+        _totalPages = parsed.meta?.totalPages ?? 1;
         _isLoading = false;
         _isLoadingMore = false;
       });
@@ -158,7 +171,11 @@ class _HotAxleHistoryScreenState extends State<HotAxleHistoryScreen> {
         ),
         titleSpacing: 4,
         title: Text(
-          'Coach ${widget.coach.coachNumber} - History',
+          widget.axleNumber != null
+              ? 'Axle ${widget.axleNumber} - History'
+              : widget.deviceId != null
+                  ? '${widget.deviceId} - History'
+                  : '${widget.coach.coachNumber} - History',
           style: AppTextStyles.header1,
         ),
       ),

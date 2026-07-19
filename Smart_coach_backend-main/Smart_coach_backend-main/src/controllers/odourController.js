@@ -1,4 +1,5 @@
 const OdourModel = require("../models/odour.model");
+const rbac = require('../utils/rbac');
 
 const odourController = {
     receiveData: async (req, res) => {
@@ -50,7 +51,8 @@ const odourController = {
 
     getDashboardStatus: async (req, res) => {
         try {
-            const statusData = await OdourModel.getLatestStatusForAllCoaches();
+            const authorizedCoaches = await rbac.getAuthorizedCoachNumbers(req.user);
+            const statusData = await OdourModel.getLatestStatusForAllCoaches(authorizedCoaches);
 
             return res.status(200).json({
                 success: true,

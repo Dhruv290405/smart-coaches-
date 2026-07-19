@@ -13,14 +13,22 @@ class PressureModel {
         }
     }
 
-    async getLatestData(deviceId = null, limit = 30) {
+    async getLatestData(deviceId = null, limit = 30, authorizedCoaches = null) {
         try {
             let query = supabaseAdmin
                 .from('pressure_logs')
                 .select('*');
 
+            if (authorizedCoaches !== null && authorizedCoaches.length === 0) {
+                return [];
+            }
+
             if (deviceId) {
                 query = query.eq('device_id', deviceId);
+            }
+
+            if (authorizedCoaches !== null && authorizedCoaches.length > 0) {
+                query = query.in('coach_number', authorizedCoaches);
             }
 
             const { data, error } = await query
@@ -35,13 +43,24 @@ class PressureModel {
         }
     }
 
-    async getDashboardStatus() {
+    async getDashboardStatus(authorizedCoaches = null) {
         try {
             const { data, error } = await supabaseAdmin
                 .rpc('get_latest_per_coach');
 
             if (error) throw error;
-            return data || [];
+
+            let results = data || [];
+
+            if (authorizedCoaches !== null && authorizedCoaches.length === 0) {
+                return [];
+            }
+
+            if (authorizedCoaches !== null && authorizedCoaches.length > 0) {
+                results = results.filter(r => authorizedCoaches.includes(r.coach_number));
+            }
+
+            return results;
         } catch (err) {
             console.error("Pressure Dashboard Model Error:", err.message);
             throw err;

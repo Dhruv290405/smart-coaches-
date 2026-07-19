@@ -1,5 +1,6 @@
 const HotAxleModel = require("../models/hotAxle.model");
 const supabaseAdmin = require("../config/supabaseAdmin");
+const rbac = require("../utils/rbac");
 
 const hotAxleController = {
     receiveData: async (req, res) => {
@@ -62,8 +63,9 @@ const hotAxleController = {
         try {
             const filterDeviceId = req.query.deviceId || null;
             const historyLimit = parseInt(req.query.limit) || 10;
+            const authorizedCoaches = await rbac.getAuthorizedCoachNumbers(req.user);
 
-            const readings = await HotAxleModel.getData(filterDeviceId, historyLimit);
+            const readings = await HotAxleModel.getData(filterDeviceId, historyLimit, authorizedCoaches);
 
             if (!readings || readings.length === 0) {
                 return res.status(404).json({
@@ -92,22 +94,37 @@ const hotAxleController = {
     try {
         const { 
             deviceId, 
+            axleNumber,
             coachNumber, 
+            coachType,
+            coachDeviceId,
             startDate, 
             endDate, 
             page = 1, 
             limit = 30 
         } = req.query;
 
-        if (coachNumber && coachNumber.startsWith('Master: ')) {
-            const masterId = coachNumber.replace('Master: ', '').trim();
+        const isHams = (coachType && coachType.toLowerCase() === 'hams') || (coachNumber && coachNumber.startsWith('Master: '));
+
+        if (isHams) {
             const sOld = require('../config/supabaseOld');
             if (!sOld) {
                 return res.status(500).json({ success: false, message: "Old Supabase not configured" });
             }
 
+            // Fetch HAMS registration metadata from coaches_hams
+            const { data: hamsReg } = await supabaseAdmin
+                .from('coaches_hams')
+                .select('coach_no, train_no, technical_id, location, actual_id')
+                .limit(1)
+                .maybeSingle();
+
             let query = sOld.from('hams_data').select('*');
-            query = query.eq('master_id', masterId);
+
+            // Filter by specific sensor device if provided
+            if (deviceId && deviceId !== 'All') {
+                query = query.eq('device_id', deviceId);
+            }
 
             if (startDate && endDate) {
                 query = query
@@ -118,6 +135,12 @@ const hotAxleController = {
             const { data, error } = await query
                 .order('received_timestamp', { ascending: false })
                 .limit(2000);
+
+            // Attach registration metadata to every row
+            const coachNo = hamsReg?.coach_no || '';
+            const trainNo = hamsReg?.train_no || '';
+            const technicalId = hamsReg?.technical_id || '';
+            const location = hamsReg?.location || 'N/A';
 
             if (error) throw error;
 
@@ -134,42 +157,105 @@ const hotAxleController = {
                 grouped[bucket].push(d);
             }
 
+            const hamsOrder = ['HAMS001', 'HAMS002', 'HAMS003', 'HAMS004', 'HAMS005', 'HAMS006', 'HAMS008', 'HAMS009'];
             let mappedHistory = [];
-            for (let bucket in grouped) {
-                const devices = grouped[bucket];
-                const axleDevices = [...devices];
-                axleDevices.sort((a, b) => a.device_id.localeCompare(b.device_id));
 
-                let temps = [0,0,0,0,0,0,0,0,0];
-                let maxTemp = 0;
-                for (let i = 0; i < axleDevices.length && i < 9; i++) {
-                    temps[i] = axleDevices[i].temperature || 0;
-                    if (temps[i] > maxTemp) maxTemp = temps[i];
+            if (deviceId && deviceId !== 'All') {
+                for (let bucket in grouped) {
+                    const devices = grouped[bucket];
+                    const match = devices.find(d => d.device_id === deviceId);
+                    if (!match) continue; // Skip to prevent repeating timing/data issue when sensor was not active
+
+                    const temp = match.temperature || 0;
+                    let bat = 50;
+                    if (match.battery_status) {
+                        const bs = match.battery_status.toLowerCase();
+                        if (bs === 'low') bat = 15;
+                        else if (bs === 'moderate') bat = 40;
+                        else if (bs === 'high') bat = 80;
+                    }
+
+                    let temps = [0,0,0,0,0,0,0,0];
+                    let devIdx = hamsOrder.indexOf(deviceId);
+                    if (devIdx === -1) {
+                        const num = parseInt(deviceId.replace(/\D/g, ''));
+                        if (!isNaN(num)) {
+                            if (num <= 6) devIdx = num - 1;
+                            else if (num >= 8 && num <= 9) devIdx = num - 2;
+                        }
+                    }
+                    if (devIdx >= 0 && devIdx < 8) {
+                        temps[devIdx] = temp;
+                    } else {
+                        temps[0] = temp;
+                    }
+
+                    mappedHistory.push({
+                        timestamp: bucket,
+                        device_id: deviceId,
+                        coach_number: coachNo,
+                        train_no: trainNo,
+                        technical_id: technicalId,
+                        coach_type: 'HAMS',
+                        owning_rly: 'VASP',
+                        location: location,
+                        a11_temp: temps[0], a12_temp: temps[1],
+                        a21_temp: temps[2], a22_temp: temps[3],
+                        a31_temp: temps[4], a32_temp: temps[5],
+                        a41_temp: temps[6], a42_temp: temps[7],
+                        battery_percentage: bat,
+                        signal_strength: 0,
+                        alert_status: temp > 60 ? 'Warning' : 'Good',
+                    });
                 }
+            } else {
+                for (let bucket in grouped) {
+                    const devices = grouped[bucket];
+                    const axleDevices = [...devices].filter(d => d.device_id !== 'HAMS007');
 
-                let bat = 50;
-                let firstWithBat = devices.find(d => d.battery_status);
-                if (firstWithBat) {
-                    const bs = firstWithBat.battery_status.toLowerCase();
-                    if (bs === 'low') bat = 15;
-                    else if (bs === 'moderate') bat = 40;
-                    else if (bs === 'high') bat = 80;
+                    let temps = [0,0,0,0,0,0,0,0];
+                    let maxTemp = 0;
+                    for (let dev of axleDevices) {
+                        let idx = hamsOrder.indexOf(dev.device_id);
+                        if (idx === -1) {
+                            const num = parseInt(dev.device_id.replace(/\D/g, ''));
+                            if (!isNaN(num)) {
+                                if (num <= 6) idx = num - 1;
+                                else if (num >= 8 && num <= 9) idx = num - 2;
+                            }
+                        }
+                        if (idx >= 0 && idx < 8) {
+                            temps[idx] = dev.temperature || 0;
+                            if (temps[idx] > maxTemp) maxTemp = temps[idx];
+                        }
+                    }
+
+                    let bat = 50;
+                    if (axleDevices[0] && axleDevices[0].battery_status) {
+                        const bs = axleDevices[0].battery_status.toLowerCase();
+                        if (bs === 'low') bat = 15;
+                        else if (bs === 'moderate') bat = 40;
+                        else if (bs === 'high') bat = 80;
+                    }
+
+                    mappedHistory.push({
+                        timestamp: bucket,
+                        device_id: coachNo || 'HAMS-M1-001',
+                        coach_number: coachNo,
+                        train_no: trainNo,
+                        technical_id: technicalId,
+                        coach_type: 'HAMS',
+                        owning_rly: 'VASP',
+                        location: location,
+                        a11_temp: temps[0], a12_temp: temps[1],
+                        a21_temp: temps[2], a22_temp: temps[3],
+                        a31_temp: temps[4], a32_temp: temps[5],
+                        a41_temp: temps[6], a42_temp: temps[7],
+                        battery_percentage: bat,
+                        signal_strength: 0,
+                        alert_status: maxTemp > 60 ? 'Warning' : 'Good',
+                    });
                 }
-
-                mappedHistory.push({
-                    timestamp: bucket,
-                    device_id: masterId,
-                    coach_number: coachNumber,
-                    coach_type: 'HAMS',
-                    owning_rly: 'VASP',
-                    a11_temp: temps[0], a12_temp: temps[1],
-                    a21_temp: temps[2], a22_temp: temps[3],
-                    a31_temp: temps[4], a32_temp: temps[5],
-                    a41_temp: temps[6], a42_temp: temps[7],
-                    battery_percentage: bat,
-                    signal_strength: 0,
-                    alert_status: maxTemp > 60 ? 'Warning' : 'Good',
-                });
             }
 
             mappedHistory.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
@@ -191,25 +277,95 @@ const hotAxleController = {
         }
 
         const offset = (parseInt(page) - 1) * parseInt(limit);
+        const authorizedCoaches = await rbac.getAuthorizedCoachNumbers(req.user);
 
         const result = await HotAxleModel.getHistoryData({
             deviceId: deviceId || 'All',
             coachNumber: coachNumber || 'All',
             startDate: startDate || null,
             endDate: endDate || null,
-            limit: limit,
-            offset: offset
+            limit: 2000,
+            offset: 0,
+            authorizedCoaches
         });
+
+        const rawItems = result.data || [];
+        const axleColumns = ['a11_temp','a12_temp','a21_temp','a22_temp','a31_temp','a32_temp','a41_temp','a42_temp'];
+
+        if (axleNumber && !isNaN(parseInt(axleNumber))) {
+            const aIdx = parseInt(axleNumber) - 1;
+            const col = axleColumns[aIdx] || 'a11_temp';
+            const filtered = rawItems.map(d => {
+                const val = d[col] || 0;
+                const temps = [0,0,0,0,0,0,0,0];
+                temps[aIdx] = val;
+                return { ...d,
+                    a11_temp: temps[0], a12_temp: temps[1],
+                    a21_temp: temps[2], a22_temp: temps[3],
+                    a31_temp: temps[4], a32_temp: temps[5],
+                    a41_temp: temps[6], a42_temp: temps[7],
+                };
+            });
+            const bucketed = {};
+            for (let d of filtered) {
+                if (!d.timestamp) continue;
+                const dateObj = new Date(d.timestamp);
+                if (isNaN(dateObj.getTime())) continue;
+                const min = dateObj.getMinutes();
+                const roundedMin = min - (min % 15);
+                dateObj.setMinutes(roundedMin, 0, 0);
+                const bucket = dateObj.toISOString();
+                if (!bucketed[bucket] || new Date(d.timestamp) > new Date(bucketed[bucket].timestamp)) {
+                    bucketed[bucket] = d;
+                }
+            }
+            let paged2 = Object.values(bucketed);
+            paged2.sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
+            const total2 = paged2.length;
+            const startIdx2 = (parseInt(page) - 1) * parseInt(limit);
+            const slice2 = paged2.slice(startIdx2, startIdx2 + parseInt(limit));
+            return res.status(200).json({
+                success: true,
+                meta: {
+                    totalRecords: total2,
+                    currentPage: parseInt(page),
+                    totalPages: Math.ceil(total2 / parseInt(limit)),
+                    limit: parseInt(limit)
+                },
+                data: slice2
+            });
+        }
+
+        const grouped = {};
+        for (let d of rawItems) {
+            if (!d.timestamp) continue;
+            const dateObj = new Date(d.timestamp);
+            if (isNaN(dateObj.getTime())) continue;
+            const min = dateObj.getMinutes();
+            const roundedMin = min - (min % 15);
+            dateObj.setMinutes(roundedMin, 0, 0);
+            const bucket = dateObj.toISOString();
+            if (!grouped[bucket] || new Date(d.timestamp) > new Date(grouped[bucket].timestamp)) {
+                grouped[bucket] = d;
+            }
+        }
+
+        let bucketed = Object.values(grouped);
+        bucketed.sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
+
+        const total = bucketed.length;
+        const startIdx = (parseInt(page) - 1) * parseInt(limit);
+        const paged = bucketed.slice(startIdx, startIdx + parseInt(limit));
 
         return res.status(200).json({
             success: true,
             meta: {
-                totalRecords: result.total,
+                totalRecords: total,
                 currentPage: parseInt(page),
-                totalPages: Math.ceil(result.total / limit),
+                totalPages: Math.ceil(total / parseInt(limit)),
                 limit: parseInt(limit)
             },
-            data: result.data
+            data: paged
         });
 
     } catch (error) {
@@ -231,9 +387,10 @@ const hotAxleController = {
     getDashboardStatus: async (req, res) => {
         try {
             const { trainNo, deviceId, coachType, owningRly, coachNumber } = req.query;
+            const authorizedCoaches = await rbac.getAuthorizedCoachNumbers(req.user);
             const statusData = await HotAxleModel.getLatestStatusForAllCoaches({
                 trainNo, deviceId, coachType, owningRly, coachNumber
-            });
+            }, authorizedCoaches);
 
             return res.status(200).json({
                 success: true,
@@ -249,15 +406,21 @@ const hotAxleController = {
 
     getNewCompanyData: async (req, res) => {
         try {
-            const userEmail = req.user?.email || '';
-            const isDanapur = userEmail === 'danapur.ops@test.com';
+            const isDanapur = (req.user.region_name || '').toLowerCase() === 'danapur';
 
             if (isDanapur) {
-                const { data, error } = await supabaseAdmin
+                const authorizedCoaches = await rbac.getAuthorizedCoachNumbers(req.user);
+                let query = supabaseAdmin
                     .from('hot_axle_logs')
                     .select('*')
                     .order('id', { ascending: false })
                     .limit(500);
+
+                if (authorizedCoaches && authorizedCoaches.length > 0) {
+                    query = query.in('coach_number', authorizedCoaches);
+                }
+
+                const { data, error } = await query;
 
                 if (error) throw error;
 
@@ -296,19 +459,59 @@ const hotAxleController = {
                 return res.status(500).json({ success: false, message: "Old Supabase not configured" });
             }
 
-            const { data, error } = await supabaseOld
+            // Use coaches_hams as the registration source for Section 1 HAMS devices
+            const { data: hamsRegs } = await supabaseAdmin
+                .from('coaches_hams')
+                .select('coach_no, train_no, technical_id, location, actual_id');
+
+            // Build a lookup by actual_id (master registration id) — one entry per master
+            const hamsMeta = {};
+            for (const reg of (hamsRegs || [])) {
+                const key = (reg.actual_id || '').trim();
+                if (key) {
+                    hamsMeta[key] = {
+                        coach_no: reg.coach_no || '',
+                        train_no: reg.train_no || '',
+                        technical_id: reg.technical_id || '',
+                        location: reg.location || 'N/A',
+                        coach_type: 'HAMS',
+                    };
+                }
+            }
+
+            // Fallback: use first registration for all rows if no direct match
+            const defaultMeta = hamsRegs && hamsRegs.length > 0 ? {
+                coach_no: hamsRegs[0].coach_no || '',
+                train_no: hamsRegs[0].train_no || '',
+                technical_id: hamsRegs[0].technical_id || '',
+                location: hamsRegs[0].location || 'N/A',
+                coach_type: 'HAMS',
+            } : null;
+
+            const { data: hamsData, error: hamsError } = await supabaseOld
                 .from('hams_data')
                 .select('*')
                 .order('created_at', { ascending: false });
 
-            if (error) throw error;
+            if (hamsError) throw hamsError;
 
-            const filtered = (data || []).filter(d => d.master_id === 'HAMS-M1-001');
+            const enriched = (hamsData || []).map(d => {
+                // Try to match by master_id against actual_id, else use default registration
+                const meta = hamsMeta[d.master_id] || defaultMeta || {};
+                return {
+                    ...d,
+                    coach_number: meta.coach_no || '',
+                    train_no: meta.train_no || '',
+                    technical_id: meta.technical_id || '',
+                    location: meta.location || 'N/A',
+                    coach_type: meta.coach_type || 'HAMS',
+                };
+            });
 
             return res.status(200).json({
                 success: true,
-                totalCoaches: filtered.length,
-                data: filtered
+                totalCoaches: enriched.length,
+                data: enriched,
             });
         } catch (error) {
             console.error("New Company Data Error:", error.message);

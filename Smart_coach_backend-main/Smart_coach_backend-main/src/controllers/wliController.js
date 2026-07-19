@@ -1,4 +1,5 @@
 const WliModel = require("../models/wli.model");
+const rbac = require('../utils/rbac');
 const OLD = 'https://smart-coach-api-production.up.railway.app/smart_coach_api/api';
 
 const wliController = {
@@ -58,7 +59,8 @@ const wliController = {
 
     getDashboardStatus: async (req, res) => {
         try {
-            const statusData = await WliModel.getLatestStatusForAllCoaches();
+            const authorizedCoaches = await rbac.getAuthorizedCoachNumbers(req.user);
+            const statusData = await WliModel.getLatestStatusForAllCoaches(authorizedCoaches);
 
             return res.status(200).json({
                 success: true,

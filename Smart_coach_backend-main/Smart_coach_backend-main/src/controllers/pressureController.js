@@ -1,4 +1,5 @@
 const PressureModel = require("../models/pressure.model");
+const rbac = require('../utils/rbac');
 
 const pressureController = {
     // 1. POST API - DEVICE DATA RECEIVER (UNCHANGED)
@@ -47,7 +48,8 @@ const pressureController = {
         try {
             const deviceId = req.query.deviceId || null;
             const limit = parseInt(req.query.limit) || 10;
-            const results = await PressureModel.getLatestData(deviceId, limit);
+            const authorizedCoaches = await rbac.getAuthorizedCoachNumbers(req.user);
+            const results = await PressureModel.getLatestData(deviceId, limit, authorizedCoaches);
 
             if (!results || results.length === 0) {
                 return res.status(404).json({
@@ -72,7 +74,8 @@ const pressureController = {
     getDashboardStatus: async (req, res) => {
         try {
             // Model se har active device ka sabse latest single record fetch karega
-            const statusData = await PressureModel.getDashboardStatus();
+            const authorizedCoaches = await rbac.getAuthorizedCoachNumbers(req.user);
+            const statusData = await PressureModel.getDashboardStatus(authorizedCoaches);
 
             if (!statusData || statusData.length === 0) {
                 return res.status(404).json({

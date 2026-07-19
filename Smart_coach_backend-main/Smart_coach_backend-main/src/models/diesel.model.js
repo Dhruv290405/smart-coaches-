@@ -2,7 +2,7 @@ const supabaseAdmin = require('../config/supabaseAdmin');
 
 const DIESEL_SENSOR_TYPE_ID = 6;
 
-async function getDieselSensors(coachId) {
+async function getDieselSensors(coachId, authorizedCoaches = null) {
   let query = supabaseAdmin
     .from('sensor_config')
     .select('sensor_id, coach_id')
@@ -12,15 +12,25 @@ async function getDieselSensors(coachId) {
     query = query.eq('coach_id', coachId);
   }
 
+  if (authorizedCoaches !== null && authorizedCoaches.length === 0) {
+    return [];
+  }
+
   const { data: sensors, error } = await query;
   if (error) throw error;
 
   const enriched = await Promise.all(sensors.map(async (sensor) => {
     const { data: coach } = await supabaseAdmin
       .from('coaches')
-      .select('id, train_id')
+      .select('id, train_id, coach_number')
       .eq('id', sensor.coach_id)
       .single();
+
+    if (authorizedCoaches !== null && authorizedCoaches.length > 0) {
+      if (!coach || !coach.coach_number || !authorizedCoaches.includes(coach.coach_number)) {
+        return null;
+      }
+    }
 
     let trainData = { train_number: null, train_name: null };
     if (coach && coach.train_id) {
@@ -43,7 +53,7 @@ async function getDieselSensors(coachId) {
     };
   }));
 
-  return enriched;
+  return enriched.filter(Boolean);
 }
 
 async function getLatestReadings(sensorIds) {

@@ -20,12 +20,21 @@ class OdourModel {
         }
     }
 
-    async getLatestStatusForAllCoaches() {
+    async getLatestStatusForAllCoaches(authorizedCoaches = null) {
         try {
-            const { data, error } = await acpSupabase
+            let query = acpSupabase
                 .from(TABLE)
-                .select('*')
-                .order('timestamp', { ascending: false });
+                .select('*');
+
+            if (authorizedCoaches !== null && authorizedCoaches.length === 0) {
+                return [];
+            }
+
+            if (authorizedCoaches !== null && authorizedCoaches.length > 0) {
+                query = query.in('coach_number', authorizedCoaches);
+            }
+
+            const { data, error } = await query.order('timestamp', { ascending: false });
 
             if (error) throw error;
 

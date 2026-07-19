@@ -1,4 +1,5 @@
 const FsdsModel = require("../models/fsds.model");
+const rbac = require('../utils/rbac');
 
 const formatBinary = (val) => (val === 1 || val === '1' || val === true) ? 'On' : 'Off';
 
@@ -51,6 +52,8 @@ const fsdsController = {
 
     getData: async (req, res) => {
         try {
+            // RBAC guard applied via middleware; FSDS uses loc_name field which
+            // does not directly map to coach_number for location-based filtering
             const { limit, offset, locName, trainNo } = req.query;
             const logs = await FsdsModel.getLogs({
                 limit: parseInt(limit) || 100,

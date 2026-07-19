@@ -1,10 +1,12 @@
 const dieselModel = require('../models/diesel.model');
+const rbac = require('../utils/rbac');
 const { successResponse, errorResponse } = require('../utils/response');
 
 exports.getDieselReadings = async (req, res) => {
   try {
     const { coach_id } = req.query;
-    const sensors = await dieselModel.getDieselSensors(coach_id);
+    const authorizedCoaches = await rbac.getAuthorizedCoachNumbers(req.user);
+    const sensors = await dieselModel.getDieselSensors(coach_id, authorizedCoaches);
 
     if (!sensors.length) {
       return successResponse(res, 'No diesel sensors found for this coach', [], 200);
