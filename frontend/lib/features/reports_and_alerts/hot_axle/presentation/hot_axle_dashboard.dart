@@ -560,6 +560,7 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
       }
     }
     final devices = latestByDevice.values.toList();
+    devices.removeWhere((d) => d.deviceId == 'HAMS007');
     devices.sort((a, b) => a.deviceId.compareTo(b.deviceId));
 
     double a11 = 0, a12 = 0, a21 = 0, a22 = 0, a31 = 0, a32 = 0, a41 = 0, a42 = 0;
@@ -571,7 +572,7 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
       else if (bat == 'high') batteryPct = 80;
     }
 
-    for (int i = 0; i < devices.length && i < 9; i++) {
+    for (int i = 0; i < devices.length && i < 8; i++) {
       final temp = devices[i].temperature;
       switch (i) {
         case 0: a11 = temp; break;
@@ -586,7 +587,7 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
     }
 
     final List<AxleModel> axles = [];
-    for (int i = 0; i < devices.length && i < 9; i++) {
+    for (int i = 0; i < devices.length && i < 8; i++) {
       final d = devices[i];
       final tempStr = '${d.temperature}°C';
       final status = d.temperature > 60 ? 'Warning' : 'Good';
