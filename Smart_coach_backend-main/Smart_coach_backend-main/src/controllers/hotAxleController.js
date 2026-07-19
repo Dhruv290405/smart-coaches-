@@ -119,7 +119,9 @@ const hotAxleController = {
                 .limit(1)
                 .maybeSingle();
 
-            let query = sOld.from('hams_data').select('*');
+            let query = sOld.from('hams_data')
+                .select('*')
+                .ilike('master_id', 'hams-m1-001');
 
             // Filter by specific sensor device if provided
             if (deviceId && deviceId !== 'All') {
@@ -491,6 +493,7 @@ const hotAxleController = {
             const { data: hamsData, error: hamsError } = await supabaseOld
                 .from('hams_data')
                 .select('*')
+                .ilike('master_id', 'hams-m1-001')
                 .order('created_at', { ascending: false });
 
             if (hamsError) throw hamsError;
