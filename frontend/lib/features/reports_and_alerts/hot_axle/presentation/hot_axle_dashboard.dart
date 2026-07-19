@@ -197,6 +197,7 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
       batteryPercentage: d.batteryPercentage,
       signalStrength: d.signalStrength,
       apiStatus: _mapAlertStatus(d.alertStatus),
+      technicalId: d.technicalId ?? '',
     );
   }
 

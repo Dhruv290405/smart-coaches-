@@ -61,6 +61,7 @@ class HotAxleData {
   final String? owningRly;
   final String? timestamp;
   final String? alertStatus;
+  final String? technicalId;
 
   HotAxleData({
     this.id,
@@ -87,6 +88,7 @@ class HotAxleData {
     this.owningRly,
     this.timestamp,
     this.alertStatus,
+    this.technicalId,
   });
 
   factory HotAxleData.fromJson(Map<String, dynamic> json) {
@@ -127,6 +129,7 @@ class HotAxleData {
       owningRly: json['owning_rly']?.toString(),
       timestamp: json['timestamp']?.toString(),
       alertStatus: json['alert_status']?.toString(),
+      technicalId: json['technical_id']?.toString(),
     );
   }
 }

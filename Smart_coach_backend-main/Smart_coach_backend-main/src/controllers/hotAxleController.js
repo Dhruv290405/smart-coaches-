@@ -1,6 +1,35 @@
 const HotAxleModel = require("../models/hotAxle.model");
 const supabaseAdmin = require("../config/supabaseAdmin");
 const rbac = require("../utils/rbac");
+const sOld = require('../config/supabaseOld');
+
+async function getRailwayTechnicalIds() {
+    const deviceMapping = {
+        'SCBB NP001': 'NP001',
+        'SCBB NP002': 'NP002',
+        'SCBB NP003': 'NP003',
+        'Raspberry4_4': '231035',
+        'Raspberry4_1': '231545',
+        'Raspberry4_2': '234534',
+        'Raspberry4_3': '211245'
+    };
+    const railwayMeta = { ...deviceMapping };
+    if (sOld) {
+        try {
+            const { data: regs } = await sOld
+                .from('coaches_railway')
+                .select('technical_id, device_id');
+            for (const reg of (regs || [])) {
+                if (reg.device_id) {
+                    railwayMeta[reg.device_id] = reg.technical_id;
+                }
+            }
+        } catch (e) {
+            console.error("Error fetching coaches_railway:", e.message);
+        }
+    }
+    return railwayMeta;
+}
 
 const hotAxleController = {
     receiveData: async (req, res) => {
@@ -291,7 +320,11 @@ const hotAxleController = {
             authorizedCoaches
         });
 
-        const rawItems = result.data || [];
+        const technicalIdsMap = await getRailwayTechnicalIds();
+        const rawItems = (result.data || []).map(item => ({
+            ...item,
+            technical_id: technicalIdsMap[item.device_id] || ''
+        }));
         const axleColumns = ['a11_temp','a12_temp','a21_temp','a22_temp','a31_temp','a32_temp','a41_temp','a42_temp'];
 
         if (axleNumber && !isNaN(parseInt(axleNumber))) {
@@ -394,10 +427,16 @@ const hotAxleController = {
                 trainNo, deviceId, coachType, owningRly, coachNumber
             }, authorizedCoaches);
 
+            const technicalIdsMap = await getRailwayTechnicalIds();
+            const enriched = (statusData || []).map(item => ({
+                ...item,
+                technical_id: technicalIdsMap[item.device_id] || ''
+            }));
+
             return res.status(200).json({
                 success: true,
-                totalCoaches: statusData.length,
-                data: statusData
+                totalCoaches: enriched.length,
+                data: enriched
             });
 
         } catch (error) {

@@ -40,10 +40,15 @@ class HotAxleCoachModel {
     required this.signalStrength,
     this.apiStatus,
     this.customAxles,
-    this.batteryStatus = 'N/A',
-    this.batteryVoltage = 0.0,
+    String? batteryStatus,
+    double? batteryVoltage,
     this.technicalId = '',
-  });
+  })  : this.batteryStatus = (batteryStatus != null && batteryStatus != 'N/A' && batteryStatus.isNotEmpty)
+            ? batteryStatus
+            : (batteryPercentage <= 20 ? 'Low' : (batteryPercentage >= 80 ? 'High' : 'Moderate')),
+        this.batteryVoltage = (batteryVoltage != null && batteryVoltage != 0.0)
+            ? batteryVoltage
+            : (3.0 + (batteryPercentage / 100.0) * 1.2);
 
   double get maxTemp {
     if (customAxles != null && customAxles!.isNotEmpty) {
@@ -113,6 +118,7 @@ class HotAxleCoachModel {
       signalStrength: json['signal_strength'] ?? 0,
       batteryStatus: json['battery_status']?.toString() ?? 'N/A',
       batteryVoltage: (json['battery_voltage'] ?? 0.0).toDouble(),
+      technicalId: json['technical_id']?.toString() ?? '',
     );
   }
 }
