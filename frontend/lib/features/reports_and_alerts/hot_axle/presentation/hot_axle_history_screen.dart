@@ -1,6 +1,13 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:open_file/open_file.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:excel/excel.dart' hide Border;
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
 import 'package:smart_coach_new/core/di/inject.dart';
 import 'package:smart_coach_new/core/network/api_client.dart';
 import 'package:smart_coach_new/core/utils/app_text_styles.dart';
@@ -29,6 +36,9 @@ class _HotAxleHistoryScreenState extends State<HotAxleHistoryScreen> {
   final List<HotAxleHistoryItem> _items = [];
   int _currentPage = 1;
   int _totalPages = 1;
+
+  /// True when this screen is for a specific axle (not the full history)
+  bool get _isParticularAxle => widget.axleNumber != null || widget.deviceId != null;
 
   @override
   void initState() {
@@ -132,16 +142,298 @@ class _HotAxleHistoryScreenState extends State<HotAxleHistoryScreen> {
     }
   }
 
+  // ─── Report Generation ─────────────────────────────────────────────────────
+
+  Future<void> _generateReport() async {
+    if (_items.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No history data to export'), backgroundColor: Colors.orange),
+      );
+      return;
+    }
+
+    final String? format = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('Select Report Format',
+            style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 16)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _formatOption(ctx, 'Excel Report', 'xlsx', Icons.table_chart, Colors.green),
+            const SizedBox(height: 12),
+            _formatOption(ctx, 'PDF Report', 'pdf', Icons.picture_as_pdf, Colors.red),
+          ],
+        ),
+      ),
+    );
+    if (format == null || !context.mounted) return;
+
+    // Show loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const CircularProgressIndicator(color: ColorConstants.primary),
+            const SizedBox(height: 16),
+            Text('Generating Report…',
+                style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500)),
+          ]),
+        ),
+      ),
+    );
+
+    try {
+      final File file;
+      if (format == 'xlsx') {
+        file = await _buildExcel();
+      } else {
+        file = await _buildPdf();
+      }
+      if (context.mounted) Navigator.pop(context);
+      if (context.mounted) _showSuccess(file.path);
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+      }
+    }
+  }
+
+  Future<File> _buildExcel() async {
+    final excel = Excel.createExcel();
+    final sheet = excel['History'];
+    excel.setDefaultSheet('History');
+
+    final title = _isParticularAxle
+        ? 'Axle History — ${widget.deviceId ?? 'Axle ${widget.axleNumber}'}'
+        : 'All Axle History — ${widget.coach.coachNumber}';
+
+    void hdr(int r, int c, String t) {
+      final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: c, rowIndex: r));
+      cell.value = TextCellValue(t);
+      cell.cellStyle = CellStyle(bold: true, fontSize: 13, fontColorHex: ExcelColor.fromHexString('#1565C0'));
+    }
+
+    void col(int r, int c, String t) {
+      final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: c, rowIndex: r));
+      cell.value = TextCellValue(t);
+      cell.cellStyle = CellStyle(bold: true,
+          backgroundColorHex: ExcelColor.fromHexString('#1565C0'),
+          fontColorHex: ExcelColor.fromHexString('#FFFFFF'),
+          fontSize: 11);
+    }
+
+    void cell(int r, int c, String t, {String? color}) {
+      final ce = sheet.cell(CellIndex.indexByColumnRow(columnIndex: c, rowIndex: r));
+      ce.value = TextCellValue(t);
+      ce.cellStyle = color != null
+          ? CellStyle(fontColorHex: ExcelColor.fromHexString('#$color'), bold: true, fontSize: 11)
+          : CellStyle(fontSize: 11);
+    }
+
+    hdr(0, 0, title);
+    hdr(1, 0, 'Period: $_startDate  →  $_endDate');
+    hdr(2, 0, 'Generated: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}');
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 3)).value = TextCellValue('');
+
+    if (_isParticularAxle) {
+      final headers = ['Timestamp', 'Axle Temperature (°C)', 'Temperature Status', 'Battery Voltage (V)', 'Battery Status'];
+      for (var i = 0; i < headers.length; i++) col(4, i, headers[i]);
+      for (var r = 0; r < _items.length; r++) {
+        final item = _items[r];
+        final axleTemp = item.maxTemp;
+        final sc = item.status == 'Critical' ? 'D32F2F' : item.status == 'Warning' ? 'BE8B22' : null;
+        cell(5 + r, 0, _formatTimestampRaw(item.timestamp));
+        cell(5 + r, 1, '${axleTemp.toStringAsFixed(1)}°C', color: sc);
+        cell(5 + r, 2, item.status, color: sc);
+        cell(5 + r, 3, '${item.batteryVoltage.toStringAsFixed(2)} V');
+        cell(5 + r, 4, item.batteryStatus);
+      }
+      for (var c = 0; c < 5; c++) sheet.setColumnWidth(c, 24);
+    } else {
+      final headers = ['Timestamp', 'Device/Coach', 'Status', 'Max Temp (°C)',
+          'A1-1', 'A1-2', 'A2-1', 'A2-2', 'A3-1', 'A3-2', 'A4-1', 'A4-2',
+          'Battery %', 'Signal'];
+      for (var i = 0; i < headers.length; i++) col(4, i, headers[i]);
+      for (var r = 0; r < _items.length; r++) {
+        final item = _items[r];
+        final sc = item.status == 'Critical' ? 'D32F2F' : item.status == 'Warning' ? 'BE8B22' : null;
+        cell(5 + r, 0, _formatTimestampRaw(item.timestamp));
+        cell(5 + r, 1, item.deviceId ?? item.coachNumber ?? '');
+        cell(5 + r, 2, item.status, color: sc);
+        cell(5 + r, 3, '${item.maxTemp.toStringAsFixed(1)}°C', color: sc);
+        cell(5 + r, 4, '${item.a11Temp.toStringAsFixed(1)}');
+        cell(5 + r, 5, '${item.a12Temp.toStringAsFixed(1)}');
+        cell(5 + r, 6, '${item.a21Temp.toStringAsFixed(1)}');
+        cell(5 + r, 7, '${item.a22Temp.toStringAsFixed(1)}');
+        cell(5 + r, 8, '${item.a31Temp.toStringAsFixed(1)}');
+        cell(5 + r, 9, '${item.a32Temp.toStringAsFixed(1)}');
+        cell(5 + r, 10, '${item.a41Temp.toStringAsFixed(1)}');
+        cell(5 + r, 11, '${item.a42Temp.toStringAsFixed(1)}');
+        cell(5 + r, 12, '${item.batteryPercentage}%');
+        cell(5 + r, 13, '${item.signalStrength} dBm');
+      }
+      for (var c = 0; c < 14; c++) sheet.setColumnWidth(c, 18);
+    }
+
+    final dir = await getApplicationDocumentsDirectory();
+    final label = (_isParticularAxle
+        ? (widget.deviceId ?? 'Axle${widget.axleNumber}')
+        : widget.coach.coachNumber).replaceAll(RegExp(r'[:/\\]'), '_');
+    final file = File('${dir.path}/HotAxle_History_${label}_${DateTime.now().millisecondsSinceEpoch}.xlsx');
+    await file.writeAsBytes(excel.encode()!);
+    return file;
+  }
+
+  Future<File> _buildPdf() async {
+    final pdf = pw.Document();
+    final title = _isParticularAxle
+        ? 'Axle History — ${widget.deviceId ?? 'Axle ${widget.axleNumber}'}'
+        : 'All Axle History — ${widget.coach.coachNumber}';
+
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4.landscape,
+        margin: const pw.EdgeInsets.all(24),
+        build: (ctx) => [
+          pw.Text(title, style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+          pw.SizedBox(height: 4),
+          pw.Text('Period: $_startDate → $_endDate  |  Generated: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}',
+              style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700)),
+          pw.SizedBox(height: 16),
+          if (_isParticularAxle)
+            pw.TableHelper.fromTextArray(
+              headers: ['Timestamp', 'Axle Temp (°C)', 'Status', 'Battery Voltage', 'Battery Status'],
+              data: _items.map((item) => [
+                _formatTimestampRaw(item.timestamp),
+                '${item.maxTemp.toStringAsFixed(1)}°C',
+                item.status,
+                '${item.batteryVoltage.toStringAsFixed(2)} V',
+                item.batteryStatus,
+              ]).toList(),
+              headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: PdfColors.white, fontSize: 9),
+              headerDecoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFF1565C0)),
+              cellStyle: const pw.TextStyle(fontSize: 9),
+              rowDecoration: const pw.BoxDecoration(color: PdfColors.white),
+              oddRowDecoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFFE3F2FD)),
+            )
+          else
+            pw.TableHelper.fromTextArray(
+              headers: ['Timestamp', 'Device', 'Status', 'Max Temp', 'A1-1','A1-2','A2-1','A2-2','A3-1','A3-2','A4-1','A4-2','Bat%'],
+              data: _items.map((item) => [
+                _formatTimestampRaw(item.timestamp),
+                item.deviceId ?? item.coachNumber ?? '',
+                item.status,
+                '${item.maxTemp.toStringAsFixed(1)}°C',
+                '${item.a11Temp.toStringAsFixed(1)}',
+                '${item.a12Temp.toStringAsFixed(1)}',
+                '${item.a21Temp.toStringAsFixed(1)}',
+                '${item.a22Temp.toStringAsFixed(1)}',
+                '${item.a31Temp.toStringAsFixed(1)}',
+                '${item.a32Temp.toStringAsFixed(1)}',
+                '${item.a41Temp.toStringAsFixed(1)}',
+                '${item.a42Temp.toStringAsFixed(1)}',
+                '${item.batteryPercentage}%',
+              ]).toList(),
+              headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: PdfColors.white, fontSize: 8),
+              headerDecoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFF1565C0)),
+              cellStyle: const pw.TextStyle(fontSize: 8),
+              rowDecoration: const pw.BoxDecoration(color: PdfColors.white),
+              oddRowDecoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFFE3F2FD)),
+            ),
+        ],
+      ),
+    );
+
+    final dir = await getApplicationDocumentsDirectory();
+    final label = (_isParticularAxle
+        ? (widget.deviceId ?? 'Axle${widget.axleNumber}')
+        : widget.coach.coachNumber).replaceAll(RegExp(r'[:/\\]'), '_');
+    final file = File('${dir.path}/HotAxle_History_${label}_${DateTime.now().millisecondsSinceEpoch}.pdf');
+    await file.writeAsBytes(await pdf.save());
+    return file;
+  }
+
+  void _showSuccess(String path) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(children: [
+          const Icon(Icons.check_circle, color: Color(0xFF2E7D32)),
+          const SizedBox(width: 8),
+          Text('Report Ready', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+        ]),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('History report generated successfully.',
+              style: GoogleFonts.poppins(fontSize: 13)),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(color: const Color(0xFFF5F5F5), borderRadius: BorderRadius.circular(8)),
+            child: Text(path.split('/').last,
+                style: GoogleFonts.poppins(fontSize: 11, color: ColorConstants.textSecondary)),
+          ),
+        ]),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Close', style: GoogleFonts.poppins(color: ColorConstants.textSecondary))),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: ColorConstants.primary),
+            onPressed: () { Navigator.pop(context); OpenFile.open(path); },
+            child: Text('Open File', style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w600)),
+          ),
+          const SizedBox(width: 4),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.blueGrey[700]),
+            onPressed: () {
+              Navigator.pop(context);
+              Share.shareXFiles([XFile(path)], text: 'Hot Axle History Report');
+            },
+            child: Text('Share', style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _formatOption(BuildContext ctx, String label, String value, IconData icon, Color color) {
+    return InkWell(
+      onTap: () => Navigator.pop(ctx, value),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          border: Border.all(color: color.withValues(alpha: 0.3)),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(children: [
+          Icon(icon, color: color, size: 24),
+          const SizedBox(width: 16),
+          Text(label, style: GoogleFonts.poppins(fontWeight: FontWeight.w500, fontSize: 14)),
+          const Spacer(),
+          Icon(Icons.chevron_right, color: Colors.grey[400]),
+        ]),
+      ),
+    );
+  }
+
+  // ─── Status helpers ─────────────────────────────────────────────────────────
+
   static Color _statusColor(String status) {
     switch (status.toLowerCase()) {
-      case 'good':
-        return Colors.green;
-      case 'warning':
-        return const Color(0xFFBE8B22);
-      case 'critical':
-        return const Color(0xFFD32F2F);
-      default:
-        return ColorConstants.iconGrey;
+      case 'good': return Colors.green;
+      case 'warning': return const Color(0xFFBE8B22);
+      case 'critical': return const Color(0xFFD32F2F);
+      default: return ColorConstants.iconGrey;
     }
   }
 
@@ -150,10 +442,18 @@ class _HotAxleHistoryScreenState extends State<HotAxleHistoryScreen> {
     try {
       final normalized = raw.contains('T') ? raw : raw.replaceFirst(' ', 'T');
       return DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.parse(normalized).toLocal());
-    } catch (_) {
-      return raw;
-    }
+    } catch (_) { return raw; }
   }
+
+  static String _formatTimestampRaw(String? raw) {
+    if (raw == null || raw.isEmpty) return 'N/A';
+    try {
+      final normalized = raw.contains('T') ? raw : raw.replaceFirst(' ', 'T');
+      return DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(normalized).toLocal());
+    } catch (_) { return raw; }
+  }
+
+  // ─── Build ──────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -178,6 +478,13 @@ class _HotAxleHistoryScreenState extends State<HotAxleHistoryScreen> {
                   : '${widget.coach.coachNumber} - History',
           style: AppTextStyles.header1,
         ),
+        actions: [
+          IconButton(
+            tooltip: 'Generate Report',
+            icon: const Icon(Icons.download_rounded, color: ColorConstants.primary),
+            onPressed: _generateReport,
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -221,13 +528,29 @@ class _HotAxleHistoryScreenState extends State<HotAxleHistoryScreen> {
               child: Text(
                 '${_fmtDisplay(_customRange!.start)}  →  ${_fmtDisplay(_customRange!.end)}',
                 style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  color: ColorConstants.primary,
-                  fontWeight: FontWeight.w500,
+                  fontSize: 12, color: ColorConstants.primary, fontWeight: FontWeight.w500,
                 ),
               ),
             ),
           ],
+          const SizedBox(height: 10),
+          // Generate Report button inline
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _generateReport,
+              icon: const Icon(Icons.file_download_outlined, size: 18, color: ColorConstants.primary),
+              label: Text(
+                'Generate Report (${_items.length} records)',
+                style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500, color: ColorConstants.primary),
+              ),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                side: const BorderSide(color: ColorConstants.primary),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -289,7 +612,10 @@ class _HotAxleHistoryScreenState extends State<HotAxleHistoryScreen> {
           if (index == _items.length) {
             return _buildShowMoreButton();
           }
-          return _buildHistoryCard(_items[index]);
+          // Show different card based on context
+          return _isParticularAxle
+              ? _buildParticularAxleCard(_items[index])
+              : _buildHistoryCard(_items[index]);
         },
       ),
     );
@@ -307,9 +633,7 @@ class _HotAxleHistoryScreenState extends State<HotAxleHistoryScreen> {
                 label: Text(
                   'Show More',
                   style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: ColorConstants.primary,
+                    fontSize: 14, fontWeight: FontWeight.w500, color: ColorConstants.primary,
                   ),
                 ),
                 style: OutlinedButton.styleFrom(
@@ -321,6 +645,140 @@ class _HotAxleHistoryScreenState extends State<HotAxleHistoryScreen> {
       ),
     );
   }
+
+  // ─── Particular Axle Card (simplified) ──────────────────────────────────────
+
+  Widget _buildParticularAxleCard(HotAxleHistoryItem item) {
+    final axleTemp = item.maxTemp;
+    final statusColor = _statusColor(item.status);
+    final batStatusColor = item.batteryStatus.toLowerCase() == 'low'
+        ? const Color(0xFFD32F2F)
+        : item.batteryStatus.toLowerCase() == 'high'
+            ? Colors.green
+            : const Color(0xFFBE8B22);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: ColorConstants.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: statusColor.withValues(alpha: 0.2)),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6, offset: const Offset(0, 2))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header: timestamp + status badge
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: statusColor.withValues(alpha: 0.06),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(12), topRight: Radius.circular(12),
+              ),
+            ),
+            child: Row(children: [
+              const Icon(Icons.access_time, size: 14, color: ColorConstants.textSecondary),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  _formatTimestamp(item.timestamp),
+                  style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: ColorConstants.textPrimary),
+                ),
+              ),
+              _buildStatusBadge(item.status, statusColor),
+            ]),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                // Row 1: Axle temp + Temp status
+                Row(children: [
+                  Expanded(child: _detailTile(
+                    icon: Icons.thermostat,
+                    label: 'Axle Temperature',
+                    value: '${axleTemp.toStringAsFixed(1)}°C',
+                    valueColor: axleTemp > 60 ? statusColor : null,
+                    iconColor: axleTemp > 60 ? statusColor : ColorConstants.primary,
+                  )),
+                  const SizedBox(width: 12),
+                  Expanded(child: _detailTile(
+                    icon: Icons.info_outline,
+                    label: 'Temperature Status',
+                    value: item.status,
+                    valueColor: statusColor,
+                    iconColor: statusColor,
+                  )),
+                ]),
+                const SizedBox(height: 12),
+                const Divider(color: ColorConstants.divider, height: 1),
+                const SizedBox(height: 12),
+                // Row 2: Battery voltage + Battery status
+                Row(children: [
+                  Expanded(child: _detailTile(
+                    icon: Icons.bolt,
+                    label: 'Battery Voltage',
+                    value: '${item.batteryVoltage.toStringAsFixed(2)} V',
+                    iconColor: ColorConstants.primary,
+                  )),
+                  const SizedBox(width: 12),
+                  Expanded(child: _detailTile(
+                    icon: Icons.battery_charging_full,
+                    label: 'Battery Status',
+                    value: item.batteryStatus,
+                    valueColor: batStatusColor,
+                    iconColor: batStatusColor,
+                  )),
+                ]),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _detailTile({
+    required IconData icon,
+    required String label,
+    required String value,
+    Color? valueColor,
+    Color? iconColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: ColorConstants.cardBackground,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Icon(icon, size: 13, color: iconColor ?? ColorConstants.textSecondary),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Text(label,
+                  style: GoogleFonts.poppins(fontSize: 10, color: ColorConstants.textSecondary),
+                  overflow: TextOverflow.ellipsis),
+            ),
+          ]),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: valueColor ?? ColorConstants.textPrimary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── Full History Card (all axles) ───────────────────────────────────────────
 
   Widget _buildHistoryCard(HotAxleHistoryItem item) {
     final statusColor = _statusColor(item.status);
@@ -340,8 +798,7 @@ class _HotAxleHistoryScreenState extends State<HotAxleHistoryScreen> {
             decoration: BoxDecoration(
               color: statusColor.withValues(alpha: 0.05),
               borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(12),
-                topRight: Radius.circular(12),
+                topLeft: Radius.circular(12), topRight: Radius.circular(12),
               ),
             ),
             child: Row(
@@ -350,9 +807,7 @@ class _HotAxleHistoryScreenState extends State<HotAxleHistoryScreen> {
                   child: Text(
                     _formatTimestamp(item.timestamp),
                     style: GoogleFonts.poppins(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: ColorConstants.textPrimary,
+                      fontSize: 13, fontWeight: FontWeight.w600, color: ColorConstants.textPrimary,
                     ),
                   ),
                 ),
@@ -365,21 +820,17 @@ class _HotAxleHistoryScreenState extends State<HotAxleHistoryScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Max temp highlight
                 Row(
                   children: [
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Max Temp',
-                          style: GoogleFonts.poppins(fontSize: 11, color: ColorConstants.textSecondary),
-                        ),
+                        Text('Max Temp',
+                            style: GoogleFonts.poppins(fontSize: 11, color: ColorConstants.textSecondary)),
                         Text(
                           '${item.maxTemp.toStringAsFixed(1)}°C',
                           style: GoogleFonts.poppins(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
+                            fontSize: 20, fontWeight: FontWeight.w700,
                             color: item.maxTemp > 60 ? statusColor : ColorConstants.textPrimary,
                           ),
                         ),
@@ -397,9 +848,7 @@ class _HotAxleHistoryScreenState extends State<HotAxleHistoryScreen> {
                 Text(
                   'Axle Temperatures (°C)',
                   style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: ColorConstants.textSecondary,
+                    fontSize: 12, fontWeight: FontWeight.w600, color: ColorConstants.textSecondary,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -433,8 +882,7 @@ class _HotAxleHistoryScreenState extends State<HotAxleHistoryScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(6),
+        color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
         status.toUpperCase(),
@@ -447,18 +895,14 @@ class _HotAxleHistoryScreenState extends State<HotAxleHistoryScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: ColorConstants.cardBackground,
-        borderRadius: BorderRadius.circular(6),
+        color: ColorConstants.cardBackground, borderRadius: BorderRadius.circular(6),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 12, color: ColorConstants.textSecondary),
           const SizedBox(width: 4),
-          Text(
-            label,
-            style: GoogleFonts.poppins(fontSize: 11, color: ColorConstants.textSecondary),
-          ),
+          Text(label, style: GoogleFonts.poppins(fontSize: 11, color: ColorConstants.textSecondary)),
         ],
       ),
     );
@@ -475,15 +919,11 @@ class _HotAxleHistoryScreenState extends State<HotAxleHistoryScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(
-            label,
-            style: GoogleFonts.poppins(fontSize: 9, color: ColorConstants.textSecondary),
-          ),
+          Text(label, style: GoogleFonts.poppins(fontSize: 9, color: ColorConstants.textSecondary)),
           Text(
             '${temp.toStringAsFixed(1)}°',
             style: GoogleFonts.poppins(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
+              fontSize: 12, fontWeight: FontWeight.w700,
               color: isHot ? const Color(0xFFD32F2F) : ColorConstants.textPrimary,
             ),
           ),

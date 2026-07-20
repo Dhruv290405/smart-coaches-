@@ -64,6 +64,8 @@ class HotAxleHistoryItem {
   final double a42Temp;
   final int batteryPercentage;
   final int signalStrength;
+  final double batteryVoltage;
+  final String batteryStatus;
 
   HotAxleHistoryItem({
     this.coachNumber,
@@ -82,6 +84,8 @@ class HotAxleHistoryItem {
     required this.a42Temp,
     required this.batteryPercentage,
     required this.signalStrength,
+    this.batteryVoltage = 0.0,
+    this.batteryStatus = 'Moderate',
   });
 
   factory HotAxleHistoryItem.fromJson(Map<String, dynamic> json) {
@@ -95,6 +99,28 @@ class HotAxleHistoryItem {
       if (val == null) return 0;
       if (val is num) return val.toInt();
       return int.tryParse(val.toString()) ?? 0;
+    }
+
+    double parseDouble(dynamic val) {
+      if (val == null) return 0.0;
+      if (val is num) return val.toDouble();
+      return double.tryParse(val.toString()) ?? 0.0;
+    }
+
+    final batPct = parseInt(json['battery_percentage']);
+    // Derive battery status from percentage or explicit field
+    String batStatus = json['battery_status']?.toString() ?? '';
+    if (batStatus.isEmpty) {
+      if (batPct <= 20) batStatus = 'Low';
+      else if (batPct >= 80) batStatus = 'High';
+      else batStatus = 'Moderate';
+    }
+
+    // Derive battery voltage from explicit field or estimate from percentage (3.0V–4.2V Li-ion range)
+    double batVoltage = parseDouble(json['battery_voltage']);
+    if (batVoltage <= 0 && batPct > 0) {
+      batVoltage = 3.0 + (batPct / 100.0) * 1.2;
+      batVoltage = double.parse(batVoltage.toStringAsFixed(2));
     }
 
     return HotAxleHistoryItem(
@@ -112,8 +138,10 @@ class HotAxleHistoryItem {
       a32Temp: parseTemp(json['a32_temp']),
       a41Temp: parseTemp(json['a41_temp']),
       a42Temp: parseTemp(json['a42_temp']),
-      batteryPercentage: parseInt(json['battery_percentage']),
+      batteryPercentage: batPct,
       signalStrength: parseInt(json['signal_strength']),
+      batteryVoltage: batVoltage,
+      batteryStatus: batStatus,
     );
   }
 
