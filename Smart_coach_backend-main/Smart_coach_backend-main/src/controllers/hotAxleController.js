@@ -141,12 +141,21 @@ const hotAxleController = {
                 return res.status(500).json({ success: false, message: "Old Supabase not configured" });
             }
 
-            // Fetch HAMS registration metadata from coaches_hams
-            const { data: hamsReg } = await supabaseAdmin
+            // Fetch HAMS registration metadata from coaches_hams - match by actual_id
+            const { data: hamsRegs } = await supabaseAdmin
                 .from('coaches_hams')
-                .select('coach_no, train_no, technical_id, location, actual_id')
-                .limit(1)
-                .maybeSingle();
+                .select('coach_no, train_no, technical_id, location, actual_id, coach_type');
+
+            // Build lookup by actual_id
+            const hamsMetaMap = {};
+            for (const reg of (hamsRegs || [])) {
+                const k = (reg.actual_id || '').trim().toLowerCase();
+                if (k) hamsMetaMap[k] = reg;
+            }
+
+            // Try to find the best matching registration
+            const masterId = (coachDeviceId || coachNumber || '').toLowerCase().replace('master: ', '');
+            const hamsReg = hamsMetaMap[masterId] || hamsMetaMap['hams-m1-001'] || (hamsRegs && hamsRegs[0]) || null;
 
             let query = sOld.from('hams_data')
                 .select('*')
@@ -172,6 +181,7 @@ const hotAxleController = {
             const trainNo = hamsReg?.train_no || '';
             const technicalId = hamsReg?.technical_id || '';
             const location = hamsReg?.location || 'N/A';
+            const coachType = hamsReg?.coach_type || 'B1';
 
             if (error) throw error;
 
@@ -227,7 +237,7 @@ const hotAxleController = {
                         coach_number: coachNo,
                         train_no: trainNo,
                         technical_id: technicalId,
-                        coach_type: 'HAMS',
+                        coach_type: coachType,
                         owning_rly: 'VASP',
                         location: location,
                         a11_temp: temps[0], a12_temp: temps[1],
@@ -275,7 +285,7 @@ const hotAxleController = {
                         coach_number: coachNo,
                         train_no: trainNo,
                         technical_id: technicalId,
-                        coach_type: 'HAMS',
+                        coach_type: coachType,
                         owning_rly: 'VASP',
                         location: location,
                         a11_temp: temps[0], a12_temp: temps[1],
@@ -526,7 +536,7 @@ const hotAxleController = {
                 train_no: hamsRegs[0].train_no || '',
                 technical_id: hamsRegs[0].technical_id || '',
                 location: hamsRegs[0].location || 'N/A',
-                coach_type: 'HAMS',
+                coach_type: hamsRegs[0].coach_type || 'B1',
             } : null;
 
             const { data: hamsData, error: hamsError } = await supabaseOld

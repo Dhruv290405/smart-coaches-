@@ -89,12 +89,12 @@ exports.getBreakBindingData = async (req, res) => {
         const activeDeviceId = filterDeviceId || finalData.device_id;
 
         let coachQuery = supabase.from('coaches_railway')
-            .select('technical_id, coach_no, train_no, location')
+            .select('technical_id, coach_no, Train_no, Location')
             .eq('device_id', activeDeviceId);
 
         if (req.user && req.user.role_id !== 1) {
             const userLoc = req.user.division_name || req.user.region_name;
-            if (userLoc) coachQuery = coachQuery.ilike('location', userLoc);
+            if (userLoc) coachQuery = coachQuery.ilike('Location', userLoc);
         }
 
         const { data: dbCoach } = await coachQuery.maybeSingle();
@@ -133,21 +133,21 @@ exports.getBreakBindingData = async (req, res) => {
         ]);
 
         const deviceMapping = {
-            'SCBB NP001': { technical_id: 'NP001', coach_no: 'NP1', train_no: 'NAGPUR01', location: 'Nagpur' },
-            'SCBB NP002': { technical_id: 'NP002', coach_no: 'NP2', train_no: 'NAGPUR01', location: 'Nagpur' },
-            'SCBB NP003': { technical_id: 'NP003', coach_no: 'NP3', train_no: 'NAGPUR01', location: 'Nagpur' },
-            'Raspberry4_4': { technical_id: '231035', coach_no: 'M3', train_no: '13071', location: 'Kolkatta' },
-            'Raspberry4_1': { technical_id: '231545', coach_no: 'S4', train_no: '13277', location: 'Jaipur' },
-            'Raspberry4_2': { technical_id: '234534', coach_no: 'S3', train_no: '12578', location: 'Jaipur' },
-            'Raspberry4_3': { technical_id: '211245', coach_no: 'S2', train_no: '65214', location: 'Jaipur' }
+            'SCBB NP001': { technical_id: 'NP001', coach_no: 'NP1', Train_no: 'NAGPUR01', Location: 'Nagpur' },
+            'SCBB NP002': { technical_id: 'NP002', coach_no: 'NP2', Train_no: 'NAGPUR01', Location: 'Nagpur' },
+            'SCBB NP003': { technical_id: 'NP003', coach_no: 'NP3', Train_no: 'NAGPUR01', Location: 'Nagpur' },
+            'Raspberry4_4': { technical_id: '231035', coach_no: 'M3', Train_no: '13071', Location: 'Kolkatta' },
+            'Raspberry4_1': { technical_id: '231545', coach_no: 'S4', Train_no: '13277', Location: 'Jaipur' },
+            'Raspberry4_2': { technical_id: '234534', coach_no: 'S3', Train_no: '12578', Location: 'Jaipur' },
+            'Raspberry4_3': { technical_id: '211245', coach_no: 'S2', Train_no: '65214', Location: 'Jaipur' }
         };
         const fallback = deviceMapping[activeDeviceId] || {};
 
         const finalCoachInfo = {
             technical_id: dbCoach?.technical_id || fallback.technical_id || "N/A",
             coach_no: dbCoach?.coach_no || fallback.coach_no || finalData.coach_no || "Unknown",
-            train_no: dbCoach?.train_no || fallback.train_no || "Unknown",
-            location: dbCoach?.location || fallback.location || "Unknown"
+            Train_no: dbCoach?.Train_no || fallback.Train_no || "Unknown",
+            Location: dbCoach?.Location || fallback.Location || "Unknown"
         };
 
         const bp = parseFloat(finalData.bp) || 0;
@@ -211,7 +211,13 @@ exports.getBreakBindingData = async (req, res) => {
 
         res.status(200).json({
             success: true,
-            context: { deviceId: activeDeviceId, ...finalCoachInfo },
+            context: { 
+                deviceId: activeDeviceId,
+                technical_id: finalCoachInfo.technical_id,
+                coach_no: finalCoachInfo.coach_no,
+                Train_no: finalCoachInfo.Train_no,
+                location: finalCoachInfo.Location || finalCoachInfo.location || "Unknown"
+            },
             state: detectedState,
             brakeStatus: finalData.brake_status || "IDLE",
             alerts: newAlerts,
@@ -303,7 +309,7 @@ exports.getCoachesByLocation = async (req, res) => {
 
         let query = supabase
             .from('coaches_railway')
-            .select('id, technical_id, coach_no, device_id, train_no, location, actual_id');
+            .select('id, technical_id, coach_no, device_id, Train_no, Location, Actual_id');
 
         if (role_id !== 1) {
             const userLocation = division_name || region_name;
@@ -315,7 +321,7 @@ exports.getCoachesByLocation = async (req, res) => {
                 });
             }
 
-            query = query.ilike('location', userLocation);
+            query = query.ilike('Location', userLocation);
         }
 
         const { data: coaches, error } = await query;
