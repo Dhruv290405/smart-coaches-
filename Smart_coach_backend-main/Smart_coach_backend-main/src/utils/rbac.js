@@ -133,9 +133,9 @@ async function getAuthorizedTrainNumbers(user) {
   if (!loc) return [];
   const { data } = await supabaseAdmin
     .from('coaches_railway')
-    .select('Train_no')
+    .select('train_number')
     .ilike('Location', loc);
-  return [...new Set((data || []).map(r => r.Train_no).filter(Boolean))];
+  return [...new Set((data || []).map(r => r.train_number).filter(Boolean))];
 }
 
 /**
