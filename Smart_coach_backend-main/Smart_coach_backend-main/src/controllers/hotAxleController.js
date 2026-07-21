@@ -503,7 +503,7 @@ const hotAxleController = {
             // Use coaches_hams as the registration source for Section 1 HAMS devices
             const { data: hamsRegs } = await supabaseAdmin
                 .from('coaches_hams')
-                .select('coach_no, train_no, technical_id, location, actual_id');
+                .select('coach_no, train_no, technical_id, location, actual_id, coach_type');
 
             // Build a lookup by actual_id (master registration id) — one entry per master
             const hamsMeta = {};
@@ -515,7 +515,7 @@ const hotAxleController = {
                         train_no: reg.train_no || '',
                         technical_id: reg.technical_id || '',
                         location: reg.location || 'N/A',
-                        coach_type: 'HAMS',
+                        coach_type: reg.coach_type || 'B1',
                     };
                 }
             }

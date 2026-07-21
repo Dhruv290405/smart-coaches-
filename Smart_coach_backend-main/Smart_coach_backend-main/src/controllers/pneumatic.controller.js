@@ -89,12 +89,12 @@ exports.getBreakBindingData = async (req, res) => {
         const activeDeviceId = filterDeviceId || finalData.device_id;
 
         let coachQuery = supabase.from('coaches_railway')
-            .select('technical_id, coach_no, Train_no, Location')
+            .select('technical_id, coach_no, train_no, location')
             .eq('device_id', activeDeviceId);
 
         if (req.user && req.user.role_id !== 1) {
             const userLoc = req.user.division_name || req.user.region_name;
-            if (userLoc) coachQuery = coachQuery.ilike('Location', userLoc);
+            if (userLoc) coachQuery = coachQuery.ilike('location', userLoc);
         }
 
         const { data: dbCoach } = await coachQuery.maybeSingle();
@@ -133,21 +133,21 @@ exports.getBreakBindingData = async (req, res) => {
         ]);
 
         const deviceMapping = {
-            'SCBB NP001': { technical_id: 'NP001', coach_no: 'NP1', Train_no: 'NAGPUR01', location: 'Nagpur' },
-            'SCBB NP002': { technical_id: 'NP002', coach_no: 'NP2', Train_no: 'NAGPUR01', location: 'Nagpur' },
-            'SCBB NP003': { technical_id: 'NP003', coach_no: 'NP3', Train_no: 'NAGPUR01', location: 'Nagpur' },
-            'Raspberry4_4': { technical_id: '231035', coach_no: 'M3', Train_no: '13071', location: 'Kolkatta' },
-            'Raspberry4_1': { technical_id: '231545', coach_no: 'S4', Train_no: '13277', location: 'Jaipur' },
-            'Raspberry4_2': { technical_id: '234534', coach_no: 'S3', Train_no: '12578', location: 'Jaipur' },
-            'Raspberry4_3': { technical_id: '211245', coach_no: 'S2', Train_no: '65214', location: 'Jaipur' }
+            'SCBB NP001': { technical_id: 'NP001', coach_no: 'NP1', train_no: 'NAGPUR01', location: 'Nagpur' },
+            'SCBB NP002': { technical_id: 'NP002', coach_no: 'NP2', train_no: 'NAGPUR01', location: 'Nagpur' },
+            'SCBB NP003': { technical_id: 'NP003', coach_no: 'NP3', train_no: 'NAGPUR01', location: 'Nagpur' },
+            'Raspberry4_4': { technical_id: '231035', coach_no: 'M3', train_no: '13071', location: 'Kolkatta' },
+            'Raspberry4_1': { technical_id: '231545', coach_no: 'S4', train_no: '13277', location: 'Jaipur' },
+            'Raspberry4_2': { technical_id: '234534', coach_no: 'S3', train_no: '12578', location: 'Jaipur' },
+            'Raspberry4_3': { technical_id: '211245', coach_no: 'S2', train_no: '65214', location: 'Jaipur' }
         };
         const fallback = deviceMapping[activeDeviceId] || {};
 
         const finalCoachInfo = {
             technical_id: dbCoach?.technical_id || fallback.technical_id || "N/A",
             coach_no: dbCoach?.coach_no || fallback.coach_no || finalData.coach_no || "Unknown",
-            Train_no: dbCoach?.Train_no || fallback.Train_no || "Unknown",
-            location: dbCoach?.Location || fallback.location || "Unknown"
+            train_no: dbCoach?.train_no || fallback.train_no || "Unknown",
+            location: dbCoach?.location || fallback.location || "Unknown"
         };
 
         const bp = parseFloat(finalData.bp) || 0;
@@ -172,6 +172,20 @@ exports.getBreakBindingData = async (req, res) => {
             dv_defect: (bpDropRate >= 0.6 && bc <= 1.2) ? 'warning' : 'green',
             emergency: (bpDropRate >= 0.6) ? 'yellow' : 'green'
         };
+
+        if (detectedState === 'Normal' || detectedState === 'IDLE') {
+            if (newAlerts.binding_residual === 'red' || newAlerts.binding_severe === 'warning') {
+                detectedState = 'Brake Binding';
+            } else if (newAlerts.emergency === 'yellow') {
+                detectedState = 'Emergency Brake';
+            } else if (newAlerts.leakage === 'warning') {
+                detectedState = 'Air Leakage';
+            } else if (newAlerts.dv_defect === 'warning') {
+                detectedState = 'DV Defect';
+            } else if (newAlerts.cr_overcharge === 'red') {
+                detectedState = 'Overcharge';
+            }
+        }
 
         if (faultData.data && faultData.data.length > 0) {
             const latestFault = faultData.data[0]; 
@@ -289,7 +303,7 @@ exports.getCoachesByLocation = async (req, res) => {
 
         let query = supabase
             .from('coaches_railway')
-            .select('id, technical_id, coach_no, device_id, Train_no, Location, Actual_id');
+            .select('id, technical_id, coach_no, device_id, train_no, location, actual_id');
 
         if (role_id !== 1) {
             const userLocation = division_name || region_name;
@@ -301,7 +315,7 @@ exports.getCoachesByLocation = async (req, res) => {
                 });
             }
 
-            query = query.ilike('Location', userLocation);
+            query = query.ilike('location', userLocation);
         }
 
         const { data: coaches, error } = await query;

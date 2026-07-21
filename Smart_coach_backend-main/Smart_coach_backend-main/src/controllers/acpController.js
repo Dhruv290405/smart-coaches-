@@ -7,9 +7,21 @@ const CACHE_TTL = 5 * 60 * 1000;
 // 1. For getting all critical logs (GET endpoint - optimized for partitioned table)
 const getAcpLogs = async (req, res) => {
     try {
-        // RBAC guard applied via middleware (route file already updated);
-        // ACP data uses loc_name/asset_name which does not map to coach_number
-        const logs = await AcpModel.getAllLogs();
+        // RBAC location filtering
+        let logs = await AcpModel.getAllLogs();
+        
+        if (req.user && req.user.role_id !== 1) {
+            const userLocs = rbac.getUserLocations(req.user).map(l => l.toLowerCase());
+            if (userLocs.length > 0) {
+                logs = logs.filter(log => {
+                    const logLoc = (log.train_location || "").toLowerCase();
+                    return userLocs.some(uLoc => logLoc.includes(uLoc) || uLoc.includes(logLoc));
+                });
+            } else {
+                logs = []; // No location assigned to this user, show no data
+            }
+        }
+
         res.status(200).json({
             success: true,
             count: logs.length,
