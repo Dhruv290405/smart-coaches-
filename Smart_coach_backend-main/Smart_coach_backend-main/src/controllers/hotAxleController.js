@@ -142,11 +142,14 @@ const hotAxleController = {
             }
 
             // Fetch HAMS registration metadata from coaches_hams - match by actual_id
+            // coaches_hams schema: id, technical_id, coach_no, device_id, train_no, location, actual_id
+            // device_id here = brake binding device (SCBB-NP-003)
+            // coach_no = coach number shown as Technical ID (B1)
             const { data: hamsRegs } = await supabaseAdmin
                 .from('coaches_hams')
-                .select('coach_no, train_no, technical_id, location, actual_id, coach_type');
+                .select('coach_no, train_no, technical_id, location, actual_id, device_id');
 
-            // Build lookup by actual_id
+            // Build lookup by actual_id (lowercased)
             const hamsMetaMap = {};
             for (const reg of (hamsRegs || [])) {
                 const k = (reg.actual_id || '').trim().toLowerCase();
@@ -156,6 +159,17 @@ const hotAxleController = {
             // Try to find the best matching registration
             const masterId = (coachDeviceId || coachNumber || '').toLowerCase().replace('master: ', '');
             const hamsReg = hamsMetaMap[masterId] || hamsMetaMap['hams-m1-001'] || (hamsRegs && hamsRegs[0]) || null;
+
+            // Fetch coach_type from coaches_railway using the brake binding device_id
+            let coachTypeFromDB = 'B1';
+            if (hamsReg?.device_id) {
+                const { data: railReg } = await supabaseAdmin
+                    .from('coaches_railway')
+                    .select('coach_type')
+                    .eq('device_id', hamsReg.device_id)
+                    .maybeSingle();
+                if (railReg?.coach_type) coachTypeFromDB = railReg.coach_type;
+            }
 
             let query = sOld.from('hams_data')
                 .select('*')
@@ -176,12 +190,16 @@ const hotAxleController = {
                 .order('received_timestamp', { ascending: false })
                 .limit(2000);
 
-            // Attach registration metadata to every row
-            const coachNo = hamsReg?.coach_no || '';
-            const trainNo = hamsReg?.train_no || '';
-            const technicalId = hamsReg?.technical_id || '';
+            // Field mapping:
+            // coach_no  → shown as technical_id (per dev instruction: "Technical ID is coach number")
+            // device_id → shown as device_id (SCBB-NP-003, the brake binding device)
+            // train_no  → from DB
+            const coachNo = hamsReg?.coach_no || '';          // B1
+            const trainNo = hamsReg?.train_no || '';           // 856324
+            const technicalId = hamsReg?.coach_no || '';       // B1 (coach number used as technical_id)
+            const brakeDeviceId = hamsReg?.device_id || '';   // SCBB-NP-003
             const location = hamsReg?.location || 'N/A';
-            const coachType = hamsReg?.coach_type || 'B1';
+            const coachType = coachTypeFromDB;                 // LW... from coaches_railway
 
             if (error) throw error;
 
@@ -233,10 +251,11 @@ const hotAxleController = {
 
                     mappedHistory.push({
                         timestamp: bucket,
-                        device_id: deviceId,
+                        device_id: brakeDeviceId || deviceId,  // SCBB-NP-003
+                        master_id: 'HAMS-M1-001',
                         coach_number: coachNo,
                         train_no: trainNo,
-                        technical_id: technicalId,
+                        technical_id: technicalId,   // coach_no (B1)
                         coach_type: coachType,
                         owning_rly: 'VASP',
                         location: location,
@@ -281,10 +300,11 @@ const hotAxleController = {
 
                     mappedHistory.push({
                         timestamp: bucket,
-                        device_id: coachNo || 'HAMS-M1-001',
+                        device_id: brakeDeviceId || coachNo || 'HAMS-M1-001',  // SCBB-NP-003
+                        master_id: 'HAMS-M1-001',
                         coach_number: coachNo,
                         train_no: trainNo,
-                        technical_id: technicalId,
+                        technical_id: technicalId,   // coach_no (B1)
                         coach_type: coachType,
                         owning_rly: 'VASP',
                         location: location,
@@ -513,7 +533,19 @@ const hotAxleController = {
             // Use coaches_hams as the registration source for Section 1 HAMS devices
             const { data: hamsRegs } = await supabaseAdmin
                 .from('coaches_hams')
-                .select('coach_no, train_no, technical_id, location, actual_id, coach_type');
+                .select('coach_no, train_no, technical_id, location, actual_id, device_id');
+
+            // Fetch coach types from coaches_railway
+            const { data: railRegs } = await supabaseAdmin
+                .from('coaches_railway')
+                .select('device_id, coach_type');
+            
+            const railCoachTypeMap = {};
+            for (const r of (railRegs || [])) {
+                if (r.device_id && r.coach_type) {
+                    railCoachTypeMap[r.device_id] = r.coach_type;
+                }
+            }
 
             // Build a lookup by actual_id (master registration id) — one entry per master
             const hamsMeta = {};
@@ -525,7 +557,8 @@ const hotAxleController = {
                         train_no: reg.train_no || '',
                         technical_id: reg.technical_id || '',
                         location: reg.location || 'N/A',
-                        coach_type: reg.coach_type || 'B1',
+                        device_id: reg.device_id || '',
+                        coach_type: railCoachTypeMap[reg.device_id] || 'B1',
                     };
                 }
             }
@@ -536,7 +569,8 @@ const hotAxleController = {
                 train_no: hamsRegs[0].train_no || '',
                 technical_id: hamsRegs[0].technical_id || '',
                 location: hamsRegs[0].location || 'N/A',
-                coach_type: hamsRegs[0].coach_type || 'B1',
+                device_id: hamsRegs[0].device_id || '',
+                coach_type: railCoachTypeMap[hamsRegs[0].device_id] || 'B1',
             } : null;
 
             const { data: hamsData, error: hamsError } = await supabaseOld
@@ -552,11 +586,13 @@ const hotAxleController = {
                 const meta = hamsMeta[d.master_id] || defaultMeta || {};
                 return {
                     ...d,
+                    device_id: meta.device_id || d.device_id || '',
+                    master_id: d.master_id || 'HAMS-M1-001',
                     coach_number: meta.coach_no || '',
                     train_no: meta.train_no || '',
-                    technical_id: meta.technical_id || '',
+                    technical_id: meta.coach_no || '', // Dev: "Technical id is coach number"
                     location: meta.location || 'N/A',
-                    coach_type: meta.coach_type || 'HAMS',
+                    coach_type: meta.coach_type || 'B1', // Dev: "Coach type is lw...."
                 };
             });
 
