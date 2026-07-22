@@ -22,6 +22,7 @@ class HotAxleCoachModel {
   final String batteryStatus;
   final double batteryVoltage;
   final String technicalId;
+  final String brakeDeviceId;
 
   HotAxleCoachModel({
     required this.deviceId,
@@ -47,6 +48,7 @@ class HotAxleCoachModel {
     String? batteryStatus,
     double? batteryVoltage,
     this.technicalId = '',
+    this.brakeDeviceId = '',
   })  : this.batteryStatus = (batteryStatus != null && batteryStatus != 'N/A' && batteryStatus.isNotEmpty)
             ? batteryStatus
             : (batteryPercentage <= 20 ? 'Low' : (batteryPercentage >= 80 ? 'High' : 'Moderate')),
@@ -130,6 +132,7 @@ class HotAxleCoachModel {
       batteryStatus: json['battery_status']?.toString() ?? 'N/A',
       batteryVoltage: (json['battery_voltage'] ?? 0.0).toDouble(),
       technicalId: json['technical_id']?.toString() ?? '',
+      brakeDeviceId: json['brake_device_id']?.toString() ?? '',
       axleDevices: json['axle_devices'] as Map<String, dynamic>?,
     );
   }

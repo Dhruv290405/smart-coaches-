@@ -18,6 +18,7 @@ class HamsDataModel {
   final String technicalId;
   final String coachType;
   final String location;
+  final String brakeDeviceId;
 
   HamsDataModel({
     required this.id,
@@ -34,6 +35,7 @@ class HamsDataModel {
     this.technicalId = '',
     this.coachType = 'HAMS',
     this.location = '',
+    this.brakeDeviceId = '',
   });
 
   factory HamsDataModel.fromJson(Map<String, dynamic> json) {
@@ -52,6 +54,7 @@ class HamsDataModel {
       technicalId: json['technical_id']?.toString() ?? '',
       coachType: json['coach_type']?.toString() ?? 'HAMS',
       location: json['location']?.toString() ?? '',
+      brakeDeviceId: json['brake_device_id']?.toString() ?? '',
     );
   }
 }

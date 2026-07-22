@@ -304,13 +304,13 @@ class _HotAxleDeviceCardState extends State<HotAxleDeviceCard>
           _getBatteryColor(coach.batteryPercentage),
         ),
         const SizedBox(height: 4),
-        if (coach.technicalId.isNotEmpty)
+        if (coach.brakeDeviceId.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(bottom: 4),
             child: _buildInfoRow(
-              Icons.qr_code,
-              'Tech ID',
-              coach.technicalId,
+              Icons.memory,
+              'Device ID',
+              coach.brakeDeviceId,
               const Color(0xFF6B7280),
             ),
           ),

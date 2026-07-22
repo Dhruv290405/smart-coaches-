@@ -191,15 +191,15 @@ const hotAxleController = {
                 .limit(2000);
 
             // Field mapping:
-            // coach_no  → shown as technical_id (per dev instruction: "Technical ID is coach number")
+            // coach_no  → shown as coach number (technical_id from registration)
             // device_id → shown as device_id (SCBB-NP-003, the brake binding device)
             // train_no  → from DB
-            const coachNo = hamsReg?.coach_no || '';          // B1
-            const trainNo = hamsReg?.train_no || '';           // 856324
-            const technicalId = hamsReg?.coach_no || '';       // B1 (coach number used as technical_id)
-            const brakeDeviceId = hamsReg?.device_id || '';   // SCBB-NP-003
+            const coachNo = hamsReg?.technical_id || '';        // 226965 (technical_id shown as coach number)
+            const trainNo = hamsReg?.train_no || '';            // 1207069
+            const technicalId = hamsReg?.technical_id || '';    // 226965
+            const brakeDeviceId = hamsReg?.device_id || '';     // SCBB-NP-26-003
             const location = hamsReg?.location || 'N/A';
-            const coachType = coachTypeFromDB;                 // LW... from coaches_railway
+            const coachType = coachTypeFromDB;                  // LWSCZ-AC from coaches_railway
 
             if (error) throw error;
 
@@ -277,7 +277,8 @@ const hotAxleController = {
                         master_id: 'HAMS-M1-001',
                         coach_number: coachNo,
                         train_no: trainNo,
-                        technical_id: technicalId,   // coach_no (B1)
+                        technical_id: technicalId,
+                        brake_device_id: brakeDeviceId,
                         coach_type: coachType,
                         owning_rly: 'VASP',
                         location: location,
@@ -322,11 +323,12 @@ const hotAxleController = {
 
                     mappedHistory.push({
                         timestamp: bucket,
-                        device_id: brakeDeviceId || coachNo || 'HAMS-M1-001',  // SCBB-NP-003
+                        device_id: brakeDeviceId || coachNo || 'HAMS-M1-001',  // SCBB-NP-26-003
                         master_id: 'HAMS-M1-001',
                         coach_number: coachNo,
                         train_no: trainNo,
-                        technical_id: technicalId,   // coach_no (B1)
+                        technical_id: technicalId,
+                        brake_device_id: brakeDeviceId,
                         coach_type: coachType,
                         owning_rly: 'VASP',
                         location: location,
@@ -612,11 +614,12 @@ const hotAxleController = {
                     ...d,
                     device_id: d.device_id || '',
                     master_id: d.master_id || 'HAMS-M1-001',
-                    coach_number: meta.coach_no || '',
+                    coach_number: meta.technical_id || '',
                     train_no: meta.train_no || '',
                     technical_id: meta.technical_id || '',
-                    location: meta.location || 'N/A',
                     coach_type: meta.coach_type || 'B1',
+                    brake_device_id: meta.device_id || '',
+                    location: meta.location || 'N/A',
                     axle_devices: axleDevices,
                 };
             });

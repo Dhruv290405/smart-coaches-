@@ -199,6 +199,7 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
       signalStrength: d.signalStrength,
       apiStatus: _mapAlertStatus(d.alertStatus),
       technicalId: d.technicalId ?? '',
+      brakeDeviceId: '',
     );
   }
 
@@ -662,6 +663,7 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
       masterId: masterId,
       coachNumber: firstDev?.coachNumber ?? 'Master: $masterId',
       technicalId: firstDev?.technicalId ?? '',
+      brakeDeviceId: firstDev?.brakeDeviceId ?? '',
       coachType: firstDev?.coachType ?? 'HAMS',
       owningRly: 'VASP',
       trainNo: firstDev?.trainNo ?? '',
