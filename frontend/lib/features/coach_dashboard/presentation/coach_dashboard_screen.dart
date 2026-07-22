@@ -376,6 +376,7 @@ class _CoachDashboardScreenState extends State<CoachDashboardScreen> {
                 coach: HotAxleCoachModel(
                   coachNumber: coachUniqueId,
                   deviceId: deviceId,
+                  masterId: deviceId,
                   coachType: '',
                   owningRly: '',
                   trainNo: '',

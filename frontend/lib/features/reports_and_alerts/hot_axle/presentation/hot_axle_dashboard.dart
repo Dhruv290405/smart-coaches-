@@ -181,6 +181,7 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
   HotAxleCoachModel _mapDataToModel(HotAxleData d) {
     return HotAxleCoachModel(
       deviceId: d.deviceId ?? 'Unknown',
+      masterId: d.deviceId ?? '',
       coachNumber: d.coachNumber ?? d.techCoachNo ?? 'Unknown',
       coachType: d.coachType ?? 'Unknown',
       owningRly: d.owningRly ?? 'Unknown',
@@ -645,6 +646,7 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
         maxTemp: tempStr,
         currentTemp: tempStr,
         sensorId: match.deviceId,
+        deviceId: match.deviceId,
         speed: 'N/A',
         detectedAt: match.receivedTimestamp,
         location: match.location.isNotEmpty ? match.location : 'N/A',
@@ -657,9 +659,10 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
 
     return HotAxleCoachModel(
       deviceId: masterId,
+      masterId: masterId,
       coachNumber: firstDev?.coachNumber ?? 'Master: $masterId',
       technicalId: firstDev?.technicalId ?? '',
-      coachType: 'HAMS',
+      coachType: firstDev?.coachType ?? 'HAMS',
       owningRly: 'VASP',
       trainNo: firstDev?.trainNo ?? '',
       timestamp: firstDev?.receivedTimestamp ?? '',

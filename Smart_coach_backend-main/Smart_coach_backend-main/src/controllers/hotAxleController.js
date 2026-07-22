@@ -607,17 +607,16 @@ const hotAxleController = {
             if (hamsError) throw hamsError;
 
             const enriched = (hamsData || []).map(d => {
-                // Try to match by master_id against actual_id, else use default registration
                 const meta = hamsMeta[d.master_id] || defaultMeta || {};
                 return {
                     ...d,
-                    device_id: meta.device_id || d.device_id || '',
+                    device_id: d.device_id || '',
                     master_id: d.master_id || 'HAMS-M1-001',
                     coach_number: meta.coach_no || '',
                     train_no: meta.train_no || '',
-                    technical_id: meta.coach_no || '', // Dev: "Technical id is coach number"
+                    technical_id: meta.technical_id || '',
                     location: meta.location || 'N/A',
-                    coach_type: meta.coach_type || 'B1', // Dev: "Coach type is lw...."
+                    coach_type: meta.coach_type || 'B1',
                     axle_devices: axleDevices,
                 };
             });
