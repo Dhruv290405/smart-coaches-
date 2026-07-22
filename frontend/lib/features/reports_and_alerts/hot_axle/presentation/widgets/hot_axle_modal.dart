@@ -100,7 +100,8 @@ class HotAxleModal extends StatelessWidget {
                         _buildDetailRow('Coach Number', coach.coachNumber, showTopBorder: false),
                         if (coach.trainNo.isNotEmpty)
                           _buildDetailRow('Train Number', coach.trainNo),
-                        _buildDetailRow('Device ID', coach.deviceId),
+                        _buildDetailRow('Master ID', coach.masterId),
+                        _buildDetailRow('Device ID', coach.brakeDeviceId),
                         _buildDetailRow('Coach Type', coach.coachType),
                         _buildDetailRow('Railway', coach.owningRly),
                         _buildDetailRow('Battery', '${coach.batteryPercentage}%'),

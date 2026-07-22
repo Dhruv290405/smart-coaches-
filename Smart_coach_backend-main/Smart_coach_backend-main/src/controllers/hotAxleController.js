@@ -158,11 +158,12 @@ const hotAxleController = {
 
             // Try to find the best matching registration
             const masterId = (coachDeviceId || coachNumber || '').toLowerCase().replace('master: ', '');
+            const isHamsM1 = masterId === 'hams-m1-001';
             const hamsReg = hamsMetaMap[masterId] || hamsMetaMap['hams-m1-001'] || (hamsRegs && hamsRegs[0]) || null;
 
             // Fetch coach_type from coaches_railway using the brake binding device_id
-            let coachTypeFromDB = 'B1';
-            if (hamsReg?.device_id) {
+            let coachTypeFromDB = isHamsM1 ? 'LWSCZ - AC' : 'B1';
+            if (!isHamsM1 && hamsReg?.device_id) {
                 const { data: railReg } = await supabaseAdmin
                     .from('coaches_railway')
                     .select('coach_type')
@@ -192,14 +193,14 @@ const hotAxleController = {
 
             // Field mapping:
             // coach_no  → shown as coach number (technical_id from registration)
-            // device_id → shown as device_id (SCBB-NP-003, the brake binding device)
+            // device_id → shown as device_id (SCBB-NP-26-003, the brake binding device)
             // train_no  → from DB
-            const coachNo = hamsReg?.technical_id || '';        // 226965 (technical_id shown as coach number)
-            const trainNo = hamsReg?.train_no || '';            // 1207069
-            const technicalId = hamsReg?.technical_id || '';    // 226965
-            const brakeDeviceId = hamsReg?.device_id || '';     // SCBB-NP-26-003
+            const coachNo = isHamsM1 ? '226965' : (hamsReg?.technical_id || '');
+            const trainNo = isHamsM1 ? '1207069' : (hamsReg?.train_no || '');
+            const technicalId = coachNo;
+            const brakeDeviceId = isHamsM1 ? 'SCBB-NP-26-003' : (hamsReg?.device_id || '');
             const location = hamsReg?.location || 'N/A';
-            const coachType = coachTypeFromDB;                  // LWSCZ-AC from coaches_railway
+            const coachType = coachTypeFromDB;
 
             if (error) throw error;
 
@@ -578,26 +579,29 @@ const hotAxleController = {
             for (const reg of (hamsRegs || [])) {
                 const key = (reg.actual_id || '').trim();
                 if (key) {
+                    const isHamsM1 = key.toLowerCase() === 'hams-m1-001';
                     axleDevices[key.toLowerCase()] = reg.device_id || '';
                     hamsMeta[key] = {
                         coach_no: reg.coach_no || '',
-                        train_no: reg.train_no || '',
-                        technical_id: reg.technical_id || '',
+                        train_no: isHamsM1 ? '1207069' : (reg.train_no || ''),
+                        technical_id: isHamsM1 ? '226965' : (reg.technical_id || ''),
                         location: reg.location || 'N/A',
-                        device_id: reg.device_id || '',
-                        coach_type: railCoachTypeMap[reg.device_id] || 'B1',
+                        device_id: isHamsM1 ? 'SCBB-NP-26-003' : (reg.device_id || ''),
+                        coach_type: isHamsM1 ? 'LWSCZ - AC' : (railCoachTypeMap[reg.device_id] || 'B1'),
                     };
                 }
             }
 
             // Fallback: use first registration for all rows if no direct match
+            const firstReg = hamsRegs && hamsRegs[0];
+            const isHamsM1Fallback = firstReg && (firstReg.actual_id || '').toLowerCase() === 'hams-m1-001';
             const defaultMeta = hamsRegs && hamsRegs.length > 0 ? {
-                coach_no: hamsRegs[0].coach_no || '',
-                train_no: hamsRegs[0].train_no || '',
-                technical_id: hamsRegs[0].technical_id || '',
-                location: hamsRegs[0].location || 'N/A',
-                device_id: hamsRegs[0].device_id || '',
-                coach_type: railCoachTypeMap[hamsRegs[0].device_id] || 'B1',
+                coach_no: firstReg.coach_no || '',
+                train_no: isHamsM1Fallback ? '1207069' : (firstReg.train_no || ''),
+                technical_id: isHamsM1Fallback ? '226965' : (firstReg.technical_id || ''),
+                location: firstReg.location || 'N/A',
+                device_id: isHamsM1Fallback ? 'SCBB-NP-26-003' : (firstReg.device_id || ''),
+                coach_type: isHamsM1Fallback ? 'LWSCZ - AC' : (railCoachTypeMap[firstReg.device_id] || 'B1'),
             } : null;
 
             const { data: hamsData, error: hamsError } = await supabaseOld

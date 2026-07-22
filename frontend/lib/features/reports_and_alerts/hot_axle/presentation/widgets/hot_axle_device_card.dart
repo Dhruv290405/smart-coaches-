@@ -188,20 +188,22 @@ class _HotAxleDeviceCardState extends State<HotAxleDeviceCard>
                 overflow: TextOverflow.ellipsis,
                 maxLines: 1,
               ),
-              Text(
-                'Device: ${coach.deviceId}',
-                style: GoogleFonts.poppins(
-                  fontSize: 10,
-                  color: const Color(0xFF6B7280),
+              const SizedBox(height: 1),
+              if (coach.coachType.isNotEmpty || coach.masterId.isNotEmpty)
+                Text(
+                  'Type: ${coach.coachType} | Master: ${coach.masterId}',
+                  style: GoogleFonts.poppins(
+                    fontSize: 9,
+                    color: const Color(0xFF6B7280),
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
                 ),
-                overflow: TextOverflow.ellipsis,
-                maxLines: 1,
-              ),
               if (coach.trainNo.isNotEmpty)
                 Text(
-                  'Train: ${coach.trainNo}',
+                  'Train: ${coach.trainNo} | Device: ${coach.brakeDeviceId}',
                   style: GoogleFonts.poppins(
-                    fontSize: 10,
+                    fontSize: 9,
                     color: const Color(0xFF6B7280),
                   ),
                   overflow: TextOverflow.ellipsis,
@@ -303,17 +305,6 @@ class _HotAxleDeviceCardState extends State<HotAxleDeviceCard>
           '${coach.batteryPercentage}%',
           _getBatteryColor(coach.batteryPercentage),
         ),
-        const SizedBox(height: 4),
-        if (coach.brakeDeviceId.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 4),
-            child: _buildInfoRow(
-              Icons.memory,
-              'Device ID',
-              coach.brakeDeviceId,
-              const Color(0xFF6B7280),
-            ),
-          ),
         const SizedBox(height: 4),
         _buildInfoRow(
           Icons.access_time,
