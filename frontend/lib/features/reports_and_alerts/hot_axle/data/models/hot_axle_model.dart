@@ -1,5 +1,6 @@
 class HotAxleCoachModel {
   final String deviceId;
+  final String masterId;
   final String coachNumber;
   final String coachType;
   final String owningRly;
@@ -17,12 +18,14 @@ class HotAxleCoachModel {
   final int signalStrength;
   final String? apiStatus;
   final List<AxleModel>? customAxles;
+  final Map<String, dynamic>? axleDevices;
   final String batteryStatus;
   final double batteryVoltage;
   final String technicalId;
 
   HotAxleCoachModel({
     required this.deviceId,
+    required this.masterId,
     required this.coachNumber,
     required this.coachType,
     required this.owningRly,
@@ -40,6 +43,7 @@ class HotAxleCoachModel {
     required this.signalStrength,
     this.apiStatus,
     this.customAxles,
+    this.axleDevices,
     String? batteryStatus,
     double? batteryVoltage,
     this.technicalId = '',
@@ -86,21 +90,28 @@ class HotAxleCoachModel {
 
   List<AxleModel> get axles {
     if (customAxles != null) return customAxles!;
+    
+    String getDeviceId(String key) {
+      if (axleDevices == null) return 'N/A';
+      return axleDevices![key] ?? 'N/A';
+    }
+
     return [
-      AxleModel(axleNumber: 1, status: a11Temp > 60 ? 'Warning' : 'Good', maxTemp: '${a11Temp}°C', currentTemp: '${a11Temp}°C', sensorId: 'A11', speed: 'N/A', detectedAt: timestamp, location: 'Nagpur', lastMaintenance: 'N/A', updateTime: timestamp, batteryStatus: batteryStatus, batteryVoltage: batteryVoltage),
-      AxleModel(axleNumber: 2, status: a12Temp > 60 ? 'Warning' : 'Good', maxTemp: '${a12Temp}°C', currentTemp: '${a12Temp}°C', sensorId: 'A12', speed: 'N/A', detectedAt: timestamp, location: 'Nagpur', lastMaintenance: 'N/A', updateTime: timestamp, batteryStatus: batteryStatus, batteryVoltage: batteryVoltage),
-      AxleModel(axleNumber: 3, status: a21Temp > 60 ? 'Warning' : 'Good', maxTemp: '${a21Temp}°C', currentTemp: '${a21Temp}°C', sensorId: 'A21', speed: 'N/A', detectedAt: timestamp, location: 'Nagpur', lastMaintenance: 'N/A', updateTime: timestamp, batteryStatus: batteryStatus, batteryVoltage: batteryVoltage),
-      AxleModel(axleNumber: 4, status: a22Temp > 60 ? 'Warning' : 'Good', maxTemp: '${a22Temp}°C', currentTemp: '${a22Temp}°C', sensorId: 'A22', speed: 'N/A', detectedAt: timestamp, location: 'Nagpur', lastMaintenance: 'N/A', updateTime: timestamp, batteryStatus: batteryStatus, batteryVoltage: batteryVoltage),
-      AxleModel(axleNumber: 5, status: a31Temp > 60 ? 'Warning' : 'Good', maxTemp: '${a31Temp}°C', currentTemp: '${a31Temp}°C', sensorId: 'A31', speed: 'N/A', detectedAt: timestamp, location: 'Nagpur', lastMaintenance: 'N/A', updateTime: timestamp, batteryStatus: batteryStatus, batteryVoltage: batteryVoltage),
-      AxleModel(axleNumber: 6, status: a32Temp > 60 ? 'Warning' : 'Good', maxTemp: '${a32Temp}°C', currentTemp: '${a32Temp}°C', sensorId: 'A32', speed: 'N/A', detectedAt: timestamp, location: 'Nagpur', lastMaintenance: 'N/A', updateTime: timestamp, batteryStatus: batteryStatus, batteryVoltage: batteryVoltage),
-      AxleModel(axleNumber: 7, status: a41Temp > 60 ? 'Warning' : 'Good', maxTemp: '${a41Temp}°C', currentTemp: '${a41Temp}°C', sensorId: 'A41', speed: 'N/A', detectedAt: timestamp, location: 'Nagpur', lastMaintenance: 'N/A', updateTime: timestamp, batteryStatus: batteryStatus, batteryVoltage: batteryVoltage),
-      AxleModel(axleNumber: 8, status: a42Temp > 60 ? 'Warning' : 'Good', maxTemp: '${a42Temp}°C', currentTemp: '${a42Temp}°C', sensorId: 'A42', speed: 'N/A', detectedAt: timestamp, location: 'Nagpur', lastMaintenance: 'N/A', updateTime: timestamp, batteryStatus: batteryStatus, batteryVoltage: batteryVoltage),
+      AxleModel(axleNumber: 1, status: a11Temp > 60 ? 'Warning' : 'Good', maxTemp: '${a11Temp}°C', currentTemp: '${a11Temp}°C', sensorId: 'A11', deviceId: getDeviceId('axel_1a'), speed: 'N/A', detectedAt: timestamp, location: 'Nagpur', lastMaintenance: 'N/A', updateTime: timestamp, batteryStatus: batteryStatus, batteryVoltage: batteryVoltage),
+      AxleModel(axleNumber: 2, status: a12Temp > 60 ? 'Warning' : 'Good', maxTemp: '${a12Temp}°C', currentTemp: '${a12Temp}°C', sensorId: 'A12', deviceId: getDeviceId('axel_1b'), speed: 'N/A', detectedAt: timestamp, location: 'Nagpur', lastMaintenance: 'N/A', updateTime: timestamp, batteryStatus: batteryStatus, batteryVoltage: batteryVoltage),
+      AxleModel(axleNumber: 3, status: a21Temp > 60 ? 'Warning' : 'Good', maxTemp: '${a21Temp}°C', currentTemp: '${a21Temp}°C', sensorId: 'A21', deviceId: getDeviceId('axel_2a'), speed: 'N/A', detectedAt: timestamp, location: 'Nagpur', lastMaintenance: 'N/A', updateTime: timestamp, batteryStatus: batteryStatus, batteryVoltage: batteryVoltage),
+      AxleModel(axleNumber: 4, status: a22Temp > 60 ? 'Warning' : 'Good', maxTemp: '${a22Temp}°C', currentTemp: '${a22Temp}°C', sensorId: 'A22', deviceId: getDeviceId('axel_2b'), speed: 'N/A', detectedAt: timestamp, location: 'Nagpur', lastMaintenance: 'N/A', updateTime: timestamp, batteryStatus: batteryStatus, batteryVoltage: batteryVoltage),
+      AxleModel(axleNumber: 5, status: a31Temp > 60 ? 'Warning' : 'Good', maxTemp: '${a31Temp}°C', currentTemp: '${a31Temp}°C', sensorId: 'A31', deviceId: getDeviceId('axel_3a'), speed: 'N/A', detectedAt: timestamp, location: 'Nagpur', lastMaintenance: 'N/A', updateTime: timestamp, batteryStatus: batteryStatus, batteryVoltage: batteryVoltage),
+      AxleModel(axleNumber: 6, status: a32Temp > 60 ? 'Warning' : 'Good', maxTemp: '${a32Temp}°C', currentTemp: '${a32Temp}°C', sensorId: 'A32', deviceId: getDeviceId('axel_3b'), speed: 'N/A', detectedAt: timestamp, location: 'Nagpur', lastMaintenance: 'N/A', updateTime: timestamp, batteryStatus: batteryStatus, batteryVoltage: batteryVoltage),
+      AxleModel(axleNumber: 7, status: a41Temp > 60 ? 'Warning' : 'Good', maxTemp: '${a41Temp}°C', currentTemp: '${a41Temp}°C', sensorId: 'A41', deviceId: getDeviceId('axel_4a'), speed: 'N/A', detectedAt: timestamp, location: 'Nagpur', lastMaintenance: 'N/A', updateTime: timestamp, batteryStatus: batteryStatus, batteryVoltage: batteryVoltage),
+      AxleModel(axleNumber: 8, status: a42Temp > 60 ? 'Warning' : 'Good', maxTemp: '${a42Temp}°C', currentTemp: '${a42Temp}°C', sensorId: 'A42', deviceId: getDeviceId('axel_4b'), speed: 'N/A', detectedAt: timestamp, location: 'Nagpur', lastMaintenance: 'N/A', updateTime: timestamp, batteryStatus: batteryStatus, batteryVoltage: batteryVoltage),
     ];
   }
 
   factory HotAxleCoachModel.fromJson(Map<String, dynamic> json) {
     return HotAxleCoachModel(
       deviceId: json['device_id'] ?? '',
+      masterId: json['master_id'] ?? '',
       coachNumber: json['coach_number'] ?? '',
       coachType: json['coach_type'] ?? '',
       owningRly: json['owning_rly'] ?? '',
@@ -119,6 +130,7 @@ class HotAxleCoachModel {
       batteryStatus: json['battery_status']?.toString() ?? 'N/A',
       batteryVoltage: (json['battery_voltage'] ?? 0.0).toDouble(),
       technicalId: json['technical_id']?.toString() ?? '',
+      axleDevices: json['axle_devices'] as Map<String, dynamic>?,
     );
   }
 }
@@ -129,6 +141,7 @@ class AxleModel {
   final String maxTemp;
   final String currentTemp;
   final String sensorId;
+  final String deviceId;
   final String speed;
   final String detectedAt;
   final String location;
@@ -143,6 +156,7 @@ class AxleModel {
     required this.maxTemp,
     required this.currentTemp,
     required this.sensorId,
+    required this.deviceId,
     required this.speed,
     required this.detectedAt,
     required this.location,

@@ -230,6 +230,35 @@ class AxleListCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
 
+          // Device ID
+          if (axle.deviceId.isNotEmpty && axle.deviceId != 'N/A')
+            Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Device ID:',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: ColorConstants.textSecondary,
+                      ),
+                    ),
+                    Text(
+                      axle.deviceId,
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: ColorConstants.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+              ],
+            ),
+
           // Location
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,

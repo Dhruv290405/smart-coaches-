@@ -218,6 +218,20 @@ const hotAxleController = {
 
             const hamsOrder = ['HAMS001', 'HAMS002', 'HAMS003', 'HAMS004', 'HAMS005', 'HAMS006', 'HAMS008', 'HAMS009'];
             let mappedHistory = [];
+            
+            // Build axle-specific device lookup map
+            const axleDevices = {};
+            for (const r of (hamsRegs || [])) {
+                if (r.actual_id) {
+                    axleDevices[r.actual_id.toLowerCase()] = r.device_id || '';
+                }
+            }
+            const sensorToActualId = {
+                'A11': 'axel_1a', 'A12': 'axel_1b',
+                'A21': 'axel_2a', 'A22': 'axel_2b',
+                'A31': 'axel_3a', 'A32': 'axel_3b',
+                'A41': 'axel_4a', 'A42': 'axel_4b'
+            };
 
             if (deviceId && deviceId !== 'All') {
                 for (let bucket in grouped) {
@@ -249,9 +263,17 @@ const hotAxleController = {
                         temps[0] = temp;
                     }
 
+                    let actualAxleDeviceId = deviceId;
+                    if (deviceId.startsWith('A')) {
+                        const actual = sensorToActualId[deviceId.toUpperCase()];
+                        if (actual && axleDevices[actual]) {
+                            actualAxleDeviceId = axleDevices[actual];
+                        }
+                    }
+
                     mappedHistory.push({
                         timestamp: bucket,
-                        device_id: brakeDeviceId || deviceId,  // SCBB-NP-003
+                        device_id: actualAxleDeviceId, // Axle-specific device ID
                         master_id: 'HAMS-M1-001',
                         coach_number: coachNo,
                         train_no: trainNo,
@@ -547,11 +569,14 @@ const hotAxleController = {
                 }
             }
 
-            // Build a lookup by actual_id (master registration id) — one entry per master
+            // Build a lookup for coach-level meta (use first valid entry as master fallback for now)
+            // Also build an axle-level device ID map: actual_id -> device_id
             const hamsMeta = {};
+            const axleDevices = {};
             for (const reg of (hamsRegs || [])) {
                 const key = (reg.actual_id || '').trim();
                 if (key) {
+                    axleDevices[key.toLowerCase()] = reg.device_id || '';
                     hamsMeta[key] = {
                         coach_no: reg.coach_no || '',
                         train_no: reg.train_no || '',
@@ -593,6 +618,7 @@ const hotAxleController = {
                     technical_id: meta.coach_no || '', // Dev: "Technical id is coach number"
                     location: meta.location || 'N/A',
                     coach_type: meta.coach_type || 'B1', // Dev: "Coach type is lw...."
+                    axle_devices: axleDevices,
                 };
             });
 
