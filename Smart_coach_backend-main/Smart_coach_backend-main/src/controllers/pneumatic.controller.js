@@ -339,11 +339,18 @@ exports.getCoachesByLocation = async (req, res) => {
             });
         }
 
+        // Alias train_number → Train_no so the frontend model parses correctly
+        const mapped = coaches.map(c => ({
+            ...c,
+            Train_no: c.train_number,
+            train_number: undefined,
+        }));
+
         return res.status(200).json({
             success: true,
             message: role_id === 1 ? "All coaches fetched (Admin View)" : `Coaches fetched for location: ${region_name || division_name}`,
-            count: coaches.length,
-            data: coaches
+            count: mapped.length,
+            data: mapped
         });
 
     } catch (err) {
