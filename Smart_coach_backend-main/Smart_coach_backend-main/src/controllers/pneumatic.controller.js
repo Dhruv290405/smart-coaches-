@@ -89,7 +89,7 @@ exports.getBreakBindingData = async (req, res) => {
         const activeDeviceId = filterDeviceId || finalData.device_id;
 
         let coachQuery = supabase.from('coaches_railway')
-            .select('technical_id, coach_no, train_number, Location')
+            .select('technical_id, coach_no, Train_no, Location')
             .eq('device_id', activeDeviceId);
 
         if (req.user && req.user.role_id !== 1) {
@@ -133,20 +133,20 @@ exports.getBreakBindingData = async (req, res) => {
         ]);
 
         const deviceMapping = {
-            'SCBB NP001': { technical_id: 'NP001', coach_no: 'NP1', train_number: 'NAGPUR01', Location: 'Nagpur' },
-            'SCBB NP002': { technical_id: 'NP002', coach_no: 'NP2', train_number: 'NAGPUR01', Location: 'Nagpur' },
-            'SCBB NP003': { technical_id: 'NP003', coach_no: 'NP3', train_number: 'NAGPUR01', Location: 'Nagpur' },
-            'Raspberry4_4': { technical_id: '231035', coach_no: 'M3', train_number: '13071', Location: 'Kolkatta' },
-            'Raspberry4_1': { technical_id: '231545', coach_no: 'S4', train_number: '13277', Location: 'Jaipur' },
-            'Raspberry4_2': { technical_id: '234534', coach_no: 'S3', train_number: '12578', Location: 'Jaipur' },
-            'Raspberry4_3': { technical_id: '211245', coach_no: 'S2', train_number: '65214', Location: 'Jaipur' }
+            'SCBB NP001': { technical_id: 'NP001', coach_no: 'NP1', Train_no: 'NAGPUR01', Location: 'Nagpur' },
+            'SCBB NP002': { technical_id: 'NP002', coach_no: 'NP2', Train_no: 'NAGPUR01', Location: 'Nagpur' },
+            'SCBB NP003': { technical_id: 'NP003', coach_no: 'NP3', Train_no: 'NAGPUR01', Location: 'Nagpur' },
+            'Raspberry4_4': { technical_id: '231035', coach_no: 'M3', Train_no: '13071', Location: 'Kolkatta' },
+            'Raspberry4_1': { technical_id: '231545', coach_no: 'S4', Train_no: '13277', Location: 'Jaipur' },
+            'Raspberry4_2': { technical_id: '234534', coach_no: 'S3', Train_no: '12578', Location: 'Jaipur' },
+            'Raspberry4_3': { technical_id: '211245', coach_no: 'S2', Train_no: '65214', Location: 'Jaipur' }
         };
         const fallback = deviceMapping[activeDeviceId] || {};
 
         const finalCoachInfo = {
             technical_id: dbCoach?.technical_id || fallback.technical_id || "N/A",
             coach_no: dbCoach?.coach_no || fallback.coach_no || finalData.coach_no || "Unknown",
-            train_number: dbCoach?.train_number || fallback.train_number || "Unknown",
+            Train_no: dbCoach?.Train_no || fallback.Train_no || "Unknown",
             Location: dbCoach?.Location || fallback.Location || "Unknown"
         };
 
@@ -200,7 +200,7 @@ exports.getBreakBindingData = async (req, res) => {
                     type: 'BRAKE_BINDING',
                     device_id: String(activeDeviceId),
                     coach_no: String(finalCoachInfo.coach_no),
-                    train_no: String(finalCoachInfo.train_number),
+                    train_no: String(finalCoachInfo.Train_no),
                     click_action: 'OPEN_BRAKE_DASHBOARD'
                 };
 
@@ -215,7 +215,7 @@ exports.getBreakBindingData = async (req, res) => {
                 deviceId: activeDeviceId,
                 technical_id: finalCoachInfo.technical_id,
                 coach_no: finalCoachInfo.coach_no,
-                Train_no: finalCoachInfo.train_number,
+                Train_no: finalCoachInfo.Train_no,
                 location: finalCoachInfo.Location || finalCoachInfo.location || "Unknown"
             },
             state: detectedState,
@@ -249,7 +249,7 @@ exports.getBreakBindingData = async (req, res) => {
                     timestamp: row.timestamp,
                     device_id: row.device_id,
                     location: row.Location || row.location || finalCoachInfo.location, 
-                    train_no: row.train_number || row.train_no || finalCoachInfo.train_number,
+                    train_no: row.Train_no || row.train_no || finalCoachInfo.Train_no,
                     coach_no: row.coach_no,
                     bp: row.bp,
                     fp: row.fp,
@@ -273,20 +273,20 @@ exports.getBreakBindingData = async (req, res) => {
 exports.getCoachesByLocation = async (req, res) => {
     if (!supabase) {
         const deviceMapping = {
-            'SCBB NP001': { technical_id: 'NP001', coach_no: 'NP1', train_number: 'NAGPUR01', location: 'Nagpur' },
-            'SCBB NP002': { technical_id: 'NP002', coach_no: 'NP2', train_number: 'NAGPUR01', location: 'Nagpur' },
-            'SCBB NP003': { technical_id: 'NP003', coach_no: 'NP3', train_number: 'NAGPUR01', location: 'Nagpur' },
-            'Raspberry4_4': { technical_id: '231035', coach_no: 'M3', train_number: '13071', location: 'Kolkatta' },
-            'Raspberry4_1': { technical_id: '231545', coach_no: 'S4', train_number: '13277', location: 'Jaipur' },
-            'Raspberry4_2': { technical_id: '234534', coach_no: 'S3', train_number: '12578', location: 'Jaipur' },
-            'Raspberry4_3': { technical_id: '211245', coach_no: 'S2', train_number: '65214', location: 'Jaipur' }
+            'SCBB NP001': { technical_id: 'NP001', coach_no: 'NP1', Train_no: 'NAGPUR01', location: 'Nagpur' },
+            'SCBB NP002': { technical_id: 'NP002', coach_no: 'NP2', Train_no: 'NAGPUR01', location: 'Nagpur' },
+            'SCBB NP003': { technical_id: 'NP003', coach_no: 'NP3', Train_no: 'NAGPUR01', location: 'Nagpur' },
+            'Raspberry4_4': { technical_id: '231035', coach_no: 'M3', Train_no: '13071', location: 'Kolkatta' },
+            'Raspberry4_1': { technical_id: '231545', coach_no: 'S4', Train_no: '13277', location: 'Jaipur' },
+            'Raspberry4_2': { technical_id: '234534', coach_no: 'S3', Train_no: '12578', location: 'Jaipur' },
+            'Raspberry4_3': { technical_id: '211245', coach_no: 'S2', Train_no: '65214', location: 'Jaipur' }
         };
         const data = Object.entries(deviceMapping).map(([deviceId, info], idx) => ({
             id: idx + 1,
             technical_id: info.technical_id,
             coach_no: info.coach_no,
             device_id: deviceId,
-            Train_no: info.train_number,
+            Train_no: info.Train_no,
             Location: info.location,
             Actual_id: info.technical_id
         }));
@@ -309,7 +309,7 @@ exports.getCoachesByLocation = async (req, res) => {
 
         let query = supabase
             .from('coaches_railway')
-            .select('id, technical_id, coach_no, device_id, train_number, Location, Actual_id');
+            .select('id, technical_id, coach_no, device_id, Train_no, Location, Actual_id');
 
         if (role_id !== 1) {
             const userLocation = division_name || region_name;
@@ -339,18 +339,11 @@ exports.getCoachesByLocation = async (req, res) => {
             });
         }
 
-        // Alias train_number → Train_no so the frontend model parses correctly
-        const mapped = coaches.map(c => ({
-            ...c,
-            Train_no: c.train_number,
-            train_number: undefined,
-        }));
-
         return res.status(200).json({
             success: true,
             message: role_id === 1 ? "All coaches fetched (Admin View)" : `Coaches fetched for location: ${region_name || division_name}`,
-            count: mapped.length,
-            data: mapped
+            count: coaches.length,
+            data: coaches
         });
 
     } catch (err) {
