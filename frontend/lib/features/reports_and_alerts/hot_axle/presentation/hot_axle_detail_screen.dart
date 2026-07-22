@@ -126,8 +126,6 @@ class _HotAxleDetailScreenState extends State<HotAxleDetailScreen> {
         _infoRow('Coach No', widget.coach.coachNumber.isNotEmpty ? widget.coach.coachNumber : 'N/A'),
         _infoRow('Master ID', widget.coach.masterId.isNotEmpty ? widget.coach.masterId : 'N/A'),
         _infoRow('Coach Type', widget.coach.coachType.isNotEmpty ? widget.coach.coachType : 'N/A'),
-        if (widget.coach.technicalId.isNotEmpty)
-          _infoRow('Technical ID', widget.coach.technicalId),
       ]),
     );
   }

@@ -621,7 +621,6 @@ const hotAxleController = {
                     master_id: d.master_id || 'HAMS-M1-001',
                     coach_number: isHamsM1 ? '226965' : (meta.technical_id || ''),
                     train_no: isHamsM1 ? '1207069' : (meta.train_no || ''),
-                    technical_id: isHamsM1 ? '226965' : (meta.technical_id || ''),
                     coach_type: isHamsM1 ? 'LWSCZ - AC' : (meta.coach_type || 'B1'),
                     brake_device_id: isHamsM1 ? 'SCBB-NP-26-003' : (meta.device_id || ''),
                     location: meta.location || 'N/A',
