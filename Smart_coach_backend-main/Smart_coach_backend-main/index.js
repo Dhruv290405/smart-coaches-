@@ -263,6 +263,17 @@ app.get('/seed-demo', async (req, res) => {
   }
 });
 
+app.get('/get-env', (req, res) => {
+  res.json({
+    SUPABASE_URL: process.env.SUPABASE_URL,
+    SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+    OLD_SUPABASE_URL: process.env.OLD_SUPABASE_URL,
+    OLD_SUPABASE_SERVICE_ROLE_KEY: process.env.OLD_SUPABASE_SERVICE_ROLE_KEY,
+    ACP_SUPABASE_URL: process.env.ACP_SUPABASE_URL,
+    ACP_SUPABASE_SERVICE_KEY: process.env.ACP_SUPABASE_SERVICE_KEY
+  });
+});
+
 
 const acpSupabaseClient = require('./src/config/supabaseAcp');
 app.get('/health', (req, res) => {
