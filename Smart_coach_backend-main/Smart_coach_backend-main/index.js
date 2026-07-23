@@ -117,6 +117,118 @@ app.get('/test', async (req, res) => {
   res.json({ status: 'Test route works!', db: dbStatus, supabaseUrl, wliLogs: wliCount, tables, users: userCount });
 });
 
+app.get('/inspect-db', async (req, res) => {
+  try {
+    const { data: users } = await supabaseAdmin.from('user_master').select('email, region_name, division_name, role_id, region_id, division_id').order('email');
+    const { data: configs } = await supabaseAdmin.from('sensor_config').select('*').limit(50);
+    const { data: hamsCoaches } = await supabaseAdmin.from('coaches_hams').select('*').limit(50);
+    const { data: railCoaches } = await supabaseAdmin.from('coaches_railway').select('*').limit(50);
+    const { data: hotAxleRows } = await supabaseAdmin.from('hot_axle_logs').select('*').order('id', { ascending: false }).limit(10);
+    res.json({ users, configs, hamsCoaches, railCoaches, hotAxleRows });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/seed-demo', async (req, res) => {
+  try {
+    // 1. Seed user_master
+    await supabaseAdmin.from('user_master').upsert({
+      email: 'danapur.ops@test.com',
+      region_name: 'Danapur',
+      division_name: 'Danapur',
+      role_id: 2,
+      status: 'Active',
+      approval_status: 'Approved'
+    }, { onConflict: 'email' });
+
+    await supabaseAdmin.from('user_master').upsert({
+      email: 'nagpur.ops@gmail.com',
+      region_name: 'Nagpur',
+      division_name: 'Nagpur',
+      role_id: 2,
+      status: 'Active',
+      approval_status: 'Approved'
+    }, { onConflict: 'email' });
+
+    // 2. Clear or update sensor_config for Danapur & Nagpur
+    // ACP, Hot Axle (section 2), and BC Pressure for Danapur
+    // Brake Binding (labelled like ng-...) and Hot Axle (section 1) for Nagpur
+    const sensorConfigs = [
+      { location: 'Danapur', device_name: 'ACP', technical_id: 'ACP-DN-01', remarks: 'ECR Danapur ACP', sensor_type: 'acp', train_no: 'DAN001' },
+      { location: 'Danapur', device_name: 'Hot Axle', technical_id: 'HA-DN-02', remarks: 'ECR Danapur Hot Axle Section 2', sensor_type: 'hot_axle', train_no: 'DAN001', section: '2' },
+      { location: 'Danapur', device_name: 'BC Pressure', technical_id: 'BC-DN-01', remarks: 'ECR Danapur BC Pressure', sensor_type: 'bc_pressure', train_no: 'DAN001' },
+      { location: 'Nagpur', device_name: 'Brake Binding', technical_id: 'ng-BR-01', remarks: 'Nagpur Brake Binding', sensor_type: 'brake_binding', train_no: 'NAG001' },
+      { location: 'Nagpur', device_name: 'Hot Axle', technical_id: 'HA-NG-01', remarks: 'Nagpur Hot Axle Section 1', sensor_type: 'hot_axle', train_no: 'NAG001', section: '1' }
+    ];
+    for (const cfg of sensorConfigs) {
+      await supabaseAdmin.from('sensor_config').upsert(cfg, { onConflict: ['location', 'device_name', 'technical_id'] });
+    }
+
+    // 3. Populate sensor_data
+    const now = new Date().toISOString();
+    const sensorData = [
+      { location: 'Danapur', sensor_type: 'acp', value: 1.0, timestamp: now, technical_id: 'ACP-DN-01' },
+      { location: 'Danapur', sensor_type: 'bc_pressure', value: 5.0, timestamp: now, technical_id: 'BC-DN-01' },
+      { location: 'Nagpur', sensor_type: 'brake_binding', value: 0.1, timestamp: now, technical_id: 'ng-BR-01' }
+    ];
+    for (const d of sensorData) {
+      await supabaseAdmin.from('sensor_data').upsert(d, { onConflict: ['location', 'sensor_type', 'technical_id', 'timestamp'] });
+    }
+
+    // 4. Seeding coaches_railway
+    const railway = [
+      { technical_id: 1002, coach_no: 'HA-DN-02', device_id: 'Raspberry_Dan2', Train_no: 12345, Location: 'Danapur', Actual_id: 'DAN-02' },
+      { technical_id: 1003, coach_no: 'ng-BR-01', device_id: 'Raspberry_Nag1', Train_no: 12346, Location: 'Nagpur', Actual_id: 'NAG-01' }
+    ];
+    for (const r of railway) {
+      await supabaseAdmin.from('coaches_railway').upsert(r, { onConflict: ['coach_no'] });
+    }
+
+    // 4.5 Seeding coaches_hams (for Nagpur Hot Axle Section 1)
+    await supabaseAdmin.from('coaches_hams').upsert({
+      technical_id: '226965',
+      coach_no: 'LWSCZAC',
+      device_id: 'Raspberry4_7',
+      train_no: '1207069',
+      location: 'Nagpur',
+      actual_id: 'HAMS-M1-001'
+    }, { onConflict: ['technical_id'] });
+
+    // 5. Build recent hot axle history for Section 2 (Danapur) to show historical logs in hot_axle_logs
+    const hotAxleHistoryLogs = [];
+    const minMs = 60 * 1000;
+    for (let i = 0; i < 20; i++) {
+      const logTime = new Date(Date.now() - i * 15 * minMs).toISOString().replace('T', ' ').replace(/\..*Z/, '');
+      hotAxleHistoryLogs.push({
+        device_id: 'Raspberry_Dan2',
+        coach_number: 'HA-DN-02',
+        coach_type: 'LHB',
+        owning_rly: 'ECR',
+        train_no: '12345',
+        timestamp: logTime,
+        a11_temp: 45 + Math.random() * 5,
+        a12_temp: 46 + Math.random() * 5,
+        a21_temp: 44 + Math.random() * 5,
+        a22_temp: 47 + Math.random() * 5,
+        a31_temp: 45 + Math.random() * 5,
+        a32_temp: 46 + Math.random() * 5,
+        a41_temp: 48 + Math.random() * 5,
+        a42_temp: 49 + Math.random() * 5,
+        alert_status: 'Good',
+        battery_percentage: 90,
+        signal_strength: 80
+      });
+    }
+    await supabaseAdmin.from('hot_axle_logs').insert(hotAxleHistoryLogs);
+
+    res.json({ success: true, message: 'Sample seed successfully run' });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+
 const acpSupabaseClient = require('./src/config/supabaseAcp');
 app.get('/health', (req, res) => {
   const acpUrl = !!(process.env.ACP_SUPABASE_URL);

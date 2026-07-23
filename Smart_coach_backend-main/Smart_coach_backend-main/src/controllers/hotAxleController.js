@@ -149,17 +149,21 @@ const hotAxleController = {
                 .from('coaches_hams')
                 .select('coach_no, train_no, technical_id, location, actual_id, device_id');
 
-            // Build lookup by actual_id (lowercased)
+            // Build lookup maps by actual_id and technical_id (lowercased)
             const hamsMetaMap = {};
+            const hamsMetaMapByTechId = {};
             for (const reg of (hamsRegs || [])) {
                 const k = (reg.actual_id || '').trim().toLowerCase();
                 if (k) hamsMetaMap[k] = reg;
+                const t = (reg.technical_id || '').trim().toLowerCase();
+                if (t) hamsMetaMapByTechId[t] = reg;
             }
 
             // Try to find the best matching registration
-            const masterId = (coachDeviceId || coachNumber || '').toLowerCase().replace('master: ', '');
-            const isHamsM1 = masterId === 'hams-m1-001';
-            const hamsReg = hamsMetaMap[masterId] || hamsMetaMap['hams-m1-001'] || (hamsRegs && hamsRegs[0]) || null;
+            const masterIdParam = (coachDeviceId || coachNumber || '').toLowerCase().replace('master: ', '');
+            const hamsReg = hamsMetaMap[masterIdParam] || hamsMetaMapByTechId[masterIdParam] || hamsMetaMap['hams-m1-001'] || (hamsRegs && hamsRegs[0]) || null;
+            const dbMasterId = hamsReg ? hamsReg.actual_id : 'hams-m1-001';
+            const isHamsM1 = (dbMasterId || '').toLowerCase() === 'hams-m1-001';
 
             // Fetch coach_type from coaches_railway using the brake binding device_id
             let coachTypeFromDB = isHamsM1 ? 'LWSCZ - AC' : 'B1';
@@ -174,7 +178,7 @@ const hotAxleController = {
 
             let query = sOld.from('hams_data')
                 .select('*')
-                .ilike('master_id', 'hams-m1-001');
+                .in('master_id', [dbMasterId, dbMasterId.toLowerCase(), dbMasterId.toUpperCase()]);
 
             // Filter by specific sensor device if provided
             if (deviceId && deviceId !== 'All') {
@@ -275,7 +279,7 @@ const hotAxleController = {
                     mappedHistory.push({
                         timestamp: bucket,
                         device_id: actualAxleDeviceId, // Axle-specific device ID
-                        master_id: 'HAMS-M1-001',
+                        master_id: dbMasterId,
                         coach_number: coachNo,
                         train_no: trainNo,
                         technical_id: technicalId,
@@ -324,8 +328,8 @@ const hotAxleController = {
 
                     mappedHistory.push({
                         timestamp: bucket,
-                        device_id: brakeDeviceId || coachNo || 'HAMS-M1-001',  // SCBB-NP-26-003
-                        master_id: 'HAMS-M1-001',
+                        device_id: brakeDeviceId || coachNo || dbMasterId,  // SCBB-NP-26-003
+                        master_id: dbMasterId,
                         coach_number: coachNo,
                         train_no: trainNo,
                         technical_id: technicalId,
@@ -604,10 +608,23 @@ const hotAxleController = {
                 coach_type: isHamsM1Fallback ? 'LWSCZ - AC' : (railCoachTypeMap[firstReg.device_id] || 'B1'),
             } : null;
 
+            const registeredMasterIds = (hamsRegs || []).map(r => r.actual_id).filter(Boolean);
+            const masterFilterSet = new Set();
+            for (const id of registeredMasterIds) {
+                masterFilterSet.add(id);
+                masterFilterSet.add(id.toLowerCase());
+                masterFilterSet.add(id.toUpperCase());
+            }
+            if (masterFilterSet.size === 0) {
+                masterFilterSet.add('hams-m1-001');
+                masterFilterSet.add('HAMS-M1-001');
+            }
+            const masterFilter = [...masterFilterSet];
+
             const { data: hamsData, error: hamsError } = await supabaseOld
                 .from('hams_data')
                 .select('*')
-                .ilike('master_id', 'hams-m1-001')
+                .in('master_id', masterFilter)
                 .order('created_at', { ascending: false });
 
             if (hamsError) throw hamsError;
