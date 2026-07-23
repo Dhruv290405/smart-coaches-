@@ -132,6 +132,18 @@ app.get('/inspect-db', async (req, res) => {
   }
 });
 
+app.get('/check-old-hams', async (req, res) => {
+  try {
+    const supabaseOld = require('./src/config/supabaseOld');
+    if (!supabaseOld) return res.json({ error: 'supabaseOld not set' });
+    const { data: rawData, error } = await supabaseOld.from('hams_data').select('master_id, device_id, created_at').limit(100);
+    const uniqueMasterIds = [...new Set((rawData || []).map(r => r.master_id))];
+    res.json({ error: error ? error.message : null, uniqueMasterIds, sample: rawData ? rawData.slice(0, 10) : [] });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/seed-demo', async (req, res) => {
   try {
     // 1. Seed user_master
