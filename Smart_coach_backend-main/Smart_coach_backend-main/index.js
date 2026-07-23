@@ -119,12 +119,14 @@ app.get('/test', async (req, res) => {
 
 app.get('/inspect-db', async (req, res) => {
   try {
-    const { data: users } = await supabaseAdmin.from('user_master').select('email, region_name, division_name, role_id, region_id, division_id').order('email');
+    const { data: users } = await supabaseAdmin.from('user_master').select('email, role_id, region_id, division_id').order('email');
+    const { data: divisions } = await supabaseAdmin.from('division_master').select('division_id, name');
+    const { data: regions } = await supabaseAdmin.from('region_master').select('region_id, name');
     const { data: configs } = await supabaseAdmin.from('sensor_config').select('*').limit(50);
     const { data: hamsCoaches } = await supabaseAdmin.from('coaches_hams').select('*').limit(50);
     const { data: railCoaches } = await supabaseAdmin.from('coaches_railway').select('*').limit(50);
     const { data: hotAxleRows } = await supabaseAdmin.from('hot_axle_logs').select('*').order('id', { ascending: false }).limit(10);
-    res.json({ users, configs, hamsCoaches, railCoaches, hotAxleRows });
+    res.json({ users, divisions, regions, configs, hamsCoaches, railCoaches, hotAxleRows });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
