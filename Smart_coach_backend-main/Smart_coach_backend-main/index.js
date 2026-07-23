@@ -213,18 +213,21 @@ app.get('/seed-demo', async (req, res) => {
       { technical_id: 1003, coach_no: 'ng-BR-01', device_id: 'Raspberry_Nag1', Train_no: 12346, Location: 'Nagpur', Actual_id: 'NAG-01' }
     ];
     for (const r of railway) {
-      await supabaseAdmin.from('coaches_railway').upsert(r, { onConflict: ['coach_no'] });
+      await supabaseAdmin.from('coaches_railway').delete().eq('coach_no', r.coach_no);
+      const { error } = await supabaseAdmin.from('coaches_railway').insert(r);
+      if (error) console.error("coaches_railway seed error:", error.message);
     }
 
     // 4.5 Seeding coaches_hams (for Nagpur Hot Axle Section 1)
-    const { error: hamsSeedErr } = await supabaseAdmin.from('coaches_hams').upsert({
+    await supabaseAdmin.from('coaches_hams').delete().eq('technical_id', '226965');
+    const { error: hamsSeedErr } = await supabaseAdmin.from('coaches_hams').insert({
       technical_id: '226965',
       coach_no: 'LWSCZAC',
       device_id: 'Raspberry4_7',
       train_no: '1207069',
       location: 'Nagpur',
       actual_id: 'HAMS-M1-001'
-    }, { onConflict: ['technical_id'] });
+    });
     if (hamsSeedErr) throw new Error("coaches_hams seed failed: " + hamsSeedErr.message);
 
     // 5. Build recent hot axle history for Section 2 (Danapur) to show historical logs in hot_axle_logs
