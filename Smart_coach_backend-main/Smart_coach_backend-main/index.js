@@ -200,7 +200,7 @@ app.get('/seed-demo', async (req, res) => {
     }
 
     // 4.5 Seeding coaches_hams (for Nagpur Hot Axle Section 1)
-    await supabaseAdmin.from('coaches_hams').upsert({
+    const { error: hamsSeedErr } = await supabaseAdmin.from('coaches_hams').upsert({
       technical_id: '226965',
       coach_no: 'LWSCZAC',
       device_id: 'Raspberry4_7',
@@ -208,6 +208,7 @@ app.get('/seed-demo', async (req, res) => {
       location: 'Nagpur',
       actual_id: 'HAMS-M1-001'
     }, { onConflict: ['technical_id'] });
+    if (hamsSeedErr) throw new Error("coaches_hams seed failed: " + hamsSeedErr.message);
 
     // 5. Build recent hot axle history for Section 2 (Danapur) to show historical logs in hot_axle_logs
     const hotAxleHistoryLogs = [];
