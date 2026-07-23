@@ -132,13 +132,30 @@ app.get('/inspect-db', async (req, res) => {
   }
 });
 
-app.get('/check-old-hams', async (req, res) => {
+app.get('/hams-setup', async (req, res) => {
   try {
-    const supabaseOld = require('./src/config/supabaseOld');
-    if (!supabaseOld) return res.json({ error: 'supabaseOld not set' });
-    const { data: rawData, error } = await supabaseOld.from('hams_data').select('master_id, device_id, created_at').limit(100);
-    const uniqueMasterIds = [...new Set((rawData || []).map(r => r.master_id))];
-    res.json({ error: error ? error.message : null, uniqueMasterIds, sample: rawData ? rawData.slice(0, 10) : [] });
+    const { data: cols, error: colErr } = await supabaseAdmin.from('coaches_hams').select('*').limit(1);
+    
+    // Attempt inserting a new record with a unique technical_id
+    const testRecord = {
+      technical_id: 'Test_' + Math.floor(Math.random() * 1000000),
+      coach_no: 'LWSCZAC',
+      device_id: 'Raspberry4_7',
+      train_no: '1207069',
+      location: 'Nagpur',
+      actual_id: 'HAMS-M1-001'
+    };
+    
+    const insertRes = await supabaseAdmin.from('coaches_hams').insert(testRecord).select();
+    
+    const allRows = await supabaseAdmin.from('coaches_hams').select('*');
+    
+    res.json({
+      sampleRow: cols,
+      insertResult: insertRes,
+      allRows: allRows.data,
+      allRowsCount: allRows.data ? allRows.data.length : 0
+    });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
