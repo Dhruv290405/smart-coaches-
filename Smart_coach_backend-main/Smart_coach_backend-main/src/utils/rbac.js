@@ -56,7 +56,7 @@ function isModuleAuthorized(user, moduleKey) {
   if (!loc) return false;
   
   const allowedModules = DIVISION_MODULE_MAP[loc];
-  if (!allowedModules) return moduleKey === 'brake_binding';
+  if (!allowedModules) return true;
   return allowedModules.includes(moduleKey);
 }
 
