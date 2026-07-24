@@ -364,6 +364,24 @@ const hotAxleController = {
                 }
             }
 
+            if (axleNumber && axleNumber !== 'All' && !isNaN(parseInt(axleNumber))) {
+                const aIdx = parseInt(axleNumber) - 1;
+                const axleCols = ['a11_temp', 'a12_temp', 'a21_temp', 'a22_temp', 'a31_temp', 'a32_temp', 'a41_temp', 'a42_temp'];
+                mappedHistory = mappedHistory.map(item => {
+                    const isolated = [0, 0, 0, 0, 0, 0, 0, 0];
+                    if (aIdx >= 0 && aIdx < 8) {
+                        isolated[aIdx] = item[axleCols[aIdx]] || 0;
+                    }
+                    return {
+                        ...item,
+                        a11_temp: isolated[0], a12_temp: isolated[1],
+                        a21_temp: isolated[2], a22_temp: isolated[3],
+                        a31_temp: isolated[4], a32_temp: isolated[5],
+                        a41_temp: isolated[6], a42_temp: isolated[7]
+                    };
+                });
+            }
+
             mappedHistory.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
 
             const total = mappedHistory.length;
@@ -383,7 +401,10 @@ const hotAxleController = {
         }
 
         const offset = (parseInt(page) - 1) * parseInt(limit);
-        const authorizedCoaches = await rbac.getAuthorizedCoachNumbers(req.user);
+        let authorizedCoaches = await rbac.getAuthorizedCoachNumbers(req.user);
+        if (rbac.isModuleAuthorized(req.user, 'hot_axle_section2') && (!authorizedCoaches || authorizedCoaches.length === 0)) {
+            authorizedCoaches = null;
+        }
 
         const result = await HotAxleModel.getHistoryData({
             deviceId: deviceId || 'All',

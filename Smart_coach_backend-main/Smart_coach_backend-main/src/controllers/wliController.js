@@ -59,6 +59,9 @@ const wliController = {
 
     getDashboardStatus: async (req, res) => {
         try {
+            if (!rbac.isModuleAuthorized(req.user, 'wli')) {
+                return res.status(200).json({ success: true, totalCoaches: 0, data: [] });
+            }
             const authorizedCoaches = await rbac.getAuthorizedCoachNumbers(req.user);
             const statusData = await WliModel.getLatestStatusForAllCoaches(authorizedCoaches);
 

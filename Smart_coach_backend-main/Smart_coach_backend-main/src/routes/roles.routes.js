@@ -8,6 +8,6 @@ router.get(
   '/',
   rolesController.list
 );
-router.get('/get-all-roles', rolesController.getRoleList);1
+router.get('/get-all-roles', rolesController.getRoleList);
 
 module.exports = router;

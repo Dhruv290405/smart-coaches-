@@ -4,6 +4,9 @@ const { successResponse, errorResponse } = require('../utils/response');
 
 exports.getDieselReadings = async (req, res) => {
   try {
+    if (!rbac.isModuleAuthorized(req.user, 'diesel')) {
+      return successResponse(res, 'No diesel sensors found for this user location', [], 200);
+    }
     const { coach_id } = req.query;
     const authorizedCoaches = await rbac.getAuthorizedCoachNumbers(req.user);
     const sensors = await dieselModel.getDieselSensors(coach_id, authorizedCoaches);

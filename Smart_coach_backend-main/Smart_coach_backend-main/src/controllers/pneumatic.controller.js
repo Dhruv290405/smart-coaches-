@@ -1,6 +1,7 @@
 const Pneumatic = require('../models/pneumatic.model');
 const supabase = require('../config/supabaseOld');
 const NotificationService = require('../services/notificationService');
+const rbac = require('../utils/rbac');
 const OLD_BACKEND = 'https://smart-coach-api-production.up.railway.app';
 
 async function forwardToOldBackend(req, res, path) {
@@ -19,6 +20,12 @@ async function forwardToOldBackend(req, res, path) {
 }
 
 exports.getBreakBindingData = async (req, res) => {
+    if (!rbac.isModuleAuthorized(req.user, 'brake_binding')) {
+        return res.status(404).json({
+            success: false,
+            message: "No brake binding data found or access restricted for your location"
+        });
+    }
     if (!supabase) {
         return forwardToOldBackend(req, res, '/pneumatic/status');
     }
@@ -271,6 +278,14 @@ exports.getBreakBindingData = async (req, res) => {
 };
 
 exports.getCoachesByLocation = async (req, res) => {
+    if (!rbac.isModuleAuthorized(req.user, 'brake_binding')) {
+        return res.status(200).json({
+            success: true,
+            message: "No coaches accessible for your location",
+            count: 0,
+            data: []
+        });
+    }
     if (!supabase) {
         const deviceMapping = {
             'SCBB NP001': { technical_id: 'NP001', coach_no: 'NP1', Train_no: 'NAGPUR01', location: 'Nagpur' },
