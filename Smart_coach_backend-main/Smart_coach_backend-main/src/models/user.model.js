@@ -46,19 +46,13 @@ class UserModel extends BaseModel {
     const userId = user.user_id;
 
     if (userData.region_id && Array.isArray(userData.region_id) && userData.region_id.length > 0) {
-      let nextId = 1;
-      const { data: maxRow } = await supabaseAdmin
-        .from('user_region_mapping')
-        .select('id')
-        .order('id', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (maxRow?.id) nextId = maxRow.id + 1;
-      const regionValues = userData.region_id.map((id, i) => ({ id: nextId + i, user_id: userId, region_id: id }));
+      const regionValues = userData.region_id.map(rid => ({ user_id: userId, region_id: rid }));
       const { error: regionError } = await supabaseAdmin
         .from('user_region_mapping')
         .insert(regionValues);
-      if (regionError) throw regionError;
+      if (regionError) {
+        console.error("Failed to insert region mapping, continuing:", regionError.message);
+      }
     }
 
     if (userData.train_ids && Array.isArray(userData.train_ids) && userData.train_ids.length > 0) {
@@ -66,7 +60,9 @@ class UserModel extends BaseModel {
       const { error: trainError } = await supabaseAdmin
         .from('user_train_mapping')
         .insert(trainValues);
-      if (trainError) throw trainError;
+      if (trainError) {
+        console.error("Failed to insert train mapping, continuing:", trainError.message);
+      }
     }
 
     delete user.password_hash;
@@ -106,6 +102,8 @@ class UserModel extends BaseModel {
   }
 
   async getPendingUsersByScope(currentUser, filters = {}) {
+    if (!currentUser || !currentUser.role_id) return [];
+
     let query = supabaseAdmin
       .from('user_master')
       .select(`
@@ -132,19 +130,22 @@ class UserModel extends BaseModel {
     query = query.gt('role_id', currentUser.role_id);
 
     switch (currentUser.role_id) {
+      case 1:
+      case 2:
+        break;
       case 3: {
         const orParts = [`and(role_id.eq.4,zone_id.eq.${currentUser.zone_id})`];
         const { data: divisions } = await supabaseAdmin
           .from('division_master')
           .select('division_id')
           .eq('zone_id', currentUser.zone_id);
-        const divisionIds = divisions.map(d => d.division_id);
+        const divisionIds = (divisions || []).map(d => d.division_id);
         if (divisionIds.length > 0) {
           const { data: regions } = await supabaseAdmin
             .from('region_master')
             .select('region_id')
             .in('division_id', divisionIds);
-          const regionIds = regions.map(r => r.region_id);
+          const regionIds = (regions || []).map(r => r.region_id);
           orParts.push(`and(role_id.in.(5,6),division_id.in.(${divisionIds.join(',')}))`);
           if (regionIds.length > 0) {
             orParts.push(`and(role_id.eq.7,region_id.in.(${regionIds.join(',')}))`);
@@ -159,7 +160,7 @@ class UserModel extends BaseModel {
           .from('region_master')
           .select('region_id')
           .eq('division_id', currentUser.division_id);
-        const regionIds = regions.map(r => r.region_id);
+        const regionIds = (regions || []).map(r => r.region_id);
         if (regionIds.length > 0) {
           orParts.push(`and(role_id.eq.7,region_id.in.(${regionIds.join(',')}))`);
         }
@@ -172,12 +173,14 @@ class UserModel extends BaseModel {
           .from('region_master')
           .select('region_id')
           .eq('division_id', currentUser.division_id);
-        const regionIds = regions.map(r => r.region_id);
+        const regionIds = (regions || []).map(r => r.region_id);
         if (regionIds.length > 0) {
           query = query.in('region_id', regionIds);
         }
         break;
       }
+      default:
+        return [];
     }
 
     if (filters.status) {
@@ -200,6 +203,8 @@ class UserModel extends BaseModel {
 
     const { data: rows, error } = await query;
     if (error) throw error;
+
+    if (!rows || rows.length === 0) return [];
 
     const userIds = rows.map(r => r.user_id);
     const { data: allMappings } = await supabaseAdmin

@@ -32,7 +32,7 @@ const authController = {
       res,
       'Registration successful. Please wait for admin approval.',
       { 
-        id: newUser.id || newUser.insertId, 
+        id: newUser.user_id, 
         name: `${req.body.first_name} ${req.body.last_name || ''}`.trim(), 
         email: email 
       },

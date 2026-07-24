@@ -241,7 +241,7 @@ class RegisterBloc extends Bloc<RegisterEvent, RegisterState> {
         emit(state.copyWith(
           isSubmitting: false,
           isLoading: false,
-          errorMessage: "Registration failed",
+          errorMessage: result.message ?? "Registration failed",
           successMessage: null,
           errorList: null,
         ));
