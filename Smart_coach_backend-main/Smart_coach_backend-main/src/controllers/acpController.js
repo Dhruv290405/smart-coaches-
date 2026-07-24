@@ -9,11 +9,10 @@ function applyLocationFilter(logs, user) {
     if (!user || user.role_id === 1 || !logs || logs.length === 0) return logs;
     const userLocs = rbac.getUserLocations(user).map(l => l.toLowerCase());
     if (userLocs.length === 0) return logs;
-    const filtered = logs.filter(log => {
+    return logs.filter(log => {
         const logLoc = (log.train_location || "").toLowerCase();
         return userLocs.some(uLoc => logLoc.includes(uLoc) || uLoc.includes(logLoc));
     });
-    return filtered.length > 0 ? filtered : logs;
 }
 
 // 1. For getting all critical logs (GET endpoint - optimized for partitioned table)
@@ -104,6 +103,9 @@ const receiveAcpData = async (req, res) => {
 // 3. Fetch data for dropdowns based on query parameters
 const getFilterOptions = async (req, res) => {
     try {
+        if (!rbac.isModuleAuthorized(req.user, 'acp')) {
+            return res.status(200).json({ success: true, data: [] });
+        }
         const { trainNo, coachType } = req.query;
 
         if (!trainNo) {
@@ -134,6 +136,9 @@ const getFilterOptions = async (req, res) => {
 // 4. Filtered Logs fetch karna
 const getFilteredData = async (req, res) => {
     try {
+        if (!rbac.isModuleAuthorized(req.user, 'acp')) {
+            return res.status(200).json({ success: true, count: 0, data: [] });
+        }
         const { trainNo, techCoachNo } = req.query;
 
         if (!trainNo || !techCoachNo) {
@@ -184,6 +189,9 @@ const getAcpSummary = async (req, res) => {
 // 6. Coach ACP history with range filter & partitioning support
 const getCoachHistory = async (req, res) => {
     try {
+        if (!rbac.isModuleAuthorized(req.user, 'acp')) {
+            return res.status(200).json({ success: true, total_events_returned: 0, data: [] });
+        }
         const { coachNo, fromDate, toDate, page = 1, limit = 100 } = req.query;
 
         if (!coachNo) {
