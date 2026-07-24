@@ -75,6 +75,16 @@ const authenticate = async (req, res, next) => {
           if (reg) req.user.region_name = reg.name;
         }
       }
+
+      // Fallback: resolve division_name directly
+      if (!req.user.division_name && req.user.division_id) {
+        const { data: div } = await supabaseAdmin
+          .from('division_master')
+          .select('name')
+          .eq('division_id', req.user.division_id)
+          .maybeSingle();
+        if (div) req.user.division_name = div.name;
+      }
       next();
     } catch (err) {
       if (err.name === 'TokenExpiredError') {

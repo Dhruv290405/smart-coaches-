@@ -297,7 +297,11 @@ exports.getCoachesByLocation = async (req, res) => {
             'Raspberry4_2': { technical_id: '234534', coach_no: 'S3', Train_no: '12578', location: 'Jaipur' },
             'Raspberry4_3': { technical_id: '211245', coach_no: 'S2', Train_no: '65214', location: 'Jaipur' }
         };
-        const data = Object.entries(deviceMapping).map(([deviceId, info], idx) => ({
+        const userLoc = (req.user?.division_name || req.user?.region_name || '').toLowerCase();
+        const filtered = Object.entries(deviceMapping).filter(([_, info]) =>
+            !userLoc || info.location.toLowerCase() === userLoc
+        );
+        const data = filtered.map(([deviceId, info], idx) => ({
             id: idx + 1,
             technical_id: info.technical_id,
             coach_no: info.coach_no,
@@ -308,7 +312,7 @@ exports.getCoachesByLocation = async (req, res) => {
         }));
         return res.status(200).json({
             success: true,
-            message: "Coaches fetched (fallback)",
+            message: `Coaches fetched (fallback) for location: ${userLoc || 'all'}`,
             count: data.length,
             data
         });
