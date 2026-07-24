@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const { errorResponse } = require('../utils/response');
 const supabaseAdmin = require('../config/supabaseAdmin');
+const roleModel = require('../models/role.model.js');
 
 // Middleware to verify JWT token
 const authenticate = async (req, res, next) => {
