@@ -55,9 +55,11 @@ function isModuleAuthorized(user, moduleKey) {
   const loc = getUserLocation(user);
   if (!loc) return false;
   
-  const allowedModules = DIVISION_MODULE_MAP[loc];
-  if (!allowedModules) return true;
-  return allowedModules.includes(moduleKey);
+  const normalizedLoc = Object.keys(DIVISION_MODULE_MAP).find(
+    k => k.toLowerCase() === loc.toLowerCase()
+  );
+  if (!normalizedLoc) return true;
+  return DIVISION_MODULE_MAP[normalizedLoc].includes(moduleKey);
 }
 
 /**
@@ -109,6 +111,20 @@ function filterByLocation(records, user, fieldName) {
     const val = r[fieldName];
     return val && val.toString().toLowerCase() === loc.toLowerCase();
   });
+}
+
+/**
+ * Get authorized device IDs for the user's location (case-insensitive).
+ */
+async function getAuthorizedDeviceIdsForLocation(user) {
+  if (isAdmin(user)) return null;
+  const loc = getUserLocation(user);
+  if (!loc) return [];
+  const { data } = await supabaseAdmin
+    .from('coaches_railway')
+    .select('device_id')
+    .ilike('Location', loc);
+  return (data || []).map(r => r.device_id).filter(Boolean);
 }
 
 /**
@@ -185,6 +201,7 @@ module.exports = {
   filterByLocation,
   getAuthorizedCoachNumbers,
   getAuthorizedDeviceIds,
+  getAuthorizedDeviceIdsForLocation,
   getAuthorizedTrainNumbers,
   rbacMiddleware
 };

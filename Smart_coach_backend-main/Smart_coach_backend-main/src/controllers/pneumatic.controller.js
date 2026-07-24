@@ -39,7 +39,14 @@ exports.getBreakBindingData = async (req, res) => {
 
         const limit = parseInt(req.query.limit) || 10;
         const offset = parseInt(req.query.offset) || 0;
-        const readings = await Pneumatic.getLatestReading(filterDeviceId, req.user, limit, offset, fromDate, toDate);
+
+        let resolvedDeviceId = filterDeviceId;
+        if (!resolvedDeviceId && req.user && req.user.role_id !== 1) {
+            const devices = await rbac.getAuthorizedDeviceIdsForLocation(req.user);
+            if (devices && devices.length > 0) resolvedDeviceId = devices[0];
+        }
+
+        const readings = await Pneumatic.getLatestReading(resolvedDeviceId, req.user, limit, offset, fromDate, toDate);
 
         if (!readings || readings.length === 0) {
             return res.status(404).json({ 
