@@ -94,12 +94,23 @@ const hotAxleController = {
             const historyLimit = parseInt(req.query.limit) || 10;
             const authorizedCoaches = await rbac.getAuthorizedCoachNumbers(req.user);
 
+            if (!rbac.isModuleAuthorized(req.user, 'hot_axle_section2')) {
+                return res.status(200).json({
+                    success: true,
+                    count: 0,
+                    deviceId: filterDeviceId || "All Devices",
+                    data: []
+                });
+            }
+
             const readings = await HotAxleModel.getData(filterDeviceId, historyLimit, authorizedCoaches);
 
             if (!readings || readings.length === 0) {
-                return res.status(404).json({
-                    success: false,
-                    message: filterDeviceId ? `No data found for device: ${filterDeviceId}` : "No records found"
+                return res.status(200).json({
+                    success: true,
+                    count: 0,
+                    deviceId: filterDeviceId || "All Devices",
+                    data: []
                 });
             }
 
@@ -507,6 +518,13 @@ const hotAxleController = {
 
     getFilterOptions: async (req, res) => {
         try {
+            if (!rbac.isModuleAuthorized(req.user, 'hot_axle_section2')) {
+                return res.status(200).json({
+                    success: true,
+                    data: { deviceIds: [], coachTypes: [], owningRlys: [], trainNos: [], coachNumbers: [] }
+                });
+            }
+
             const options = await HotAxleModel.getFilterOptions();
             return res.status(200).json({ success: true, data: options });
         } catch (error) {
@@ -519,6 +537,15 @@ const hotAxleController = {
         try {
             const { trainNo, deviceId, coachType, owningRly, coachNumber } = req.query;
             const authorizedCoaches = await rbac.getAuthorizedCoachNumbers(req.user);
+
+            if (!rbac.isModuleAuthorized(req.user, 'hot_axle_section2')) {
+                return res.status(200).json({
+                    success: true,
+                    totalCoaches: 0,
+                    data: []
+                });
+            }
+
             const statusData = await HotAxleModel.getLatestStatusForAllCoaches({
                 trainNo, deviceId, coachType, owningRly, coachNumber
             }, authorizedCoaches);
@@ -588,6 +615,14 @@ const hotAxleController = {
                     success: true,
                     totalCoaches: mapped.length,
                     data: mapped
+                });
+            }
+
+            if (!rbac.isModuleAuthorized(req.user, 'hot_axle_section1')) {
+                return res.status(200).json({
+                    success: true,
+                    totalCoaches: 0,
+                    data: [],
                 });
             }
 
