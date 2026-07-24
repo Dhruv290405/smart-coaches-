@@ -26,6 +26,7 @@ const Map<String, List<String>> _divisionModuleMap = {
 };
 
 String _moduleKeyFor(String label) {
+  if (label.contains('Coach Dashboard')) return 'coach_dashboard';
   if (label.contains('ACP')) return 'acp';
   if (label.contains('FSDS')) return 'fsds';
   if (label.contains('Hot Axle')) return 'hot_axle';
@@ -85,7 +86,13 @@ class _CustomDrawerState extends State<CustomDrawer> {
 
     bool isModuleAllowed(String label) {
       if (allowedModules == null || allowedModules.isEmpty) return true;
-      return allowedModules.contains(_moduleKeyFor(label));
+      final key = _moduleKeyFor(label);
+      if (key == 'hot_axle') {
+        return allowedModules.contains('hot_axle') ||
+               allowedModules.contains('hot_axle_section1') ||
+               allowedModules.contains('hot_axle_section2');
+      }
+      return allowedModules.contains(key);
     }
 
     return Drawer(
@@ -178,13 +185,14 @@ class _CustomDrawerState extends State<CustomDrawer> {
                 );
               },
               children: [
-                _drawerItem(
-                  'Coach Dashboard',
-                  icon: Icons.dashboard_customize_outlined,
-                  onTap: () {
-                    context.push(AppRouter.coachDashboardRoute);
-                  },
-                ),
+                if (isModuleAllowed('Coach Dashboard'))
+                  _drawerItem(
+                    'Coach Dashboard',
+                    icon: Icons.dashboard_customize_outlined,
+                    onTap: () {
+                      context.push(AppRouter.coachDashboardRoute);
+                    },
+                  ),
                 if (isModuleAllowed('ACP Monitoring'))
                   _drawerItem(
                     'ACP Monitoring',

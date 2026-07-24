@@ -56,7 +56,8 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
   List<HamsDataModel> _newCompanyData = [];
   final Set<String> _expandedSections = {'our', 'ecr'};
 
-  bool get _isDanapur => (getIt<Prefs>().getUser()?.regionName ?? '').toLowerCase() == 'danapur';
+  bool get _isDanapur => (getIt<Prefs>().getUser()?.divisionName ?? getIt<Prefs>().getUser()?.regionName ?? '').toLowerCase() == 'danapur';
+  bool get _isNagpur => (getIt<Prefs>().getUser()?.divisionName ?? getIt<Prefs>().getUser()?.regionName ?? '').toLowerCase() == 'nagpur';
 
   @override
   void initState() {
@@ -102,8 +103,8 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
   }
 
   void _updateFilterLists() {
-    final showNewData = _isDanapur || selectedCompany == 'All' || selectedCompany == 'Section 1';
-    final showOldData = !_isDanapur && (selectedCompany == 'All' || selectedCompany == 'Section 2');
+    final showNewData = _isNagpur || (!_isDanapur && (selectedCompany == 'All' || selectedCompany == 'Section 1'));
+    final showOldData = _isDanapur || (!_isNagpur && (selectedCompany == 'All' || selectedCompany == 'Section 2'));
 
     final Set<String> trains = {};
     final Set<String> types = {};
@@ -464,26 +465,8 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
   }
 
   Widget _buildDeviceSections() {
-    if (_isDanapur) {
-      if (_filteredHamsCoaches.isEmpty) {
-        return Container(
-          height: 200,
-          alignment: Alignment.center,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.sensors_off, size: 48, color: Colors.grey[400]),
-              const SizedBox(height: 12),
-              Text('No devices found', style: GoogleFonts.poppins(fontSize: 14, color: const Color(0xFF6B7280))),
-            ],
-          ),
-        );
-      }
-      return _buildHamsGridForList(_filteredHamsCoaches);
-    }
-
-    final showNewData = selectedCompany == 'All' || selectedCompany == 'Section 1';
-    final showOldData = selectedCompany == 'All' || selectedCompany == 'Section 2';
+    final showNewData = _isNagpur || (!_isDanapur && (selectedCompany == 'All' || selectedCompany == 'Section 1'));
+    final showOldData = _isDanapur || (!_isNagpur && (selectedCompany == 'All' || selectedCompany == 'Section 2'));
 
     final hasNew = _filteredHamsCoaches.isNotEmpty && showNewData;
     final hasOld = _filteredCoaches.isNotEmpty && showOldData;

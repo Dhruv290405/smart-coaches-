@@ -92,7 +92,7 @@ const hotAxleController = {
         try {
             const filterDeviceId = req.query.deviceId || null;
             const historyLimit = parseInt(req.query.limit) || 10;
-            const authorizedCoaches = await rbac.getAuthorizedCoachNumbers(req.user);
+            let authorizedCoaches = await rbac.getAuthorizedCoachNumbers(req.user);
 
             if (!rbac.isModuleAuthorized(req.user, 'hot_axle_section2')) {
                 return res.status(200).json({
@@ -101,6 +101,10 @@ const hotAxleController = {
                     deviceId: filterDeviceId || "All Devices",
                     data: []
                 });
+            }
+
+            if (rbac.isModuleAuthorized(req.user, 'hot_axle_section2') && (!authorizedCoaches || authorizedCoaches.length === 0)) {
+                authorizedCoaches = null;
             }
 
             const readings = await HotAxleModel.getData(filterDeviceId, historyLimit, authorizedCoaches);
@@ -525,7 +529,7 @@ const hotAxleController = {
     getDashboardStatus: async (req, res) => {
         try {
             const { trainNo, deviceId, coachType, owningRly, coachNumber } = req.query;
-            const authorizedCoaches = await rbac.getAuthorizedCoachNumbers(req.user);
+            let authorizedCoaches = await rbac.getAuthorizedCoachNumbers(req.user);
 
             if (!rbac.isModuleAuthorized(req.user, 'hot_axle_section2')) {
                 return res.status(200).json({
@@ -533,6 +537,10 @@ const hotAxleController = {
                     totalCoaches: 0,
                     data: []
                 });
+            }
+
+            if (rbac.isModuleAuthorized(req.user, 'hot_axle_section2') && (!authorizedCoaches || authorizedCoaches.length === 0)) {
+                authorizedCoaches = null;
             }
 
             const statusData = await HotAxleModel.getLatestStatusForAllCoaches({
