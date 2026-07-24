@@ -41,7 +41,10 @@ function isAdmin(user) {
  */
 const DIVISION_MODULE_MAP = {
   'Danapur': ['acp', 'hot_axle_section2', 'bc_pressure', 'sensor_config'],
-  'Nagpur': ['brake_binding', 'hot_axle_section1', 'sensor_config']
+  'Nagpur': ['brake_binding', 'hot_axle_section1', 'sensor_config'],
+  'Howrah': ['brake_binding'],
+  'Kolkata': ['brake_binding'],
+  'South Eastern': ['brake_binding']
 };
 
 /**
@@ -53,7 +56,7 @@ function isModuleAuthorized(user, moduleKey) {
   if (!loc) return false;
   
   const allowedModules = DIVISION_MODULE_MAP[loc];
-  if (!allowedModules) return true; // If division not mapped explicitly, default to allow location filter
+  if (!allowedModules) return moduleKey === 'brake_binding';
   return allowedModules.includes(moduleKey);
 }
 

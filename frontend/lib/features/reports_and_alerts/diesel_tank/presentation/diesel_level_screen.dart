@@ -347,8 +347,10 @@ import '../../../../core/utils/color_constants.dart';
 import '../../../../core/widgets/action_button.dart';
 import '../../../../core/widgets/filter_dropdown.dart';
 import '../../../../core/widgets/status_chip.dart';
+import '../../../../core/utils/prefs.dart';
 import '../data/datasources/diesel_data_service.dart';
 import '../data/models/diesel_tank_model.dart';
+import 'package:get_it/get_it.dart';
 import 'diesel_chart_view.dart';
 import 'diesel_alerts_view.dart';
 import 'diesel_tank_history.dart';
@@ -465,7 +467,8 @@ class _DieselLevelScreenState extends State<DieselLevelScreen> {
       }
     } catch (e) {
       if (mounted) {
-        _loadMockData();
+        final userEmail = GetIt.I<Prefs>().getUser()?.email;
+        if (userEmail == 'tester@example.com') _loadMockData();
         setState(() {
           _isLoading = false;
         });

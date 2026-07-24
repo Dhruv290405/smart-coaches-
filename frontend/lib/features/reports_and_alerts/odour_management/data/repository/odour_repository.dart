@@ -3,6 +3,7 @@ import 'package:get_it/get_it.dart';
 import 'package:smart_coach_new/core/network/api_client.dart';
 import 'package:smart_coach_new/core/network/api_constants.dart';
 import 'package:smart_coach_new/core/utils/logger.dart';
+import 'package:smart_coach_new/core/utils/prefs.dart';
 import '../models/odour_model.dart';
 
 final Logger _log = Logger('OdourRepo');
@@ -25,11 +26,19 @@ class OdourRepository {
       _log.warn('Backend unavailable ($e), using sample data.');
     }
 
-    return getSampleData();
+    try {
+      final userEmail = GetIt.I<Prefs>().getUser()?.email;
+      if (userEmail == 'tester@example.com') return getSampleData();
+    } catch (_) {}
+    return [];
   }
 
   Stream<List<OdourCoachModel>> watchOdourData() async* {
-    yield getSampleData();
+    bool isTester = false;
+    try {
+      isTester = GetIt.I<Prefs>().getUser()?.email == 'tester@example.com';
+    } catch (_) {}
+    if (isTester) yield getSampleData();
 
     while (true) {
       try {

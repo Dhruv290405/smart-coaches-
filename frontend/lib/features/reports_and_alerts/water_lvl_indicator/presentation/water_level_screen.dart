@@ -2,9 +2,11 @@ import 'dart:async';
 import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:get_it/get_it.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/network/api_constants.dart';
+import '../../../../core/utils/prefs.dart';
 import '../../../../core/utils/app_dimensions.dart';
 import '../../../../core/utils/app_icons.dart';
 import '../../../../core/utils/app_strings.dart';
@@ -120,10 +122,11 @@ class _WaterLevelScreenState extends State<WaterLevelScreen> {
     } catch (e) {
       log('Error refreshing data from API: $e');
       if (mounted) {
-        _loadMockData();
+        final userEmail = GetIt.I<Prefs>().getUser()?.email;
+        if (userEmail == 'tester@example.com') _loadMockData();
         setState(() {
           _isLoading = false;
-          _errorMessage = 'API unavailable. Showing sample data.';
+          _errorMessage = userEmail == 'tester@example.com' ? 'API unavailable. Showing sample data.' : null;
           isRefreshing = false;
         });
       }
