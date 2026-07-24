@@ -17,6 +17,26 @@ class CustomDrawer extends StatefulWidget {
   State<CustomDrawer> createState() => _CustomDrawerState();
 }
 
+const Map<String, List<String>> _divisionModuleMap = {
+  'Danapur': ['acp', 'hot_axle_section2', 'bc_pressure', 'sensor_config'],
+  'Nagpur': ['brake_binding', 'hot_axle_section1', 'sensor_config'],
+  'Howrah': ['brake_binding'],
+  'Kolkata': ['brake_binding'],
+  'South Eastern': ['brake_binding'],
+};
+
+String _moduleKeyFor(String label) {
+  if (label.contains('ACP')) return 'acp';
+  if (label.contains('FSDS')) return 'fsds';
+  if (label.contains('Hot Axle')) return 'hot_axle';
+  if (label.contains('BC Pressure')) return 'bc_pressure';
+  if (label.contains('Diesel')) return 'diesel';
+  if (label.contains('Water Tank')) return 'water_tank';
+  if (label.contains('Odour')) return 'odour';
+  if (label.contains('Brake Binding')) return 'brake_binding';
+  return '';
+}
+
 class _CustomDrawerState extends State<CustomDrawer> {
   final Map<String, bool> _expanded = {
     'User Management': false,
@@ -52,6 +72,21 @@ class _CustomDrawerState extends State<CustomDrawer> {
     final prefs = GetIt.I<Prefs>();
     final user = prefs.getUser();
     final roleId = user?.roleId ?? 0;
+
+    final divisionName = user?.divisionName;
+    final allowedModules = divisionName != null
+        ? (_divisionModuleMap.entries
+            .firstWhere(
+              (e) => e.key.toLowerCase() == divisionName.toLowerCase(),
+              orElse: () => const MapEntry('', <String>[]),
+            )
+            .value)
+        : null;
+
+    bool isModuleAllowed(String label) {
+      if (allowedModules == null || allowedModules.isEmpty) return true;
+      return allowedModules.contains(_moduleKeyFor(label));
+    }
 
     return Drawer(
       backgroundColor: Colors.white,
@@ -150,71 +185,79 @@ class _CustomDrawerState extends State<CustomDrawer> {
                     context.push(AppRouter.coachDashboardRoute);
                   },
                 ),
-                _drawerItem(
-                  'ACP Monitoring',
-                  onTap: () {
-                    context.push(AppRouter.acpMonitoringRoute);
-                  },
-                ),
-                _drawerSection(
-                  title: 'FSDS',
-                  isExpanded: _expanded['FSDS']!,
-                  onTap: () {
-                    setState(() => _expanded['FSDS'] = !_expanded['FSDS']!);
-                  },
-                  children: [
-                    _drawerItem(
-                      'FSDS Bypass',
-                      onTap: () {
-                        context.push(AppRouter.fsdsMonitoringRoute,
-                            extra: 'FSDS Bypass');
-                      },
-                    ),
-                    _drawerItem(
-                      'FSDS MCB',
-                      onTap: () {
-                        context.push(AppRouter.fsdsMonitoringRoute,
-                            extra: 'FSDS MCB');
-                      },
-                    ),
-                  ],
-                ),
-                _drawerItem(
-                  'Hot Axle Monitoring',
-                  onTap: () {
-                    context.push(AppRouter.hotAxleMonitoringRoute);
-                  },
-                ),
-                _drawerItem(
-                  'BC Pressure Monitoring',
-                  onTap: () {
-                    context.push(AppRouter.bcPressureMonitoringRoute);
-                  },
-                ),
-                _drawerItem(
-                  'Diesel Level Monitoring',
-                  onTap: () {
-                    context.push(AppRouter.dieselLevelMonitoringRoute);
-                  },
-                ),
-                _drawerItem(
-                  'Water Tank Monitoring',
-                  onTap: () {
-                    context.push(AppRouter.waterTankMonitoringRoute);
-                  },
-                ),
-                _drawerItem(
-                  'Odour Management Report',
-                  onTap: () {
-                    context.push(AppRouter.odourManagement);
-                  },
-                ),
-                _drawerItem(
-                  'Brake Binding',
-                  onTap: () {
-                    context.push(AppRouter.breakBinding);
-                  },
-                ),
+                if (isModuleAllowed('ACP Monitoring'))
+                  _drawerItem(
+                    'ACP Monitoring',
+                    onTap: () {
+                      context.push(AppRouter.acpMonitoringRoute);
+                    },
+                  ),
+                if (isModuleAllowed('FSDS'))
+                  _drawerSection(
+                    title: 'FSDS',
+                    isExpanded: _expanded['FSDS']!,
+                    onTap: () {
+                      setState(() => _expanded['FSDS'] = !_expanded['FSDS']!);
+                    },
+                    children: [
+                      _drawerItem(
+                        'FSDS Bypass',
+                        onTap: () {
+                          context.push(AppRouter.fsdsMonitoringRoute,
+                              extra: 'FSDS Bypass');
+                        },
+                      ),
+                      _drawerItem(
+                        'FSDS MCB',
+                        onTap: () {
+                          context.push(AppRouter.fsdsMonitoringRoute,
+                              extra: 'FSDS MCB');
+                        },
+                      ),
+                    ],
+                  ),
+                if (isModuleAllowed('Hot Axle Monitoring'))
+                  _drawerItem(
+                    'Hot Axle Monitoring',
+                    onTap: () {
+                      context.push(AppRouter.hotAxleMonitoringRoute);
+                    },
+                  ),
+                if (isModuleAllowed('BC Pressure'))
+                  _drawerItem(
+                    'BC Pressure Monitoring',
+                    onTap: () {
+                      context.push(AppRouter.bcPressureMonitoringRoute);
+                    },
+                  ),
+                if (isModuleAllowed('Diesel'))
+                  _drawerItem(
+                    'Diesel Level Monitoring',
+                    onTap: () {
+                      context.push(AppRouter.dieselLevelMonitoringRoute);
+                    },
+                  ),
+                if (isModuleAllowed('Water Tank'))
+                  _drawerItem(
+                    'Water Tank Monitoring',
+                    onTap: () {
+                      context.push(AppRouter.waterTankMonitoringRoute);
+                    },
+                  ),
+                if (isModuleAllowed('Odour'))
+                  _drawerItem(
+                    'Odour Management Report',
+                    onTap: () {
+                      context.push(AppRouter.odourManagement);
+                    },
+                  ),
+                if (isModuleAllowed('Brake Binding'))
+                  _drawerItem(
+                    'Brake Binding',
+                    onTap: () {
+                      context.push(AppRouter.breakBinding);
+                    },
+                  ),
               ],
             ),
           ],

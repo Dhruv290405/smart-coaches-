@@ -31,6 +31,9 @@ class UserModel {
   @JsonKey(name: 'division_id')
   final int? divisionId;
 
+  @JsonKey(name: 'division_name')
+  final String? divisionName;
+
   @JsonKey(name: 'region_id')
   final int? regionId;
 
@@ -74,6 +77,7 @@ class UserModel {
     required this.organisationName,
     required this.zoneId,
     required this.divisionId,
+    this.divisionName,
     required this.regionId,
     this.regionName,
     required this.roleId,
