@@ -215,9 +215,18 @@ class BrakeBindingBloc extends Bloc<BrakeBindingEvent, BrakeBindingState> {
       if (response.success) {
         cache.setStatus(deviceId, response);
         _applyPneumaticResponse(response, emit);
+      } else {
+        emit(state.copyWith(
+          status: "NO DATA",
+          isLoadingPneumatic: false,
+        ));
       }
     } catch (e) {
       dev.log("❌ BLoC Fetch Error: $e");
+      emit(state.copyWith(
+        status: "OFFLINE",
+        isLoadingPneumatic: false,
+      ));
     }
   }
 

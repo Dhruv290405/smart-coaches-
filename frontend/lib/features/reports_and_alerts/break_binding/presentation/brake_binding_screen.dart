@@ -110,6 +110,22 @@ class _BrakeBindingScreenState extends State<BrakeBindingScreen> {
               ),
             );
           }
+          if (!state.isLoadingCoaches && state.coachList.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.sensors_off, size: 64, color: Colors.grey[400]),
+                  const SizedBox(height: 16),
+                  const Text(
+                    "No brake binding devices found for your location",
+                    style: TextStyle(color: Color(0xFF575757), fontSize: 15),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            );
+          }
           return SingleChildScrollView(
             child: Padding(
               padding: const EdgeInsets.all(16.0),
