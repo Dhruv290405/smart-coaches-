@@ -9,19 +9,19 @@
 const supabaseAdmin = require('../config/supabaseAdmin');
 
 /**
- * Get the user's location(s) — returns an array of unique locations (region, division, zone)
+ * Get the user's location(s) — returns an array of unique locations (division, region, zone)
  */
 function getUserLocations(user) {
   if (!user) return [];
   const locs = [];
-  if (user.region_name) locs.push(user.region_name);
-  if (user.division_name && !locs.includes(user.division_name)) locs.push(user.division_name);
+  if (user.division_name) locs.push(user.division_name);
+  if (user.region_name && !locs.includes(user.region_name)) locs.push(user.region_name);
   if (user.zone_name && !locs.includes(user.zone_name)) locs.push(user.zone_name);
   return locs.length > 0 ? locs : [];
 }
 
 /**
- * Get primary location string (region > division > zone)
+ * Get primary location string (division > region > zone)
  */
 function getUserLocation(user) {
   const locs = getUserLocations(user);

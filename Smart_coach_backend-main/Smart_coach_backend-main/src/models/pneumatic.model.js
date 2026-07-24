@@ -5,7 +5,7 @@ const Pneumatic = {
     applyScopeFilters: (query, user) => {
         if (!user || user.role_id === 1) return query;
 
-        const userLocation = user.region_name || user.division_name;
+        const userLocation = user.division_name || user.region_name;
 
         if (userLocation) {
             
@@ -33,7 +33,7 @@ const Pneumatic = {
             }
 
             if (user && user.role_id !== 1) {
-                const userLoc = user.region_name || user.division_name;
+                const userLoc = user.division_name || user.region_name;
                 
                 if (userLoc) {
                     const { data: allowedDevices } = await supabase
@@ -67,6 +67,9 @@ const Pneumatic = {
 
         } catch (err) {
             console.error("Model Error [getLatestReading]:", err.message);
+            if (err.message && (err.message.includes('404') || err.message.includes('not found') || err.message.includes('does not exist'))) {
+                return [];
+            }
             throw err;
         }
     },
@@ -78,7 +81,7 @@ const Pneumatic = {
             `);
 
             if (user && user.role_id !== 1) {
-                const userLoc = user.region_name || user.division_name;
+                const userLoc = user.division_name || user.region_name;
                 if (userLoc) {
                     const { data: allowedDevices } = await supabase
                         .from('coaches_railway')

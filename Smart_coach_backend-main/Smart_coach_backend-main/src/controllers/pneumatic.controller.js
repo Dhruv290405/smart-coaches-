@@ -43,6 +43,39 @@ exports.getBreakBindingData = async (req, res) => {
         const readings = await Pneumatic.getLatestReading(filterDeviceId, req.user, limit, offset, fromDate, toDate);
 
         if (!readings || readings.length === 0) {
+            if (!filterDeviceId && req.user && req.user.role_id !== 1) {
+                const userLoc = req.user.division_name || req.user.region_name;
+                if (userLoc && supabase) {
+                    const { data: devs } = await supabase
+                        .from('coaches_railway')
+                        .select('device_id')
+                        .ilike('Location', userLoc)
+                        .limit(1);
+                    if (devs && devs.length > 0) filterDeviceId = devs[0].device_id;
+                }
+            }
+            if (filterDeviceId) {
+                const activeDeviceId = filterDeviceId;
+                let eventQuery = supabase.from('event_publish')
+                    .select('id, timestamp, event_status, coach_no, event_message')
+                    .eq('device_id', activeDeviceId)
+                    .order('timestamp', { ascending: false })
+                    .limit(30);
+                let faultQuery = supabase.from('brake_fault_event')
+                    .select('device_id, fault_name, timestamp, event_message')
+                    .eq('device_id', activeDeviceId)
+                    .order('timestamp', { ascending: false })
+                    .limit(50);
+                const [evtData, fltData] = await Promise.all([eventQuery, faultQuery]);
+                return res.status(200).json({
+                    success: true,
+                    state: 'No Sensor Data',
+                    readings: { bp: 0, fp: 0, bc: 0, cr: 0, dropRate: 0, brakeDuration: 0, appliedTime: 0, releasedTime: 0 },
+                    recentEvents: (evtData.data || []).map(e => ({ id: e.id, time: e.timestamp, status: e.event_status, coach: e.coach_no, reason: e.event_message })),
+                    activeFaults: (fltData.data || []).map(f => ({ deviceId: f.device_id, type: f.fault_name, severity: 'High', description: f.event_message, timestamp: f.timestamp })),
+                    lastUpdated: new Date().toISOString()
+                });
+            }
             return res.status(404).json({ 
                 success: false, 
                 message: filterDeviceId ? `No data found for device: ${filterDeviceId}` : "No data found or access restricted" 
@@ -361,7 +394,7 @@ exports.getCoachesByLocation = async (req, res) => {
 
         return res.status(200).json({
             success: true,
-            message: role_id === 1 ? "All coaches fetched (Admin View)" : `Coaches fetched for location: ${region_name || division_name}`,
+            message: role_id === 1 ? "All coaches fetched (Admin View)" : `Coaches fetched for location: ${division_name || region_name}`,
             count: coaches.length,
             data: coaches
         });
