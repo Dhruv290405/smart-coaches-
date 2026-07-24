@@ -186,26 +186,15 @@ const hotAxleController = {
                 if (t) hamsMetaMapByTechId[t] = reg;
             }
 
-            // Try to find the best matching registration
-            const masterIdParam = (coachDeviceId || coachNumber || '').toLowerCase().replace('master: ', '');
-            const hamsReg = hamsMetaMap[masterIdParam] || hamsMetaMapByTechId[masterIdParam] || hamsMetaMap['hams-m1-001'] || (hamsRegs && hamsRegs[0]) || null;
-            const dbMasterId = hamsReg ? hamsReg.actual_id : 'hams-m1-001';
-            const isHamsM1 = (dbMasterId || '').toLowerCase() === 'hams-m1-001';
+            const hamsReg = hamsMetaMap['hams-m1-001'] || (hamsRegs && hamsRegs[0]) || null;
+            const dbMasterId = 'HAMS-M1-001';
+            const isHamsM1 = true;
 
-            // Fetch coach_type from coaches_railway using the brake binding device_id
-            let coachTypeFromDB = isHamsM1 ? 'LWSCZ - AC' : 'B1';
-            if (!isHamsM1 && hamsReg?.device_id) {
-                const { data: railReg } = await supabaseAdmin
-                    .from('coaches_railway')
-                    .select('coach_type')
-                    .eq('device_id', hamsReg.device_id)
-                    .maybeSingle();
-                if (railReg?.coach_type) coachTypeFromDB = railReg.coach_type;
-            }
+            const coachTypeFromDB = 'LWSCZ - AC';
 
             let query = sOld.from('hams_data')
                 .select('*')
-                .in('master_id', [dbMasterId, dbMasterId.toLowerCase(), dbMasterId.toUpperCase()]);
+                .eq('master_id', dbMasterId);
 
             // Filter by specific sensor device if provided
             if (deviceId && deviceId !== 'All') {
@@ -668,54 +657,28 @@ const hotAxleController = {
                 }
             }
 
-            // Fallback: use first registration for all rows if no direct match
-            const firstReg = hamsRegs && hamsRegs[0];
-            const isHamsM1Fallback = firstReg && (firstReg.actual_id || '').toLowerCase() === 'hams-m1-001';
-            const defaultMeta = hamsRegs && hamsRegs.length > 0 ? {
-                coach_no: firstReg.coach_no || '',
-                train_no: isHamsM1Fallback ? '1207069' : (firstReg.train_no || ''),
-                technical_id: isHamsM1Fallback ? '226965' : (firstReg.technical_id || ''),
-                location: firstReg.location || 'N/A',
-                device_id: isHamsM1Fallback ? 'SCBB-NP-26-003' : (firstReg.device_id || ''),
-                coach_type: isHamsM1Fallback ? 'LWSCZ - AC' : (railCoachTypeMap[firstReg.device_id] || 'B1'),
-            } : null;
-
-            const registeredMasterIds = (hamsRegs || []).map(r => r.actual_id).filter(Boolean);
-            const masterFilterSet = new Set();
-            for (const id of registeredMasterIds) {
-                masterFilterSet.add(id);
-                masterFilterSet.add(id.toLowerCase());
-                masterFilterSet.add(id.toUpperCase());
-            }
-            if (masterFilterSet.size === 0) {
-                masterFilterSet.add('hams-m1-001');
-                masterFilterSet.add('HAMS-M1-001');
-            }
-            const masterFilter = [...masterFilterSet];
+            const masterId = 'HAMS-M1-001';
+            const hamsM1Meta = hamsMeta[masterId] || (hamsRegs && hamsRegs.length > 0 ? hamsMeta[hamsRegs[0].actual_id] : null) || {};
 
             const { data: hamsData, error: hamsError } = await supabaseOld
                 .from('hams_data')
                 .select('*')
-                .in('master_id', masterFilter)
+                .eq('master_id', masterId)
                 .order('created_at', { ascending: false });
 
             if (hamsError) throw hamsError;
 
-            const enriched = (hamsData || []).map(d => {
-                const meta = hamsMeta[d.master_id] || defaultMeta || {};
-                const isHamsM1 = (d.master_id || '').toLowerCase() === 'hams-m1-001';
-                return {
-                    ...d,
-                    device_id: d.device_id || '',
-                    master_id: d.master_id || 'HAMS-M1-001',
-                    coach_number: isHamsM1 ? '226965' : (meta.technical_id || ''),
-                    train_no: isHamsM1 ? '1207069' : (meta.train_no || ''),
-                    coach_type: isHamsM1 ? 'LWSCZ - AC' : (meta.coach_type || 'B1'),
-                    brake_device_id: isHamsM1 ? 'SCBB-NP-26-003' : (meta.device_id || ''),
-                    location: meta.location || 'N/A',
-                    axle_devices: axleDevices,
-                };
-            });
+            const enriched = (hamsData || []).map(d => ({
+                ...d,
+                device_id: d.device_id || '',
+                master_id: masterId,
+                coach_number: hamsM1Meta.technical_id || '226965',
+                train_no: hamsM1Meta.train_no || '1207069',
+                coach_type: hamsM1Meta.coach_type || 'LWSCZ - AC',
+                brake_device_id: hamsM1Meta.device_id || 'SCBB-NP-26-003',
+                location: hamsM1Meta.location || 'N/A',
+                axle_devices: axleDevices,
+            }));
 
             return res.status(200).json({
                 success: true,
