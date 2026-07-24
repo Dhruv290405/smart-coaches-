@@ -135,6 +135,22 @@ const hotAxleController = {
 
         const isHams = (coachType && coachType.toLowerCase() === 'hams') || (coachNumber && coachNumber.startsWith('Master: '));
 
+        if (isHams && !rbac.isModuleAuthorized(req.user, 'hot_axle_section1')) {
+            return res.status(200).json({
+                success: true,
+                meta: { totalRecords: 0, currentPage: parseInt(page), totalPages: 0, limit: parseInt(limit) },
+                data: []
+            });
+        }
+
+        if (!isHams && !rbac.isModuleAuthorized(req.user, 'hot_axle_section2')) {
+            return res.status(200).json({
+                success: true,
+                meta: { totalRecords: 0, currentPage: parseInt(page), totalPages: 0, limit: parseInt(limit) },
+                data: []
+            });
+        }
+
         if (isHams) {
             const sOld = require('../config/supabaseOld');
             if (!sOld) {
@@ -506,10 +522,10 @@ const hotAxleController = {
 
     getNewCompanyData: async (req, res) => {
         try {
-            const isDanapur = (req.user.region_name || '').toLowerCase() === 'danapur';
+            const isDanapur = rbac.isModuleAuthorized(req.user, 'hot_axle_section2');
 
             if (isDanapur) {
-                const authorizedCoaches = await rbac.getAuthorizedCoachNumbers(req.user);
+                let authorizedCoaches = await rbac.getAuthorizedCoachNumbers(req.user);
                 let query = supabaseAdmin
                     .from('hot_axle_logs')
                     .select('*')

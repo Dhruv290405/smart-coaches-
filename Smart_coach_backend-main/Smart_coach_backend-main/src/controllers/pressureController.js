@@ -46,22 +46,21 @@ const pressureController = {
     // 2. NEW GET API - FETCH SAVED PRESSURE DATA
     getPressureData: async (req, res) => {
         try {
+            if (!rbac.isModuleAuthorized(req.user, 'bc_pressure')) {
+                return res.status(200).json({ success: true, count: 0, data: [] });
+            }
             const deviceId = req.query.deviceId || null;
             const limit = parseInt(req.query.limit) || 10;
-            const authorizedCoaches = await rbac.getAuthorizedCoachNumbers(req.user);
-            const results = await PressureModel.getLatestData(deviceId, limit, authorizedCoaches);
-
-            if (!results || results.length === 0) {
-                return res.status(404).json({
-                    success: false,
-                    message: deviceId ? `No data found for device: ${deviceId}` : "No pressure data found"
-                });
+            let authorizedCoaches = await rbac.getAuthorizedCoachNumbers(req.user);
+            if (rbac.isModuleAuthorized(req.user, 'bc_pressure') && (!authorizedCoaches || authorizedCoaches.length === 0)) {
+                authorizedCoaches = null; // Danapur is authorized for BC Pressure
             }
+            const results = await PressureModel.getLatestData(deviceId, limit, authorizedCoaches);
 
             return res.status(200).json({
                 success: true,
-                count: results.length,
-                data: results
+                count: (results || []).length,
+                data: results || []
             });
 
         } catch (error) {
@@ -70,24 +69,21 @@ const pressureController = {
         }
     },
 
-    // 3. NEW GET API - FETCH ALL COACHES WITH THEIR LATEST TIMESTAMP & READING
     getDashboardStatus: async (req, res) => {
         try {
-            // Model se har active device ka sabse latest single record fetch karega
-            const authorizedCoaches = await rbac.getAuthorizedCoachNumbers(req.user);
-            const statusData = await PressureModel.getDashboardStatus(authorizedCoaches);
-
-            if (!statusData || statusData.length === 0) {
-                return res.status(404).json({
-                    success: false,
-                    message: "No live device data found in the system"
-                });
+            if (!rbac.isModuleAuthorized(req.user, 'bc_pressure')) {
+                return res.status(200).json({ success: true, totalDevices: 0, data: [] });
             }
+            let authorizedCoaches = await rbac.getAuthorizedCoachNumbers(req.user);
+            if (rbac.isModuleAuthorized(req.user, 'bc_pressure') && (!authorizedCoaches || authorizedCoaches.length === 0)) {
+                authorizedCoaches = null; // Danapur authorized for BC Pressure
+            }
+            const statusData = await PressureModel.getDashboardStatus(authorizedCoaches);
 
             return res.status(200).json({
                 success: true,
-                totalDevices: statusData.length,
-                data: statusData
+                totalDevices: (statusData || []).length,
+                data: statusData || []
             });
         } catch (error) {
             console.error("Pressure Dashboard Controller Error:", error.message);

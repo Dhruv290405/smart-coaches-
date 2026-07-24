@@ -4,20 +4,12 @@
  * Centralized location-based filtering for all monitoring modules.
  * Admin (role_id=1) bypasses all location filters.
  * Non-admin users are scoped to their assigned zone/division/region.
- *
- * JWT payload (set at login):
- *   user_id, email, role_id, zone_id, division_id, region_id, employee_id
- *
- * req.user (set by auth middleware via DB lookup) has:
- *   user_id, email, role_id, zone_id, division_id, region_id, employee_id,
- *   zone_name, division_name, region_name
  */
 
 const supabaseAdmin = require('../config/supabaseAdmin');
 
 /**
  * Get the user's location(s) — returns an array of unique locations (region, division, zone)
- * Used for broader matching so users with e.g. region=Danapur + division=Nagpur see both.
  */
 function getUserLocations(user) {
   if (!user) return [];
@@ -29,7 +21,7 @@ function getUserLocations(user) {
 }
 
 /**
- * Get first location string (legacy, kept for backward compatibility)
+ * Get primary location string (region > division > zone)
  */
 function getUserLocation(user) {
   const locs = getUserLocations(user);
@@ -44,8 +36,29 @@ function isAdmin(user) {
 }
 
 /**
+ * Division-level module authorization mapping.
+ * Specifies which telemetry modules each division is allowed to view.
+ */
+const DIVISION_MODULE_MAP = {
+  'Danapur': ['acp', 'hot_axle_section2', 'bc_pressure', 'sensor_config'],
+  'Nagpur': ['brake_binding', 'hot_axle_section1', 'sensor_config']
+};
+
+/**
+ * Check if a user's location is authorized to access a specific module.
+ */
+function isModuleAuthorized(user, moduleKey) {
+  if (isAdmin(user)) return true;
+  const loc = getUserLocation(user);
+  if (!loc) return false;
+  
+  const allowedModules = DIVISION_MODULE_MAP[loc];
+  if (!allowedModules) return true; // If division not mapped explicitly, default to allow location filter
+  return allowedModules.includes(moduleKey);
+}
+
+/**
  * Guard: returns true if the user can proceed.
- * For non-admin users without a location, sends 403 and returns false.
  */
 function requireLocation(user, res) {
   if (isAdmin(user)) return true;
@@ -73,7 +86,7 @@ async function applyCoachLocationFilter(query, user, locationColumn = 'Location'
 }
 
 /**
- * Build a filter condition object for in-memory filtering (used with RPC results).
+ * Build a filter condition object for in-memory filtering.
  */
 function buildLocationCondition(user, locationColumn = 'location') {
   if (isAdmin(user)) return {};
@@ -96,8 +109,7 @@ function filterByLocation(records, user, fieldName) {
 }
 
 /**
- * Get coach numbers that belong to the user's location.
- * Returns distinct coach_no values from coaches_railway filtered by Location.
+ * Get coach numbers that belong to the user's location from coaches_railway.
  */
 async function getAuthorizedCoachNumbers(user) {
   if (isAdmin(user)) return null;
@@ -140,11 +152,9 @@ async function getAuthorizedTrainNumbers(user) {
 
 /**
  * Express middleware: attach location info to req.user if present in JWT.
- * Used after JWT decode, before route handlers.
  */
 function rbacMiddleware(req, res, next) {
   if (req.user && !req.user.region_name && req.user.region_id) {
-    // Try to resolve region_id to region_name if not already set
     supabaseAdmin
       .from('region_master')
       .select('name')
@@ -161,9 +171,12 @@ function rbacMiddleware(req, res, next) {
 }
 
 module.exports = {
+  getUserLocations,
   getUserLocation,
   isAdmin,
   requireLocation,
+  isModuleAuthorized,
+  DIVISION_MODULE_MAP,
   applyCoachLocationFilter,
   buildLocationCondition,
   filterByLocation,

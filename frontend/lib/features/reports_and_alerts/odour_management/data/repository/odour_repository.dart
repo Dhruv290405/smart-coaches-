@@ -1,6 +1,8 @@
+import 'dart:async';
+import 'package:get_it/get_it.dart';
+import 'package:smart_coach_new/core/network/api_client.dart';
+import 'package:smart_coach_new/core/network/api_constants.dart';
 import 'package:smart_coach_new/core/utils/logger.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:smart_coach_new/supabase_config.dart';
 import '../models/odour_model.dart';
 
 final Logger _log = Logger('OdourRepo');
@@ -8,19 +10,19 @@ final Logger _log = Logger('OdourRepo');
 class OdourRepository {
   Future<List<OdourCoachModel>> getOdourData() async {
     try {
-      final response = await SupabaseConfig.acpClient
-          .from('iot_bad_odour')
-          .select()
-          .timeout(const Duration(seconds: 6));
+      final apiClient = GetIt.I<ApiClient>();
+      final response = await apiClient.get(ApiConstants.odourCoachesApiEndpoint);
 
-      if (response.isNotEmpty) {
-        final parsed = response.map((map) => _buildModelFromSupabase(map)).toList();
+      if (response is Map && response['success'] == true && response['data'] is List) {
+        final parsed = (response['data'] as List)
+            .map((map) => _buildModelFromBackend(map as Map<String, dynamic>))
+            .toList();
         if (parsed.isNotEmpty) {
           return parsed;
         }
       }
     } catch (e) {
-      _log.warn('Supabase unavailable ($e), using sample data.');
+      _log.warn('Backend unavailable ($e), using sample data.');
     }
 
     return getSampleData();
@@ -29,28 +31,18 @@ class OdourRepository {
   Stream<List<OdourCoachModel>> watchOdourData() async* {
     yield getSampleData();
 
-    try {
-      final stream = SupabaseConfig.acpClient
-          .from('iot_bad_odour')
-          .stream(primaryKey: ['id'])
-          .map((maps) {
-            if (maps.isEmpty) {
-              return getSampleData();
-            }
-            return maps.map((map) => _buildModelFromSupabase(map)).toList();
-          })
-          .handleError((error) {
-            _log.warn('Supabase stream error: $error');
-            return getSampleData();
-          });
-
-      yield* stream;
-    } catch (e) {
-      _log.warn('Supabase stream subscription failed: $e. Falling back to sample data.');
+    while (true) {
+      try {
+        final data = await getOdourData();
+        yield data;
+      } catch (e) {
+        _log.warn('Poll error: $e');
+      }
+      await Future.delayed(const Duration(seconds: 15));
     }
   }
 
-  OdourCoachModel _buildModelFromSupabase(Map<String, dynamic> data) {
+  OdourCoachModel _buildModelFromBackend(Map<String, dynamic> data) {
     double _d(dynamic v, [double def = 0.0]) =>
         (v as num?)?.toDouble() ?? def;
     int _i(dynamic v, [int def = 0]) => (v as num?)?.toInt() ?? def;
@@ -257,9 +249,6 @@ class OdourRepository {
   }
 
   Future<void> sendOdourData(Map<String, dynamic> payload) async {
-    final coachNumber = payload['coach_data']?['coach_number'] ?? 'T1';
-    final toiletPos = payload['coach_data']?['toilet_position'] ?? 'Toilet-1-Front-Left';
-
     final dbPayload = {
       "device_id": payload['source']?['deviceId'] ?? 'Unknown',
       "timestamp_device": payload['coach_data']?['timestamp'] ?? DateTime.now().toIso8601String(),
@@ -273,11 +262,10 @@ class OdourRepository {
     };
 
     try {
-      await SupabaseConfig.acpClient
-          .from('iot_bad_odour')
-          .insert(dbPayload);
+      final apiClient = GetIt.I<ApiClient>();
+      await apiClient.post(ApiConstants.odourReceiveDataApiEndpoint, dbPayload);
     } catch (e) {
-      _log.warn('Supabase sendOdourData failed: $e');
+      _log.warn('sendOdourData failed: $e');
     }
   }
 }

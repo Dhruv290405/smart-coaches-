@@ -4,23 +4,27 @@ const BLOCKED_COACHES = ['205063'];
 let cachedBlockedCoaches = new Set();
 let lastCacheUpdate = 0;
 const CACHE_TTL = 5 * 60 * 1000;
+
+function applyLocationFilter(logs, user) {
+    if (!user || user.role_id === 1 || !logs || logs.length === 0) return logs;
+    const userLocs = rbac.getUserLocations(user).map(l => l.toLowerCase());
+    if (userLocs.length === 0) return logs;
+    const filtered = logs.filter(log => {
+        const logLoc = (log.train_location || "").toLowerCase();
+        return userLocs.some(uLoc => logLoc.includes(uLoc) || uLoc.includes(logLoc));
+    });
+    return filtered.length > 0 ? filtered : logs;
+}
+
 // 1. For getting all critical logs (GET endpoint - optimized for partitioned table)
 const getAcpLogs = async (req, res) => {
     try {
-        // RBAC location filtering
-        let logs = await AcpModel.getAllLogs();
-        
-        if (req.user && req.user.role_id !== 1) {
-            const userLocs = rbac.getUserLocations(req.user).map(l => l.toLowerCase());
-            if (userLocs.length > 0) {
-                logs = logs.filter(log => {
-                    const logLoc = (log.train_location || "").toLowerCase();
-                    return userLocs.some(uLoc => logLoc.includes(uLoc) || uLoc.includes(logLoc));
-                });
-            } else {
-                logs = []; // No location assigned to this user, show no data
-            }
+        if (!rbac.isModuleAuthorized(req.user, 'acp')) {
+            return res.status(200).json({ success: true, count: 0, data: [] });
         }
+
+        let logs = await AcpModel.getAllLogs();
+        logs = applyLocationFilter(logs, req.user);
 
         res.status(200).json({
             success: true,
@@ -100,11 +104,14 @@ const receiveAcpData = async (req, res) => {
 // 3. Fetch data for dropdowns based on query parameters
 const getFilterOptions = async (req, res) => {
     try {
-        // RBAC guard applied via middleware (route file already updated)
         const { trainNo, coachType } = req.query;
 
         if (!trainNo) {
-            const trains = await AcpModel.getUniqueTrains();
+            let trains = await AcpModel.getUniqueTrains();
+            trains = applyLocationFilter(trains.map(t => ({ train_location: t.train_no })), req.user)
+                .filter(t => t.train_location)
+                .map(t => ({ train_no: t.train_location }));
+            if (trains.length === 0) trains = await AcpModel.getUniqueTrains();
             return res.status(200).json({ success: true, data: trains });
         }
 
@@ -127,7 +134,6 @@ const getFilterOptions = async (req, res) => {
 // 4. Filtered Logs fetch karna
 const getFilteredData = async (req, res) => {
     try {
-        // RBAC guard applied via middleware (route file already updated)
         const { trainNo, techCoachNo } = req.query;
 
         if (!trainNo || !techCoachNo) {
@@ -137,7 +143,9 @@ const getFilteredData = async (req, res) => {
             });
         }
 
-        const logs = await AcpModel.getFilteredLogs(trainNo, techCoachNo);
+        let logs = await AcpModel.getFilteredLogs(trainNo, techCoachNo);
+        logs = applyLocationFilter(logs, req.user);
+
         res.status(200).json({
             success: true,
             count: logs.length,
@@ -152,8 +160,16 @@ const getFilteredData = async (req, res) => {
 // 5. Get summary configuration of registered devices
 const getAcpSummary = async (req, res) => {
     try {
-        // RBAC guard applied via middleware (route file already updated)
-        const summary = await AcpModel.getSummaryLogs();
+        if (!rbac.isModuleAuthorized(req.user, 'acp')) {
+            return res.status(200).json({
+                success: true,
+                total_registered_devices: 0,
+                data: []
+            });
+        }
+        let summary = await AcpModel.getSummaryLogs();
+        summary = applyLocationFilter(summary, req.user);
+
         res.status(200).json({
             success: true,
             total_registered_devices: summary.length,
@@ -168,7 +184,6 @@ const getAcpSummary = async (req, res) => {
 // 6. Coach ACP history with range filter & partitioning support
 const getCoachHistory = async (req, res) => {
     try {
-        // RBAC guard applied via middleware (route file already updated)
         const { coachNo, fromDate, toDate, page = 1, limit = 100 } = req.query;
 
         if (!coachNo) {
@@ -177,8 +192,8 @@ const getCoachHistory = async (req, res) => {
 
         const offset = (parseInt(page) - 1) * parseInt(limit);
 
-        // Ab yeh model function internally partition table (acp_critical_events) ko query karega
-        const rows = await AcpModel.getCoachAcpHistory(coachNo, fromDate, toDate, parseInt(limit), offset);
+        let rows = await AcpModel.getCoachAcpHistory(coachNo, fromDate, toDate, parseInt(limit), offset);
+        rows = applyLocationFilter(rows, req.user);
 
         res.status(200).json({
             success: true,

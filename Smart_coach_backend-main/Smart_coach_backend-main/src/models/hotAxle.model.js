@@ -15,6 +15,10 @@ class HotAxleModel {
 
     async getData(deviceId, limit, authorizedCoaches = null) {
         try {
+            if (authorizedCoaches !== null && authorizedCoaches.length === 0) {
+                return [];
+            }
+
             let query = supabaseAdmin
                 .from('hot_axle_logs')
                 .select('*');
@@ -41,6 +45,10 @@ class HotAxleModel {
 
     async getHistoryData({ deviceId, coachNumber, startDate, endDate, limit, offset, authorizedCoaches = null }) {
         try {
+            if (authorizedCoaches !== null && authorizedCoaches.length === 0) {
+                return { data: [], total: 0 };
+            }
+
             let query = supabaseAdmin
                 .from('hot_axle_logs')
                 .select('*', { count: 'exact' });
@@ -95,6 +103,10 @@ class HotAxleModel {
 
     async getLatestStatusForAllCoaches(filters = {}, authorizedCoaches = null) {
         try {
+            if (authorizedCoaches !== null && authorizedCoaches.length === 0) {
+                return [];
+            }
+
             const { data, error } = await supabaseAdmin
                 .rpc('get_latest_per_device');
 

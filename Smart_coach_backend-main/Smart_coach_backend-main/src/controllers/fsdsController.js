@@ -52,8 +52,9 @@ const fsdsController = {
 
     getData: async (req, res) => {
         try {
-            // RBAC guard applied via middleware; FSDS uses loc_name field which
-            // does not directly map to coach_number for location-based filtering
+            if (!rbac.isModuleAuthorized(req.user, 'fsds')) {
+                return res.json({ success: true, data: [] });
+            }
             const { limit, offset, locName, trainNo } = req.query;
             const logs = await FsdsModel.getLogs({
                 limit: parseInt(limit) || 100,
