@@ -207,12 +207,12 @@ const hotAxleController = {
 
             if (startDate && endDate) {
                 query = query
-                    .gte('received_timestamp', `${startDate}T00:00:00`)
-                    .lte('received_timestamp', `${endDate}T23:59:59`);
+                    .gte('created_at', `${startDate}T00:00:00`)
+                    .lte('created_at', `${endDate}T23:59:59`);
             }
 
             const { data, error } = await query
-                .order('received_timestamp', { ascending: false })
+                .order('created_at', { ascending: false })
                 .limit(2000);
 
             // Field mapping:
@@ -230,8 +230,8 @@ const hotAxleController = {
 
             const grouped = {};
             for (let d of (data || [])) {
-                if (!d.received_timestamp) continue;
-                const dateObj = new Date(d.received_timestamp);
+                if (!d.created_at) continue;
+                const dateObj = new Date(d.created_at);
                 if (isNaN(dateObj.getTime())) continue;
                 const min = dateObj.getMinutes();
                 const roundedMin = min - (min % 15);
@@ -443,19 +443,20 @@ const hotAxleController = {
             });
             const bucketed = {};
             for (let d of filtered) {
-                if (!d.timestamp) continue;
-                const dateObj = new Date(d.timestamp);
+                const ts = d.created_at || d.timestamp;
+                if (!ts) continue;
+                const dateObj = new Date(ts);
                 if (isNaN(dateObj.getTime())) continue;
                 const min = dateObj.getMinutes();
                 const roundedMin = min - (min % 15);
                 dateObj.setMinutes(roundedMin, 0, 0);
                 const bucket = dateObj.toISOString();
-                if (!bucketed[bucket] || new Date(d.timestamp) > new Date(bucketed[bucket].timestamp)) {
+                if (!bucketed[bucket] || new Date(ts) > new Date(bucketed[bucket].created_at || bucketed[bucket].timestamp)) {
                     bucketed[bucket] = d;
                 }
             }
             let paged2 = Object.values(bucketed);
-            paged2.sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
+            paged2.sort((a, b) => ((b.created_at || b.timestamp) || '').localeCompare((a.created_at || a.timestamp) || ''));
             const total2 = paged2.length;
             const startIdx2 = (parseInt(page) - 1) * parseInt(limit);
             const slice2 = paged2.slice(startIdx2, startIdx2 + parseInt(limit));
@@ -473,20 +474,21 @@ const hotAxleController = {
 
         const grouped = {};
         for (let d of rawItems) {
-            if (!d.timestamp) continue;
-            const dateObj = new Date(d.timestamp);
+            const ts = d.created_at || d.timestamp;
+            if (!ts) continue;
+            const dateObj = new Date(ts);
             if (isNaN(dateObj.getTime())) continue;
             const min = dateObj.getMinutes();
             const roundedMin = min - (min % 15);
             dateObj.setMinutes(roundedMin, 0, 0);
             const bucket = dateObj.toISOString();
-            if (!grouped[bucket] || new Date(d.timestamp) > new Date(grouped[bucket].timestamp)) {
+            if (!grouped[bucket] || new Date(ts) > new Date(grouped[bucket].created_at || grouped[bucket].timestamp)) {
                 grouped[bucket] = d;
             }
         }
 
         let bucketed = Object.values(grouped);
-        bucketed.sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
+        bucketed.sort((a, b) => ((b.created_at || b.timestamp) || '').localeCompare((a.created_at || a.timestamp) || ''));
 
         const total = bucketed.length;
         const startIdx = (parseInt(page) - 1) * parseInt(limit);
@@ -567,7 +569,8 @@ const hotAxleController = {
 
     getNewCompanyData: async (req, res) => {
         try {
-            const isDanapur = rbac.isModuleAuthorized(req.user, 'hot_axle_section2');
+            const divisionName = (req.user.division_name || '').toLowerCase();
+            const isDanapur = divisionName === 'danapur';
 
             if (isDanapur) {
                 let authorizedCoaches = await rbac.getAuthorizedCoachNumbers(req.user);
@@ -602,7 +605,7 @@ const hotAxleController = {
                         temperature: maxTemp,
                         status: item.alert_status || 'Active',
                         temp_state: maxTemp > 80 ? 'Critical' : (maxTemp > 60 ? 'Warning' : 'Normal'),
-                        received_timestamp: item.timestamp || '',
+                        received_timestamp: item.timestamp || item.created_at || '',
                         battery_status: batteryStatus,
                         battery_voltage: 0.0,
                     };

@@ -67,12 +67,12 @@ class HotAxleModel {
 
             if (startDate && endDate) {
                 query = query
-                    .gte('timestamp', `${startDate} 00:00:00`)
-                    .lte('timestamp', `${endDate} 23:59:59`);
+                    .gte('created_at', `${startDate} 00:00:00`)
+                    .lte('created_at', `${endDate} 23:59:59`);
             }
 
             const { data, count, error } = await query
-                .order('timestamp', { ascending: false })
+                .order('created_at', { ascending: false })
                 .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);
 
             if (error) throw error;
