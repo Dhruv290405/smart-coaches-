@@ -65,15 +65,9 @@ class HotAxleModel {
                 query = query.in('coach_number', authorizedCoaches);
             }
 
-            if (startDate && endDate) {
-                query = query
-                    .gte('created_at', `${startDate} 00:00:00`)
-                    .lte('created_at', `${endDate} 23:59:59`);
-            }
-
             const { data, count, error } = await query
-                .order('created_at', { ascending: false })
-                .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);
+                .order('id', { ascending: false })
+                .range(0, parseInt(limit) - 1);
 
             if (error) throw error;
             return { data, total: count };

@@ -421,10 +421,23 @@ const hotAxleController = {
         });
 
         const technicalIdsMap = await getRailwayTechnicalIds();
-        const rawItems = (result.data || []).map(item => ({
+        let rawItems = (result.data || []).map(item => ({
             ...item,
             technical_id: technicalIdsMap[item.device_id] || ''
         }));
+
+        // In-memory date filter (DB may not have a reliable timestamp column)
+        if (startDate && endDate) {
+            const startDt = new Date(`${startDate}T00:00:00`);
+            const endDt = new Date(`${endDate}T23:59:59`);
+            rawItems = rawItems.filter(d => {
+                const ts = d.created_at || d.timestamp;
+                if (!ts) return true;
+                const dt = new Date(ts);
+                return isNaN(dt.getTime()) || (dt >= startDt && dt <= endDt);
+            });
+        }
+
         const axleColumns = ['a11_temp','a12_temp','a21_temp','a22_temp','a31_temp','a32_temp','a41_temp','a42_temp'];
 
         if (axleNumber && !isNaN(parseInt(axleNumber))) {
@@ -488,7 +501,12 @@ const hotAxleController = {
         }
 
         let bucketed = Object.values(grouped);
-        bucketed.sort((a, b) => ((b.created_at || b.timestamp) || '').localeCompare((a.created_at || a.timestamp) || ''));
+        // Fallback to raw data if no records had timestamps for bucketing
+        if (bucketed.length === 0) {
+            bucketed = rawItems.slice(0, parseInt(limit));
+        } else {
+            bucketed.sort((a, b) => ((b.created_at || b.timestamp) || '').localeCompare((a.created_at || a.timestamp) || ''));
+        }
 
         const total = bucketed.length;
         const startIdx = (parseInt(page) - 1) * parseInt(limit);
