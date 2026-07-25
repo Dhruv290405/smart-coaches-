@@ -81,51 +81,50 @@ class BrakeBindingBloc extends Bloc<BrakeBindingEvent, BrakeBindingState> {
   Future<void> _onInitData(LoadInitData event, Emitter<BrakeBindingState> emit) async {
     final cache = BrakeBindingCache.instance;
 
-    // Serve from cache immediately — no loading spinner
+    // Serve from cache immediately for instant display
     final cachedCoaches = cache.coaches;
     if (cachedCoaches != null && cachedCoaches.isNotEmpty) {
       final firstCoach = cachedCoaches.first;
-      final deviceId = firstCoach.deviceId?.toString();
-      _currentDeviceId = deviceId;
       emit(state.copyWith(
         coachList: cachedCoaches,
         selectedCoach: firstCoach,
-        selectedDeviceId: deviceId,
+        selectedDeviceId: firstCoach.deviceId?.toString(),
         isLoadingCoaches: false,
       ));
-      // Also serve cached pneumatic status if available
-      if (deviceId != null) {
-        final cachedStatus = cache.getStatus(deviceId);
+      if (firstCoach.deviceId != null) {
+        final cachedStatus = cache.getStatus(firstCoach.deviceId.toString());
         if (cachedStatus != null) {
           _applyPneumaticResponse(cachedStatus, emit);
         }
       }
-      add(FetchPneumaticStatus(deviceId: deviceId));
-      return;
+      // Invalidate cache so next init fetches fresh data
+      cache.invalidateCoaches();
     }
 
-    // No cache — show loading and hit API
-    emit(state.copyWith(isLoadingCoaches: true));
+    // Always fetch fresh data from API
+    emit(state.copyWith(isLoadingCoaches: cachedCoaches == null || cachedCoaches.isEmpty));
     try {
       final List<CoachByLocationItem> coaches = await breakBindingUsecases.getCoachesByLocation();
       cache.setCoaches(coaches);
       if (coaches.isNotEmpty) {
         final firstCoach = coaches.first;
-        final deviceId = firstCoach.deviceId?.toString();
-        _currentDeviceId = deviceId;
+        _currentDeviceId = firstCoach.deviceId?.toString();
         emit(state.copyWith(
           coachList: coaches,
           selectedCoach: firstCoach,
-          selectedDeviceId: deviceId,
+          selectedDeviceId: firstCoach.deviceId?.toString(),
           isLoadingCoaches: false,
         ));
-        add(FetchPneumaticStatus(deviceId: deviceId));
+        add(FetchPneumaticStatus(deviceId: firstCoach.deviceId?.toString()));
       } else {
         emit(state.copyWith(coachList: [], isLoadingCoaches: false));
       }
     } catch (e) {
       dev.log("❌ LoadInitData Error: $e");
-      emit(state.copyWith(isLoadingCoaches: false));
+      // Keep cached data on error, just stop loading
+      if (cachedCoaches == null || cachedCoaches.isEmpty) {
+        emit(state.copyWith(isLoadingCoaches: false));
+      }
     }
   }
 
