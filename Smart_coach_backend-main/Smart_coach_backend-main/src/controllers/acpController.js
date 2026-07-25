@@ -7,6 +7,14 @@ const CACHE_TTL = 5 * 60 * 1000;
 
 function applyLocationFilter(logs, user) {
     if (!user || user.role_id === 1 || !logs || logs.length === 0) return logs;
+    // If user's division is explicitly mapped to acp in DIVISION_MODULE_MAP,
+    // skip location filter — module guard already authorizes them
+    const loc = rbac.getUserLocation(user);
+    const mappedKey = loc && Object.keys(rbac.DIVISION_MODULE_MAP).find(
+        k => k.toLowerCase() === loc.toLowerCase()
+    );
+    if (mappedKey && rbac.DIVISION_MODULE_MAP[mappedKey].includes('acp')) return logs;
+
     const userLocs = rbac.getUserLocations(user).map(l => l.toLowerCase());
     if (userLocs.length === 0) return logs;
     return logs.filter(log => {
