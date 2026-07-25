@@ -37,8 +37,12 @@ const Pneumatic = {
             };
 
             if (deviceId) {
-                const mappedDeviceId = reverseDeviceMap[deviceId] || deviceId;
-                query = query.eq('device_id', mappedDeviceId);
+                const mappedDeviceId = reverseDeviceMap[deviceId];
+                if (mappedDeviceId && mappedDeviceId !== deviceId) {
+                    query = query.in('device_id', [deviceId, mappedDeviceId]);
+                } else {
+                    query = query.eq('device_id', deviceId);
+                }
             }
 
             if (user && user.role_id !== 1) {
