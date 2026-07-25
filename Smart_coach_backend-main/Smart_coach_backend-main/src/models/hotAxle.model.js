@@ -65,6 +65,14 @@ class HotAxleModel {
                 query = query.in('coach_number', authorizedCoaches);
             }
 
+            // Apply date filter at DB level using 'timestamp' column (primary) 
+            // This avoids fetching thousands of rows for in-memory filtering
+            if (startDate && endDate) {
+                query = query
+                    .gte('timestamp', `${startDate}T00:00:00`)
+                    .lte('timestamp', `${endDate}T23:59:59`);
+            }
+
             const { data, count, error } = await query
                 .order('id', { ascending: false })
                 .range(0, parseInt(limit) - 1);

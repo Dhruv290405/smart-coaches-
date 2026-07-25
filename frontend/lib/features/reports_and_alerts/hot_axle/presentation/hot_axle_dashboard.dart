@@ -647,7 +647,7 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
       coachNumber: firstDev?.coachNumber ?? 'Master: $masterId',
       technicalId: firstDev?.technicalId ?? '',
       brakeDeviceId: firstDev?.brakeDeviceId ?? '',
-      coachType: firstDev?.coachType ?? 'HAMS',
+      coachType: 'HAMS',  // Always 'HAMS' so history screen routes to hams_data (old Supabase)
       owningRly: 'VASP',
       trainNo: firstDev?.trainNo ?? '',
       timestamp: firstDev?.receivedTimestamp ?? '',

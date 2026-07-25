@@ -426,17 +426,20 @@ const hotAxleController = {
             technical_id: technicalIdsMap[item.device_id] || ''
         }));
 
-        // In-memory date filter (DB may not have a reliable timestamp column)
+
+        // In-memory date filter as secondary safety net (DB-level filter is primary now)
         if (startDate && endDate) {
             const startDt = new Date(`${startDate}T00:00:00`);
             const endDt = new Date(`${endDate}T23:59:59`);
             rawItems = rawItems.filter(d => {
-                const ts = d.created_at || d.timestamp;
-                if (!ts) return true;
+                const ts = d.timestamp || d.created_at;
+                if (!ts) return false; // Exclude rows with no timestamp when date filter is active
                 const dt = new Date(ts);
-                return isNaN(dt.getTime()) || (dt >= startDt && dt <= endDt);
+                if (isNaN(dt.getTime())) return false;
+                return dt >= startDt && dt <= endDt;
             });
         }
+
 
         const axleColumns = ['a11_temp','a12_temp','a21_temp','a22_temp','a31_temp','a32_temp','a41_temp','a42_temp'];
 
