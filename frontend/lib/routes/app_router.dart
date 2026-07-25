@@ -37,6 +37,7 @@ import 'package:smart_coach_new/features/reports_and_alerts/alerts_screen.dart';
 import 'package:smart_coach_new/features/user_management/presentation/bloc/user_management_bloc.dart';
 import 'package:smart_coach_new/features/user_management/presentation/user_management_screen.dart';
 import 'package:smart_coach_new/features/reports_and_alerts/odour_management/presentation/odour_dashboard.dart';
+import '../features/reports_and_alerts/break_binding/presentation/bloc/brake_binding_event.dart';
 import '../features/reports_and_alerts/break_binding/presentation/bloc/break_binding_bloc.dart';
 import '../features/reports_and_alerts/break_binding/presentation/brake_binding_screen.dart';
 import '../features/coach_dashboard/presentation/bloc/coach_dashboard_bloc.dart';
@@ -188,8 +189,10 @@ class AppRouter {
       GoRoute(
         path: breakBinding,
         builder: (context, state) {
+          final bloc = GetIt.I<BrakeBindingBloc>();
+          bloc.add(LoadInitData());
           return BlocProvider(
-            create: (_) => GetIt.I<BrakeBindingBloc>(),
+            create: (_) => bloc,
             child: BrakeBindingScreen(),
           );
         },

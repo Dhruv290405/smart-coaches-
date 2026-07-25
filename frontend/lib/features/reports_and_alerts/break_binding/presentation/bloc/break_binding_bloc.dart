@@ -81,6 +81,9 @@ class BrakeBindingBloc extends Bloc<BrakeBindingEvent, BrakeBindingState> {
   Future<void> _onInitData(LoadInitData event, Emitter<BrakeBindingState> emit) async {
     final cache = BrakeBindingCache.instance;
 
+    // Reset device ID so stale status fetches don't fire during refresh
+    _currentDeviceId = null;
+
     // Serve from cache immediately for instant display
     final cachedCoaches = cache.coaches;
     if (cachedCoaches != null && cachedCoaches.isNotEmpty) {
