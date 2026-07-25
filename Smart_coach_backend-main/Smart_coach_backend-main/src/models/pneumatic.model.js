@@ -50,14 +50,34 @@ const Pneumatic = {
                         .select('device_id')
                         .ilike('Location', userLoc);
 
+                    let finalAllowedIds = [];
                     if (allowedDevices && allowedDevices.length > 0) {
                         const deviceIds = allowedDevices.map(d => d.device_id);
                         const mappedDeviceIds = deviceIds.map(d => reverseDeviceMap[d] || d);
-                        const allAllowedIds = [...new Set([...deviceIds, ...mappedDeviceIds])];
-                        query = query.in('device_id', allAllowedIds);
+                        finalAllowedIds = [...new Set([...deviceIds, ...mappedDeviceIds])];
                     } else {
-                        return [];
+                        // Fallback mapping if DB is empty for location
+                        const fallbackMapping = {
+                            'Raspberry4_4': 'Kolkatta',
+                            'Raspberry4_1': 'Jaipur',
+                            'Raspberry4_2': 'Kolkatta',
+                            'Raspberry4_3': 'Kolkatta',
+                            'SCBB NP001': 'Nagpur',
+                            'SCBB NP002': 'Nagpur',
+                            'SCBB NP003': 'Nagpur'
+                        };
+                        const userLocLower = userLoc.toLowerCase();
+                        const fallbackIds = Object.entries(fallbackMapping)
+                            .filter(([_, loc]) => loc.toLowerCase() === userLocLower)
+                            .map(([id, _]) => id);
+                        
+                        if (fallbackIds.length > 0) {
+                            finalAllowedIds = fallbackIds;
+                        } else {
+                            return [];
+                        }
                     }
+                    query = query.in('device_id', finalAllowedIds);
                 }
             }
 
@@ -99,6 +119,7 @@ const Pneumatic = {
                         .select('device_id')
                         .ilike('Location', userLoc);
 
+                    let finalAllowedIds = [];
                     if (allowedDevices && allowedDevices.length > 0) {
                         const deviceIds = allowedDevices.map(d => d.device_id);
                         const reverseDeviceMap = {
@@ -109,11 +130,29 @@ const Pneumatic = {
                             'SCBB-NP-26-001': 'Raspberry4_5'
                         };
                         const mappedDeviceIds = deviceIds.map(d => reverseDeviceMap[d] || d);
-                        const allAllowedIds = [...new Set([...deviceIds, ...mappedDeviceIds])];
-                        query = query.in('device_id', allAllowedIds);
+                        finalAllowedIds = [...new Set([...deviceIds, ...mappedDeviceIds])];
                     } else {
-                        return [];
+                        const fallbackMapping = {
+                            'Raspberry4_4': 'Kolkatta',
+                            'Raspberry4_1': 'Jaipur',
+                            'Raspberry4_2': 'Kolkatta',
+                            'Raspberry4_3': 'Kolkatta',
+                            'SCBB NP001': 'Nagpur',
+                            'SCBB NP002': 'Nagpur',
+                            'SCBB NP003': 'Nagpur'
+                        };
+                        const userLocLower = userLoc.toLowerCase();
+                        const fallbackIds = Object.entries(fallbackMapping)
+                            .filter(([_, loc]) => loc.toLowerCase() === userLocLower)
+                            .map(([id, _]) => id);
+                        
+                        if (fallbackIds.length > 0) {
+                            finalAllowedIds = fallbackIds;
+                        } else {
+                            return [];
+                        }
                     }
+                    query = query.in('device_id', finalAllowedIds);
                 }
             }
 
