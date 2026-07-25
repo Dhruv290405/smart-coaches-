@@ -98,12 +98,35 @@ Defined in `src/utils/rbac.js` constant `DIVISION_MODULE_MAP` and frontend `cust
 - `src/models/pneumatic.model.js` — Brake binding model
 - `src/models/hotAxle.model.js` — Hot axle model
 
+## Key Recent Fixes
+
+### Hot Axle controller (hotAxleController.js)
+- **Module auth**: All endpoints now check `isModuleAuthorized` before returning data
+- **Section 1 HAMS**: Hardcoded to `master_id = 'HAMS-M1-001'` only (removed multi-master filter)
+- **Section 2 bypass**: `getDashboardStatus` and `getHotAxleData` have `authorizedCoaches=null` bypass when user has `hot_axle_section2` (matches `getHistory` behavior)
+- `getNewCompanyData`: Returns section 2 data for Danapur, section 1 HAMS for Nagpur, empty for others
+
+### Pneumatic controller (pneumatic.controller.js) — Brake Binding
+- **3-tier coach cascade**: `getCoachesByLocation` tries Project 2 → Project 1 → hardcoded deviceMapping
+- **Consistent location**: All location lookups use `rbac.getUserLocation()` (division > region > zone)
+- **Fallback fix**: `getBreakBindingData` fallback also checks Project 1's `coaches_railway`
+
+### ACP controller (acpController.js)
+- **Security fix**: `applyLocationFilter` now returns `[]` instead of unfiltered data when no match
+- **Module guard**: `isModuleAuthorized('acp')` added to all GET endpoints (was missing on 3)
+
+### Brake binding cache (frontend)
+- **Singleton cache bug**: `BrakeBindingCache` is a singleton; User A's coach list was served to User B on login
+- **Fix**: Always fetch fresh coaches from API; cache used only for instant display then invalidated
+
 ## Common Issues
 1. New users may have `division_name` missing from JWT (registration doesn't pull it) — fresh login required
 2. `bpc_pressure` table missing in Project 2 → sensor readings fail silently
 3. Hot axle section 1 data only comes from HAMS-M1-001 — all other master_ids have no live data
 4. `validateStatus: (status) => status < 500` in Dio means 4xx are treated as success
 5. Division name in JWT must be populated — auth.middleware has fallback to query DB if missing
+6. BrakeBindingCache singleton persists across login sessions — always clears on re-init now
+7. Hot axle section 2 showing 0 values usually means `hot_axle_logs` is empty or RPC `get_latest_per_device` missing in Project 1
 
 ## Build
 - Frontend: Flutter APK build (standard `flutter build apk` / `flutter build appbundle`)
