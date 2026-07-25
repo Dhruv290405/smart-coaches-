@@ -28,8 +28,17 @@ const Pneumatic = {
                 brake_released_time
             `);
 
+            const reverseDeviceMap = {
+                'SCBB-JP-26-001': 'Raspberry4_1',
+                'SCBB-HWH-26-001': 'Raspberry4_2',
+                'SCBB-HWH-26-002': 'Raspberry4_3',
+                'SCBB-JP-26-002': 'Raspberry4_4',
+                'SCBB-NP-26-001': 'Raspberry4_5'
+            };
+
             if (deviceId) {
-                query = query.eq('device_id', deviceId);
+                const mappedDeviceId = reverseDeviceMap[deviceId] || deviceId;
+                query = query.eq('device_id', mappedDeviceId);
             }
 
             if (user && user.role_id !== 1) {
@@ -43,7 +52,9 @@ const Pneumatic = {
 
                     if (allowedDevices && allowedDevices.length > 0) {
                         const deviceIds = allowedDevices.map(d => d.device_id);
-                        query = query.in('device_id', deviceIds);
+                        const mappedDeviceIds = deviceIds.map(d => reverseDeviceMap[d] || d);
+                        const allAllowedIds = [...new Set([...deviceIds, ...mappedDeviceIds])];
+                        query = query.in('device_id', allAllowedIds);
                     } else {
                         return [];
                     }
@@ -90,7 +101,16 @@ const Pneumatic = {
 
                     if (allowedDevices && allowedDevices.length > 0) {
                         const deviceIds = allowedDevices.map(d => d.device_id);
-                        query = query.in('device_id', deviceIds);
+                        const reverseDeviceMap = {
+                            'SCBB-JP-26-001': 'Raspberry4_1',
+                            'SCBB-HWH-26-001': 'Raspberry4_2',
+                            'SCBB-HWH-26-002': 'Raspberry4_3',
+                            'SCBB-JP-26-002': 'Raspberry4_4',
+                            'SCBB-NP-26-001': 'Raspberry4_5'
+                        };
+                        const mappedDeviceIds = deviceIds.map(d => reverseDeviceMap[d] || d);
+                        const allAllowedIds = [...new Set([...deviceIds, ...mappedDeviceIds])];
+                        query = query.in('device_id', allAllowedIds);
                     } else {
                         return [];
                     }

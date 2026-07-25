@@ -31,7 +31,7 @@ exports.getBreakBindingData = async (req, res) => {
         return forwardToOldBackend(req, res, '/pneumatic/status');
     }
     try {
-        const filterDeviceId = req.query.deviceId || null; 
+        let filterDeviceId = req.query.deviceId || null; 
         const historyLimit = Math.min(parseInt(req.query.limit) || 10, 1000); 
         const historyOffset = parseInt(req.query.offset) || 0;
         
@@ -65,7 +65,14 @@ exports.getBreakBindingData = async (req, res) => {
                 }
             }
             if (filterDeviceId) {
-                const activeDeviceId = filterDeviceId;
+                const reverseDeviceMap = {
+                    'SCBB-JP-26-001': 'Raspberry4_1',
+                    'SCBB-HWH-26-001': 'Raspberry4_2',
+                    'SCBB-HWH-26-002': 'Raspberry4_3',
+                    'SCBB-JP-26-002': 'Raspberry4_4',
+                    'SCBB-NP-26-001': 'Raspberry4_5'
+                };
+                const activeDeviceId = reverseDeviceMap[filterDeviceId] || filterDeviceId;
                 let eventQuery = supabase.from('event_publish')
                     .select('id, timestamp, event_status, coach_no, event_message')
                     .eq('device_id', activeDeviceId)
@@ -413,10 +420,10 @@ exports.getCoachesByLocation = async (req, res) => {
                 'SCBB NP001': { technical_id: 'NP001', coach_no: 'NP1', Train_no: 'NAGPUR01', Location: 'Nagpur' },
                 'SCBB NP002': { technical_id: 'NP002', coach_no: 'NP2', Train_no: 'NAGPUR01', Location: 'Nagpur' },
                 'SCBB NP003': { technical_id: 'NP003', coach_no: 'NP3', Train_no: 'NAGPUR01', Location: 'Nagpur' },
-                'Raspberry4_4': { technical_id: '231035', coach_no: 'M3', Train_no: '13071', Location: 'Kolkatta' },
+                'Raspberry4_4': { technical_id: '231035', coach_no: 'M3', Train_no: '13071', Location: 'Jaipur' },
                 'Raspberry4_1': { technical_id: '231545', coach_no: 'S4', Train_no: '13277', Location: 'Jaipur' },
-                'Raspberry4_2': { technical_id: '234534', coach_no: 'S3', Train_no: '12578', Location: 'Jaipur' },
-                'Raspberry4_3': { technical_id: '211245', coach_no: 'S2', Train_no: '65214', Location: 'Jaipur' }
+                'Raspberry4_2': { technical_id: '234534', coach_no: 'S3', Train_no: '12578', Location: 'Kolkatta' },
+                'Raspberry4_3': { technical_id: '211245', coach_no: 'S2', Train_no: '65214', Location: 'Kolkatta' }
             };
             if (role_id !== 1) {
                 const userLoc = rbac.getUserLocation(req.user)?.toLowerCase();
