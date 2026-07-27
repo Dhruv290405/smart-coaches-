@@ -31,6 +31,20 @@ async function getRailwayTechnicalIds() {
     return railwayMeta;
 }
 
+function enrichBatteryFields(item) {
+    const pct = item.battery_percentage != null ? parseInt(item.battery_percentage) : 50;
+    let batStatus = 'Moderate';
+    if (pct <= 20) batStatus = 'Low';
+    else if (pct >= 80) batStatus = 'High';
+    const batVoltage = parseFloat((3.0 + (pct / 100.0) * 1.2).toFixed(2));
+    return {
+        ...item,
+        battery_percentage: pct,
+        battery_status: batStatus,
+        battery_voltage: batVoltage,
+    };
+}
+
 const hotAxleController = {
     receiveData: async (req, res) => {
         try {
@@ -118,11 +132,13 @@ const hotAxleController = {
                 });
             }
 
+            const enriched = readings.map(enrichBatteryFields);
+
             return res.status(200).json({
                 success: true,
-                count: readings.length,
+                count: enriched.length,
                 deviceId: filterDeviceId || "All Devices",
-                data: readings
+                data: enriched
             });
 
         } catch (error) {
@@ -296,9 +312,13 @@ const hotAxleController = {
                         }
                     }
 
+                    const rawBatStatus = match.battery_status || '';
+                    const rawBatVoltage = match.battery_voltage != null ? parseFloat(match.battery_voltage) : 0.0;
+                    const batVoltage = rawBatVoltage > 0 ? rawBatVoltage : parseFloat((3.0 + (bat / 100.0) * 1.2).toFixed(2));
+
                     mappedHistory.push({
                         timestamp: bucket,
-                        device_id: actualAxleDeviceId, // Axle-specific device ID
+                        device_id: actualAxleDeviceId,
                         master_id: dbMasterId,
                         coach_number: coachNo,
                         train_no: trainNo,
@@ -312,6 +332,8 @@ const hotAxleController = {
                         a31_temp: temps[4], a32_temp: temps[5],
                         a41_temp: temps[6], a42_temp: temps[7],
                         battery_percentage: bat,
+                        battery_status: rawBatStatus || (bat <= 20 ? 'Low' : (bat >= 80 ? 'High' : 'Moderate')),
+                        battery_voltage: batVoltage,
                         signal_strength: 0,
                         alert_status: temp > 60 ? 'Warning' : 'Good',
                     });
@@ -346,9 +368,13 @@ const hotAxleController = {
                         else if (bs === 'high') bat = 80;
                     }
 
+                    const rawBatStatus2 = (axleDevices[0] && axleDevices[0].battery_status) || '';
+                    const rawBatVoltage2 = (axleDevices[0] && axleDevices[0].battery_voltage) != null ? parseFloat(axleDevices[0].battery_voltage) : 0.0;
+                    const batVoltage2 = rawBatVoltage2 > 0 ? rawBatVoltage2 : parseFloat((3.0 + (bat / 100.0) * 1.2).toFixed(2));
+
                     mappedHistory.push({
                         timestamp: bucket,
-                        device_id: brakeDeviceId || coachNo || dbMasterId,  // SCBB-NP-26-003
+                        device_id: brakeDeviceId || coachNo || dbMasterId,
                         master_id: dbMasterId,
                         coach_number: coachNo,
                         train_no: trainNo,
@@ -362,6 +388,8 @@ const hotAxleController = {
                         a31_temp: temps[4], a32_temp: temps[5],
                         a41_temp: temps[6], a42_temp: temps[7],
                         battery_percentage: bat,
+                        battery_status: rawBatStatus2 || (bat <= 20 ? 'Low' : (bat >= 80 ? 'High' : 'Moderate')),
+                        battery_voltage: batVoltage2,
                         signal_strength: 0,
                         alert_status: maxTemp > 60 ? 'Warning' : 'Good',
                     });
@@ -421,7 +449,7 @@ const hotAxleController = {
         });
 
         const technicalIdsMap = await getRailwayTechnicalIds();
-        let rawItems = (result.data || []).map(item => ({
+        let rawItems = (result.data || []).map(item => enrichBatteryFields({
             ...item,
             technical_id: technicalIdsMap[item.device_id] || ''
         }));
@@ -568,7 +596,7 @@ const hotAxleController = {
             }, authorizedCoaches);
 
             const technicalIdsMap = await getRailwayTechnicalIds();
-            const enriched = (statusData || []).map(item => ({
+            const enriched = (statusData || []).map(item => enrichBatteryFields({
                 ...item,
                 technical_id: technicalIdsMap[item.device_id] || ''
             }));
@@ -611,11 +639,11 @@ const hotAxleController = {
                                    item.a31_temp, item.a32_temp, item.a41_temp, item.a42_temp]
                                    .filter(t => t != null && t >= 0);
                     const maxTemp = temps.length > 0 ? Math.max(...temps) : 0;
+                    const pct = item.battery_percentage != null ? parseInt(item.battery_percentage) : 50;
                     let batteryStatus = 'Moderate';
-                    if (item.battery_percentage != null) {
-                        if (item.battery_percentage <= 20) batteryStatus = 'Low';
-                        else if (item.battery_percentage >= 80) batteryStatus = 'High';
-                    }
+                    if (pct <= 20) batteryStatus = 'Low';
+                    else if (pct >= 80) batteryStatus = 'High';
+                    const batVoltage = parseFloat((3.0 + (pct / 100.0) * 1.2).toFixed(2));
                     return {
                         id: item.id,
                         device_id: item.device_id || '',
@@ -625,7 +653,13 @@ const hotAxleController = {
                         temp_state: maxTemp > 80 ? 'Critical' : (maxTemp > 60 ? 'Warning' : 'Normal'),
                         received_timestamp: item.timestamp || item.created_at || '',
                         battery_status: batteryStatus,
-                        battery_voltage: 0.0,
+                        battery_voltage: batVoltage,
+                        coach_number: item.coach_number || '',
+                        train_no: item.train_no || '',
+                        technical_id: item.tech_coach_no || '',
+                        coach_type: item.coach_type || '',
+                        location: item.owning_rly || '',
+                        brake_device_id: item.device_id || '',
                     };
                 });
 
@@ -706,6 +740,7 @@ const hotAxleController = {
                 coach_type: hamsM1Meta.coach_type || 'LWSCZ - AC',
                 brake_device_id: hamsM1Meta.device_id || 'SCBB-NP-26-003',
                 location: hamsM1Meta.location || 'N/A',
+                technical_id: hamsM1Meta.technical_id || '',
                 axle_devices: axleDevices,
             }));
 
