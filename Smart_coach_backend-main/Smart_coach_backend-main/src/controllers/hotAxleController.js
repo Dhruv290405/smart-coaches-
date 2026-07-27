@@ -214,7 +214,7 @@ const hotAxleController = {
 
             let query = sOld.from('hams_data')
                 .select('*')
-                .in('master_id', [dbMasterId, 'HAMS_003']);
+                .eq('master_id', dbMasterId);
 
             // Filter by specific sensor device if provided
             if (deviceId && deviceId !== 'All') {
@@ -723,15 +723,21 @@ const hotAxleController = {
             const masterId = 'HAMS-M1-001';
             const hamsM1Meta = hamsMeta[masterId] || (hamsRegs && hamsRegs.length > 0 ? hamsMeta[hamsRegs[0].actual_id] : null) || {};
 
-            const { data: hamsData, error: hamsError } = await supabaseOld
-                .from('hams_data')
-                .select('*')
-                .in('master_id', [masterId, 'HAMS_003'])
-                .order('created_at', { ascending: false });
+            const hamsDeviceIds = ['HAMS001', 'HAMS002', 'HAMS003', 'HAMS004', 'HAMS005', 'HAMS006', 'HAMS008', 'HAMS009'];
+            const latestRows = [];
+            for (const devId of hamsDeviceIds) {
+                const { data, error } = await supabaseOld
+                    .from('hams_data')
+                    .select('*')
+                    .eq('device_id', devId)
+                    .eq('master_id', masterId)
+                    .order('created_at', { ascending: false })
+                    .limit(1);
+                if (error) continue;
+                if (data && data.length > 0) latestRows.push(data[0]);
+            }
 
-            if (hamsError) throw hamsError;
-
-            const enriched = (hamsData || []).map(d => ({
+            const enriched = latestRows.map(d => ({
                 ...d,
                 device_id: d.device_id || '',
                 master_id: masterId,
