@@ -214,7 +214,7 @@ const hotAxleController = {
 
             let query = sOld.from('hams_data')
                 .select('*')
-                .eq('master_id', dbMasterId);
+                .in('master_id', [dbMasterId, 'HAMS_003']);
 
             // Filter by specific sensor device if provided
             if (deviceId && deviceId !== 'All') {
@@ -726,7 +726,7 @@ const hotAxleController = {
             const { data: hamsData, error: hamsError } = await supabaseOld
                 .from('hams_data')
                 .select('*')
-                .eq('master_id', masterId)
+                .in('master_id', [masterId, 'HAMS_003'])
                 .order('created_at', { ascending: false });
 
             if (hamsError) throw hamsError;
