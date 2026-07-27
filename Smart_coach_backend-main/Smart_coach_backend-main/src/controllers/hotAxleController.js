@@ -726,14 +726,26 @@ const hotAxleController = {
             const hamsDeviceIds = ['HAMS001', 'HAMS002', 'HAMS003', 'HAMS004', 'HAMS005', 'HAMS006', 'HAMS008', 'HAMS009'];
             const latestRows = [];
             for (const devId of hamsDeviceIds) {
-                const { data, error } = await supabaseOld
+                let { data, error } = await supabaseOld
                     .from('hams_data')
                     .select('*')
                     .eq('device_id', devId)
                     .eq('master_id', masterId)
+                    .gt('temperature', 0)
                     .order('created_at', { ascending: false })
                     .limit(1);
                 if (error) continue;
+                if (!data || data.length === 0) {
+                    const fallback = await supabaseOld
+                        .from('hams_data')
+                        .select('*')
+                        .eq('device_id', devId)
+                        .eq('master_id', masterId)
+                        .order('created_at', { ascending: false })
+                        .limit(1);
+                    if (fallback.error) continue;
+                    data = fallback.data;
+                }
                 if (data && data.length > 0) latestRows.push(data[0]);
             }
 
