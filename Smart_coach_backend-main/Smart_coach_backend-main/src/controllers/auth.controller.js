@@ -13,7 +13,11 @@ const authController = {
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { email, region_id, train_ids } = req.body;
+    const { email, region_id, train_ids, role_id } = req.body;
+
+    if (role_id === 1) {
+      return errorResponse(res, 'Super Admin role cannot be assigned via registration', 403);
+    }
 
     const existingUser = await userModel.findByEmail(email);
     if (existingUser) {

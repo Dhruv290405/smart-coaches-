@@ -53,6 +53,16 @@ class RolesModel extends BaseModel {
 
     return rows;
   }
+
+  async getAllRolesExcludingSuperAdmin() {
+    const { data: rows, error } = await supabaseAdmin
+      .from('role_master')
+      .select('role_id, name')
+      .eq('is_active', 1)
+      .neq('role_id', 1);
+    if (error) throw error;
+    return rows;
+  }
 }
 
 module.exports = new RolesModel();

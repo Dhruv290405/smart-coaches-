@@ -44,7 +44,7 @@ const rolesController = {
   },
   async getRoleList(req, res, next) {
     try {
-      const roles = await rolesModel.getAllRoles();
+      const roles = await rolesModel.getAllRolesExcludingSuperAdmin();
       return successResponse(res, 'Roles fetched successfully', roles);
     } catch (error) {
       next(error);
