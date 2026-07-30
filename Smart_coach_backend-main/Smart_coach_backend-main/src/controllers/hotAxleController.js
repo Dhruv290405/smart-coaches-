@@ -615,10 +615,10 @@ const hotAxleController = {
 
     getNewCompanyData: async (req, res) => {
         try {
-            const divisionName = (req.user.division_name || '').toLowerCase();
-            const isDanapur = divisionName === 'danapur';
+            const hasSection2 = rbac.isModuleAuthorized(req.user, 'hot_axle_section2');
+            const hasSection1 = rbac.isModuleAuthorized(req.user, 'hot_axle_section1');
 
-            if (isDanapur) {
+            if (hasSection2) {
                 let authorizedCoaches = await rbac.getAuthorizedCoachNumbers(req.user);
                 let query = supabaseAdmin
                     .from('hot_axle_logs')
@@ -670,7 +670,7 @@ const hotAxleController = {
                 });
             }
 
-            if (!rbac.isModuleAuthorized(req.user, 'hot_axle_section1')) {
+            if (!hasSection1) {
                 return res.status(200).json({
                     success: true,
                     totalCoaches: 0,
