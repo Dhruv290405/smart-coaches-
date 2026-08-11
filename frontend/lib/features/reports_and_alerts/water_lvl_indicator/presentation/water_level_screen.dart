@@ -126,7 +126,7 @@ class _WaterLevelScreenState extends State<WaterLevelScreen> {
         if (userEmail == 'tester@example.com') _loadMockData();
         setState(() {
           _isLoading = false;
-          _errorMessage = userEmail == 'tester@example.com' ? 'API unavailable. Showing sample data.' : null;
+          _errorMessage = null;
           isRefreshing = false;
         });
       }
