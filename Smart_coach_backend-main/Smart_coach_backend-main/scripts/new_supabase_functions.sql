@@ -30,7 +30,7 @@ $$ LANGUAGE sql;
 CREATE OR REPLACE FUNCTION get_latest_wli_per_device()
 RETURNS SETOF wli_logs
 AS $$
-  SELECT DISTINCT ON (w.device_id) w.*
+  SELECT DISTINCT ON (w.device_id, w.asset_id) w.*
   FROM wli_logs w
-  ORDER BY w.device_id, w.id DESC;
+  ORDER BY w.device_id, w.asset_id, w.id DESC;
 $$ LANGUAGE sql;
