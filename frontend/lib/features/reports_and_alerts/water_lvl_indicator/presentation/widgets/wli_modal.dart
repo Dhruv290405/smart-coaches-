@@ -198,6 +198,9 @@ class WliModal extends StatelessWidget {
       final asset = coach.assets.first;
       return _buildInfoSection(asset.assetName, [
         _buildDetailRow('Water Level', '${asset.percentFull.toStringAsFixed(1)}%', showTopBorder: false),
+        _buildDetailRow('Volume', '${asset.volumeLiters.toStringAsFixed(1)} L'),
+        _buildDetailRow('Level (cm)', '${asset.levelCm.toStringAsFixed(1)} cm'),
+        _buildDetailRow('Raw Value', '${asset.rawValue}'),
       ]);
     }
 
@@ -208,6 +211,9 @@ class WliModal extends StatelessWidget {
           padding: const EdgeInsets.only(bottom: 12),
           child: _buildInfoSection(label, [
             _buildDetailRow('Water Level', '${asset.percentFull.toStringAsFixed(1)}%', showTopBorder: false),
+            _buildDetailRow('Volume', '${asset.volumeLiters.toStringAsFixed(1)} L'),
+            _buildDetailRow('Level (cm)', '${asset.levelCm.toStringAsFixed(1)} cm'),
+            _buildDetailRow('Raw Value', '${asset.rawValue}'),
           ]),
         );
       }).toList(),

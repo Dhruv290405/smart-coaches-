@@ -54,6 +54,15 @@ class WaterTankModel {
     final placementType = json['placement_type']?.toString() ?? 'UNDERSLUNG';
     final trainNo = json['train_no']?.toString() ?? '';
     final coachIdRaw = json['coach_id'];
+    final levelCm = (json['level_cm'] is num)
+        ? (json['level_cm'] as num).toDouble()
+        : double.tryParse(json['level_cm']?.toString() ?? '') ?? 0.0;
+    final volumeLiters = (json['volume_liters'] is num)
+        ? (json['volume_liters'] as num).toDouble()
+        : double.tryParse(json['volume_liters']?.toString() ?? '') ?? 0.0;
+    final rawValue = json['raw_value'] is num
+        ? (json['raw_value'] as num).toInt()
+        : int.tryParse(json['raw_value']?.toString() ?? '') ?? 0;
 
     final String coachIdStr;
     if (coachIdRaw is int) {
@@ -94,8 +103,9 @@ class WaterTankModel {
         WliAsset(
           assetId: 'WLI-$deviceId',
           assetName: 'Water Tank Sensor',
-          levelCm: 0.0,
-          volumeLiters: 0.0,
+          rawValue: rawValue,
+          levelCm: levelCm,
+          volumeLiters: volumeLiters,
           percentFull: percentFull,
         ),
       ],
@@ -152,6 +162,7 @@ class WliPlacement {
 class WliAsset {
   final String assetId;
   final String assetName;
+  final int rawValue;
   final double levelCm;
   final double volumeLiters;
   final double percentFull;
@@ -159,6 +170,7 @@ class WliAsset {
   WliAsset({
     required this.assetId,
     required this.assetName,
+    required this.rawValue,
     required this.levelCm,
     required this.volumeLiters,
     required this.percentFull,
@@ -168,6 +180,7 @@ class WliAsset {
     return WliAsset(
       assetId: json['assetId'] ?? '',
       assetName: json['assetName'] ?? '',
+      rawValue: json['rawValue'] ?? 0,
       levelCm: (json['levelCm'] ?? 0.0).toDouble(),
       volumeLiters: (json['volumeLiters'] ?? 0.0).toDouble(),
       percentFull: (json['percentFull'] ?? 0.0).toDouble(),

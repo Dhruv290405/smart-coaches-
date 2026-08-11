@@ -144,7 +144,7 @@ class _WaterLevelScreenState extends State<WaterLevelScreen> {
         placement: WliPlacement(type: 'UNDERSLUNG', sensorCount: 1, position: ['CENTER']),
         coachType: '3 TIER',
         trainNo: '12615',
-        assets: [WliAsset(assetId: 'WLI-12615-1', assetName: 'Water Tank Sensor', levelCm: 0.0, volumeLiters: 0.0, percentFull: 75.0)],
+        assets: [WliAsset(assetId: 'WLI-12615-1', assetName: 'Water Tank Sensor', rawValue: 0, levelCm: 0.0, volumeLiters: 0.0, percentFull: 75.0)],
       ),
       WaterTankModel(
         source: WliSource(companyName: 'VASP Rails Tech', systemType: 'WLI', deviceId: '12615_SLR2'),
@@ -154,7 +154,7 @@ class _WaterLevelScreenState extends State<WaterLevelScreen> {
         placement: WliPlacement(type: 'UNDERSLUNG', sensorCount: 1, position: ['CENTER']),
         coachType: 'SLEEPER',
         trainNo: '12615',
-        assets: [WliAsset(assetId: 'WLI-12615-2', assetName: 'Water Tank Sensor', levelCm: 0.0, volumeLiters: 0.0, percentFull: 45.0)],
+        assets: [WliAsset(assetId: 'WLI-12615-2', assetName: 'Water Tank Sensor', rawValue: 0, levelCm: 0.0, volumeLiters: 0.0, percentFull: 45.0)],
       ),
       WaterTankModel(
         source: WliSource(companyName: 'VASP Rails Tech', systemType: 'WLI', deviceId: '12615_GS1'),
@@ -164,7 +164,7 @@ class _WaterLevelScreenState extends State<WaterLevelScreen> {
         placement: WliPlacement(type: 'ROOF', sensorCount: 1, position: ['CENTER']),
         coachType: 'GENERAL',
         trainNo: '12615',
-        assets: [WliAsset(assetId: 'WLI-12615-3', assetName: 'Water Tank Sensor', levelCm: 0.0, volumeLiters: 0.0, percentFull: 15.0)],
+        assets: [WliAsset(assetId: 'WLI-12615-3', assetName: 'Water Tank Sensor', rawValue: 0, levelCm: 0.0, volumeLiters: 0.0, percentFull: 15.0)],
       ),
       WaterTankModel(
         source: WliSource(companyName: 'VASP Rails Tech', systemType: 'WLI', deviceId: '12301_H1'),
@@ -174,7 +174,7 @@ class _WaterLevelScreenState extends State<WaterLevelScreen> {
         placement: WliPlacement(type: 'UNDERSLUNG', sensorCount: 1, position: ['CENTER']),
         coachType: 'AC',
         trainNo: '12301',
-        assets: [WliAsset(assetId: 'WLI-12301-1', assetName: 'Water Tank Sensor', levelCm: 0.0, volumeLiters: 0.0, percentFull: 85.0)],
+        assets: [WliAsset(assetId: 'WLI-12301-1', assetName: 'Water Tank Sensor', rawValue: 0, levelCm: 0.0, volumeLiters: 0.0, percentFull: 85.0)],
       ),
       WaterTankModel(
         source: WliSource(companyName: 'VASP Rails Tech', systemType: 'WLI', deviceId: '12301_H2'),
@@ -184,7 +184,7 @@ class _WaterLevelScreenState extends State<WaterLevelScreen> {
         placement: WliPlacement(type: 'UNDERFRAME', sensorCount: 1, position: ['CENTER']),
         coachType: 'AC',
         trainNo: '12301',
-        assets: [WliAsset(assetId: 'WLI-12301-2', assetName: 'Water Tank Sensor', levelCm: 0.0, volumeLiters: 0.0, percentFull: 60.0)],
+        assets: [WliAsset(assetId: 'WLI-12301-2', assetName: 'Water Tank Sensor', rawValue: 0, levelCm: 0.0, volumeLiters: 0.0, percentFull: 60.0)],
       ),
     ];
     _applyFilters();
