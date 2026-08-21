@@ -659,7 +659,6 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
       a41Temp: a41, a42Temp: a42,
       apiStatus: axles.any((a) => a.status == 'Warning') ? 'Warning' : 'Good',
       customAxles: axles,
-      isHams: true,
     );
   }
 

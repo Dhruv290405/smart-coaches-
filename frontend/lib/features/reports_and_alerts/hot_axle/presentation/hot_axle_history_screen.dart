@@ -82,10 +82,10 @@ class _HotAxleHistoryScreenState extends State<HotAxleHistoryScreen> {
 
     try {
       final page = reset ? 1 : _currentPage + 1;
-      final isHams = widget.coach.isHamsCoach;
+      final isHams = widget.coach.coachType == 'HAMS' || widget.coach.coachNumber.startsWith('Master:');
       final params = <String, dynamic>{
         'coachNumber': widget.coach.coachNumber,
-        'coachType': isHams ? 'HAMS' : widget.coach.coachType,
+        'coachType': widget.coach.coachType,
         'coachDeviceId': widget.coach.deviceId,
         'startDate': _startDate,
         'endDate': _endDate,
