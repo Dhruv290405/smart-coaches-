@@ -24,6 +24,8 @@ import 'package:smart_coach_new/features/reports_and_alerts/hot_axle/presentatio
 import 'package:smart_coach_new/features/reports_and_alerts/hot_axle/presentation/widgets/hot_axle_modal.dart';
 import 'package:smart_coach_new/features/reports_and_alerts/hot_axle/presentation/widgets/hot_axle_report_generator.dart';
 import 'package:smart_coach_new/features/reports_and_alerts/hot_axle/presentation/hot_axle_detail_screen.dart';
+import 'package:smart_coach_new/features/reports_and_alerts/hot_axle/presentation/hot_axle_history_screen.dart';
+import 'package:smart_coach_new/features/reports_and_alerts/hot_axle/presentation/widgets/axle_list_card.dart';
 import '../data/models/hot_axle_model.dart';
 
 class HotAxleDashboard extends StatefulWidget {
@@ -465,13 +467,9 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
   }
 
   Widget _buildDeviceSections() {
-    final showNewData = _isNagpur || (!_isDanapur && (selectedCompany == 'All' || selectedCompany == 'Section 1'));
-    final showOldData = _isDanapur || (!_isNagpur && (selectedCompany == 'All' || selectedCompany == 'Section 2'));
+    final allCoaches = [..._filteredHamsCoaches, ..._filteredCoaches];
 
-    final hasNew = _filteredHamsCoaches.isNotEmpty && showNewData;
-    final hasOld = _filteredCoaches.isNotEmpty && showOldData;
-
-    if (!hasNew && !hasOld) {
+    if (allCoaches.isEmpty) {
       return Container(
         height: 200,
         alignment: Alignment.center,
@@ -486,14 +484,104 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
       );
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (hasNew) _buildExpandableSection('Section 1', _filteredHamsCoaches.length, 'our', _buildHamsGridForList(_filteredHamsCoaches)),
-        if (hasNew && hasOld) const SizedBox(height: 8),
-        if (hasOld) _buildExpandableSection('Section 2', _filteredCoaches.length, 'ecr', _buildDeviceGridForList(_filteredCoaches)),
-      ],
+    return _buildSectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: allCoaches.map((coach) => _buildCoachCard(coach)).toList(),
+      ),
     );
+  }
+
+  Widget _buildCoachCard(HotAxleCoachModel coach) {
+    final statusColor = _coachStatusColor(coach.status);
+    final title = coach.coachNumber.isNotEmpty
+        ? coach.coachNumber
+        : (coach.masterId.isNotEmpty ? 'Master: ${coach.masterId}' : 'N/A');
+    final sub = [
+      if (coach.coachType.isNotEmpty) coach.coachType,
+      if (coach.trainNo.isNotEmpty) 'Train ${coach.trainNo}',
+    ].join(' | ');
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE8ECF0), width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: [
+                Container(
+                  width: 3,
+                  height: 18,
+                  decoration: BoxDecoration(color: ColorConstants.primary, borderRadius: BorderRadius.circular(2)),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title, style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: const Color(0xFF1A1D21))),
+                      if (sub.isNotEmpty)
+                        Text(sub, style: GoogleFonts.poppins(fontSize: 10, color: const Color(0xFF6B7280))),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
+                  child: Text('${coach.status.toUpperCase()} · ${coach.maxTemp.toStringAsFixed(1)}°C',
+                    style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w700, color: statusColor)),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1, color: Color(0xFFE8ECF0)),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              children: coach.axles.map((axle) {
+                final isHams = coach.coachType == 'HAMS' || coach.coachNumber.startsWith('Master:');
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: AxleListCard(
+                    axle: axle,
+                    onEyeIconTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => HotAxleDetailScreen(coach: coach)),
+                    ),
+                    onHistoryTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => HotAxleHistoryScreen(
+                          coach: coach,
+                          axleNumber: isHams ? null : axle.axleNumber,
+                          deviceId: isHams ? axle.sensorId : null,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _coachStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'good': return const Color(0xFF4CAF50);
+      case 'warning': return const Color(0xFFFF9800);
+      case 'critical': return const Color(0xFFE53935);
+      default: return Colors.grey;
+    }
   }
 
   Widget _buildExpandableSection(String title, int count, String key, Widget content) {
