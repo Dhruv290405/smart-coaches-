@@ -29,6 +29,7 @@ class ApiConstants {
   static const String odourReceiveDataApiEndpoint = '/odour-logs/receive-data';
   static const String odourCoachesApiEndpoint = '/odour-logs/coaches';
   static const String odourSection2ApiEndpoint = '/odour-logs/section2-coaches';
+  static const String odourHistoryApiEndpoint = '/odour-logs/history';
   static const String fsdsReceiveDataApiEndpoint = '/fsds/receive-data';
   static const String fsdsGetDataApiEndpoint = '/fsds/get-data';
   static const String fsdsBaseUrl = 'https://api.vaspsystemic.com/smart_coach_api/api';

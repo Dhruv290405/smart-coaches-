@@ -267,6 +267,24 @@ class OdourRepository {
     ];
   }
 
+  Future<List<OdourHistoryPoint>> getOdourHistory(String deviceId, String section) async {
+    try {
+      final apiClient = GetIt.I<ApiClient>();
+      final response = await apiClient.get(
+        ApiConstants.odourHistoryApiEndpoint,
+        queryParams: {'deviceId': deviceId, 'section': section},
+      );
+      if (response is Map && response['success'] == true && response['data'] is List) {
+        return (response['data'] as List)
+            .map((e) => OdourHistoryPoint.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
+    } catch (e) {
+      _log.warn('Odour history unavailable ($e).');
+    }
+    return [];
+  }
+
   Future<void> sendOdourData(Map<String, dynamic> payload) async {
     final dbPayload = {
       "device_id": payload['source']?['deviceId'] ?? 'Unknown',

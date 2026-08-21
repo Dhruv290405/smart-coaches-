@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
+import 'package:fl_chart/fl_chart.dart';
 import 'package:smart_coach_new/core/utils/app_icons.dart';
 import 'package:smart_coach_new/core/utils/app_text_styles.dart';
 import 'package:smart_coach_new/core/utils/color_constants.dart';
@@ -101,6 +102,8 @@ class OdourWashroomDetailsView extends StatelessWidget {
                 const SizedBox(height: 10),
 
                 _card(child: _systemHealthSection(currentToilet)),
+                const SizedBox(height: 10),
+                _card(child: _HistoryChart(toilet: currentToilet)),
                 const SizedBox(height: 20),
               ],
             ),
@@ -467,6 +470,144 @@ class OdourWashroomDetailsView extends StatelessWidget {
       ],
     ),
   );
+}
+
+class _HistoryChart extends StatefulWidget {
+  final OdourCoachModel toilet;
+  const _HistoryChart({required this.toilet});
+
+  @override
+  State<_HistoryChart> createState() => _HistoryChartState();
+}
+
+class _HistoryChartState extends State<_HistoryChart> {
+  List<OdourHistoryPoint> _points = [];
+  bool _loading = true;
+  String _error = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final data = await OdourRepository().getOdourHistory(widget.toilet.deviceId, widget.toilet.section);
+      if (mounted) {
+        setState(() {
+          _points = data;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _error = e.toString());
+    }
+  }
+
+  String _fmt(String ts) {
+    try {
+      return DateFormat('dd MMM HH:mm').format(DateTime.parse(ts).toLocal());
+    } catch (_) {
+      return ts;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Historical Trends', style: AppTextStyles.header2),
+        const SizedBox(height: 12),
+        if (_loading)
+          const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
+        else if (_error.isNotEmpty)
+          Text('History unavailable', style: AppTextStyles.bodyMedium.copyWith(color: ColorConstants.textSecondary))
+        else if (_points.isEmpty)
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Text('No history available', style: AppTextStyles.bodyMedium.copyWith(color: ColorConstants.textSecondary)),
+            ),
+          )
+        else
+          SizedBox(
+            height: 220,
+            child: LineChart(
+              LineChartData(
+                gridData: FlGridData(show: true, drawVerticalLine: false),
+                titlesData: FlTitlesData(
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(showTitles: true, reservedSize: 36, getTitlesWidget: (v, _) => Text(v.toInt().toString(), style: GoogleFonts.poppins(fontSize: 9, color: ColorConstants.textTertiary))),
+                  ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 28,
+                      interval: (_points.length / 4).ceilToDouble().clamp(1, 1000),
+                      getTitlesWidget: (v, _) {
+                        final idx = v.toInt();
+                        if (idx < 0 || idx >= _points.length) return const Text('');
+                        return Text(_fmt(_points[idx].timestamp), style: GoogleFonts.poppins(fontSize: 8, color: ColorConstants.textTertiary));
+                      },
+                    ),
+                  ),
+                  rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                ),
+                lineBarsData: [
+                  _line(_points.map((p) => p.voc).toList(), const Color(0xFF7C3AED), 'VOC'),
+                  _line(_points.map((p) => p.nh3).toList(), const Color(0xFF2563EB), 'NH₃'),
+                  _line(_points.map((p) => p.h2s).toList(), const Color(0xFFDC2626), 'H₂S'),
+                  _line(_points.map((p) => p.temperature).toList(), const Color(0xFF059669), 'Temp'),
+                ],
+                lineTouchData: LineTouchData(enabled: true),
+              ),
+            ),
+          ),
+        if (_points.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 14,
+            runSpacing: 4,
+            children: const [
+              _LegendDot(color: Color(0xFF7C3AED), label: 'VOC'),
+              _LegendDot(color: Color(0xFF2563EB), label: 'NH₃'),
+              _LegendDot(color: Color(0xFFDC2626), label: 'H₂S'),
+              _LegendDot(color: Color(0xFF059669), label: 'Temp'),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+
+  LineChartBarData _line(List<double> values, Color color, String key) {
+    return LineChartBarData(
+      spots: values.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value)).toList(),
+      isCurved: true,
+      color: color,
+      barWidth: 2,
+      dotData: FlDotData(show: false),
+      belowBarData: BarAreaData(show: false),
+    );
+  }
+}
+
+class _LegendDot extends StatelessWidget {
+  final Color color;
+  final String label;
+  const _LegendDot({required this.color, required this.label});
+  @override
+  Widget build(BuildContext context) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(width: 10, height: 10, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2))),
+          const SizedBox(width: 4),
+          Text(label, style: GoogleFonts.poppins(fontSize: 10, color: ColorConstants.textSecondary)),
+        ],
+      );
 }
 
 class NeedleGaugePainter extends CustomPainter {

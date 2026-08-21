@@ -146,6 +146,40 @@ class OdourCoachModel {
   String get lastDataReceived => timestamp;
 }
 
+class OdourHistoryPoint {
+  final String timestamp;
+  final double voc;
+  final double nh3;
+  final double h2s;
+  final double smoke;
+  final double temperature;
+  final double humidity;
+
+  OdourHistoryPoint({
+    required this.timestamp,
+    this.voc = 0.0,
+    this.nh3 = 0.0,
+    this.h2s = 0.0,
+    this.smoke = 0.0,
+    this.temperature = 0.0,
+    this.humidity = 0.0,
+  });
+
+  factory OdourHistoryPoint.fromJson(Map<String, dynamic> j) {
+    double d(dynamic v, [double def = 0.0]) =>
+        v == null ? def : (v is num ? v.toDouble() : (double.tryParse(v.toString()) ?? def));
+    return OdourHistoryPoint(
+      timestamp: j['timestamp']?.toString() ?? '',
+      voc: d(j['voc']),
+      nh3: d(j['nh3']),
+      h2s: d(j['h2s']),
+      smoke: d(j['smoke']),
+      temperature: d(j['temperature']),
+      humidity: d(j['humidity']),
+    );
+  }
+}
+
 class CoachToiletGroup {
   final String coachNumber;
   final String coachType;

@@ -69,6 +69,28 @@ const odourController = {
         }
     },
 
+    getHistory: async (req, res) => {
+        try {
+            if (!rbac.isModuleAuthorized(req.user, 'odour')) {
+                return res.status(200).json({ success: true, data: [] });
+            }
+            const deviceId = req.query.deviceId;
+            const section = req.query.section === '2' ? '2' : '1';
+            if (!deviceId) {
+                return res.status(400).json({ success: false, error: 'deviceId is required' });
+            }
+
+            const data = section === '2'
+                ? await OdourModel.getSection2History(deviceId)
+                : await OdourModel.getSection1History(deviceId);
+
+            return res.status(200).json({ success: true, data });
+        } catch (error) {
+            console.error("Odour History Controller Error:", error.message);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    },
+
     getSection2Data: async (req, res) => {
         try {
             if (!rbac.isModuleAuthorized(req.user, 'odour')) {

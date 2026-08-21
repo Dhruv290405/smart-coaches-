@@ -128,6 +128,56 @@ class OdourModel {
         }
     }
 
+    async getSection1History(deviceId, limit = 300) {
+        try {
+            if (!deviceId) return [];
+            const { data, error } = await acpSupabase
+                .from(SECTION1_TABLE)
+                .select('timestamp, voc_index, h2s_ppm, nh3_ppm, temperature, humidity')
+                .eq('device_ID', deviceId)
+                .order('timestamp', { ascending: true })
+                .limit(limit);
+            if (error) throw error;
+            return (data || []).map((r) => ({
+                timestamp: r.timestamp,
+                voc: r.voc_index ?? 0,
+                nh3: r.nh3_ppm ?? 0,
+                h2s: r.h2s_ppm ?? 0,
+                smoke: 0,
+                temperature: r.temperature ?? 0,
+                humidity: r.humidity ?? 0,
+            }));
+        } catch (err) {
+            console.error("Odour Section 1 History Error:", err.message);
+            return [];
+        }
+    }
+
+    async getSection2History(deviceId, limit = 300) {
+        try {
+            if (!deviceId || !odour2Supabase) return [];
+            const { data, error } = await odour2Supabase
+                .from('odour_management_history')
+                .select('timestamp, voc, nh3, h2s, smoke, temperature, humidity')
+                .eq('device_id', deviceId)
+                .order('timestamp', { ascending: true })
+                .limit(limit);
+            if (error) throw error;
+            return (data || []).map((r) => ({
+                timestamp: r.timestamp,
+                voc: r.voc ?? 0,
+                nh3: r.nh3 ?? 0,
+                h2s: r.h2s ?? 0,
+                smoke: r.smoke ?? 0,
+                temperature: r.temperature ?? 0,
+                humidity: r.humidity ?? 0,
+            }));
+        } catch (err) {
+            console.error("Odour Section 2 History Error:", err.message);
+            return [];
+        }
+    }
+
     async getCoachesByDeviceIds(deviceIds) {
         try {
             if (!deviceIds || deviceIds.length === 0) return [];
