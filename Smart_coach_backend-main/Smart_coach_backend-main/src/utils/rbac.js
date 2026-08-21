@@ -44,7 +44,8 @@ const DIVISION_MODULE_MAP = {
   'Nagpur': ['brake_binding', 'hot_axle_section1', 'sensor_config'],
   'Howrah': ['brake_binding'],
   'Kolkata': ['brake_binding'],
-  'South Eastern': ['brake_binding']
+  'South Eastern': ['brake_binding'],
+  'Jaipur': ['brake_binding']
 };
 
 /**

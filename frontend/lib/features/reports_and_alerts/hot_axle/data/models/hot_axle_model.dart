@@ -23,6 +23,7 @@ class HotAxleCoachModel {
   final double batteryVoltage;
   final String technicalId;
   final String brakeDeviceId;
+  final bool isHams;
 
   HotAxleCoachModel({
     required this.deviceId,
@@ -49,12 +50,16 @@ class HotAxleCoachModel {
     double? batteryVoltage,
     this.technicalId = '',
     this.brakeDeviceId = '',
+    this.isHams = false,
   })  : this.batteryStatus = (batteryStatus != null && batteryStatus != 'N/A' && batteryStatus.isNotEmpty)
             ? batteryStatus
             : (batteryPercentage <= 20 ? 'Low' : (batteryPercentage >= 80 ? 'High' : 'Moderate')),
         this.batteryVoltage = (batteryVoltage != null && batteryVoltage != 0.0)
             ? batteryVoltage
             : (3.0 + (batteryPercentage / 100.0) * 1.2);
+
+  bool get isHamsCoach =>
+      isHams || coachType.toLowerCase() == 'hams' || coachNumber.startsWith('Master:');
 
   double get maxTemp {
     if (customAxles != null && customAxles!.isNotEmpty) {

@@ -164,7 +164,34 @@ const hotAxleController = {
             limit = 30 
         } = req.query;
 
-        const isHams = (coachType && coachType.toLowerCase() === 'hams') || (coachNumber && coachNumber.startsWith('Master: '));
+        const isHamsFlag = (coachType && coachType.toLowerCase() === 'hams') || (coachNumber && coachNumber.startsWith('Master: '));
+
+        // Robust HAMS detection: also match against coaches_hams registration
+        // (technical_id / coach_no) so Section 1 coaches like '226965' with
+        // coach_type 'LWSCZ - AC' are routed to the HAMS branch.
+        let isHams = isHamsFlag;
+        let hamsRegsEarly = null;
+        if (!isHams && (coachNumber || coachDeviceId)) {
+            try {
+                const { data: regs } = await supabaseAdmin
+                    .from('coaches_hams')
+                    .select('coach_no, train_no, technical_id, location, actual_id, device_id');
+                hamsRegsEarly = regs || [];
+                const needle = (coachNumber || '').trim().toLowerCase();
+                const needleDev = (coachDeviceId || '').trim().toLowerCase();
+                if (needle || needleDev) {
+                    isHams = hamsRegsEarly.some(r => {
+                        const tech = (r.technical_id || '').trim().toLowerCase();
+                        const cno = (r.coach_no || '').trim().toLowerCase();
+                        const dev = (r.device_id || '').trim().toLowerCase();
+                        return (needle && (tech === needle || cno === needle)) ||
+                               (needleDev && (dev === needleDev || tech === needleDev));
+                    });
+                }
+            } catch (e) {
+                console.error("HAMS detection lookup failed:", e.message);
+            }
+        }
 
         if (isHams && !rbac.isModuleAuthorized(req.user, 'hot_axle_section1')) {
             return res.status(200).json({
@@ -192,9 +219,13 @@ const hotAxleController = {
             // coaches_hams schema: id, technical_id, coach_no, device_id, train_no, location, actual_id
             // device_id here = brake binding device (SCBB-NP-003)
             // coach_no = coach number shown as Technical ID (B1)
-            const { data: hamsRegs } = await supabaseAdmin
-                .from('coaches_hams')
-                .select('coach_no, train_no, technical_id, location, actual_id, device_id');
+            let hamsRegs = hamsRegsEarly;
+            if (!hamsRegs) {
+                const { data: regs } = await supabaseAdmin
+                    .from('coaches_hams')
+                    .select('coach_no, train_no, technical_id, location, actual_id, device_id');
+                hamsRegs = regs || [];
+            }
 
             // Build lookup maps by actual_id and technical_id (lowercased)
             const hamsMetaMap = {};

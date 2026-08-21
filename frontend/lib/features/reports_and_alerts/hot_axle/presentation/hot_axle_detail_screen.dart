@@ -25,6 +25,8 @@ class _HotAxleDetailScreenState extends State<HotAxleDetailScreen> {
 
   List<AxleModel> get _alertAxles => widget.coach.axles.where((a) => a.status != 'Good').toList();
 
+  bool get _isHamsCoach => widget.coach.isHamsCoach;
+
   Future<void> _pickCustomRange() async {
     final range = await showDateRangePicker(
       context: context,
@@ -198,8 +200,8 @@ class _HotAxleDetailScreenState extends State<HotAxleDetailScreen> {
                     MaterialPageRoute(
                       builder: (_) => HotAxleHistoryScreen(
                         coach: widget.coach,
-                        axleNumber: (widget.coach.coachType == 'HAMS' || widget.coach.coachNumber.startsWith('Master:')) ? null : axle.axleNumber,
-                        deviceId: (widget.coach.coachType == 'HAMS' || widget.coach.coachNumber.startsWith('Master:')) ? axle.sensorId : null,
+                        axleNumber: _isHamsCoach ? null : axle.axleNumber,
+                        deviceId: _isHamsCoach ? axle.sensorId : null,
                       ),
                     ),
                   ),
@@ -210,8 +212,8 @@ class _HotAxleDetailScreenState extends State<HotAxleDetailScreen> {
                 MaterialPageRoute(
                   builder: (_) => HotAxleHistoryScreen(
                     coach: widget.coach,
-                    axleNumber: (widget.coach.coachType == 'HAMS' || widget.coach.coachNumber.startsWith('Master:')) ? null : axle.axleNumber,
-                    deviceId: (widget.coach.coachType == 'HAMS' || widget.coach.coachNumber.startsWith('Master:')) ? axle.sensorId : null,
+                    axleNumber: _isHamsCoach ? null : axle.axleNumber,
+                    deviceId: _isHamsCoach ? axle.sensorId : null,
                   ),
                 ),
               ),

@@ -23,6 +23,7 @@ const Map<String, List<String>> _divisionModuleMap = {
   'Howrah': ['brake_binding'],
   'Kolkata': ['brake_binding'],
   'South Eastern': ['brake_binding'],
+  'Jaipur': ['brake_binding'],
 };
 
 String _moduleKeyFor(String label) {
