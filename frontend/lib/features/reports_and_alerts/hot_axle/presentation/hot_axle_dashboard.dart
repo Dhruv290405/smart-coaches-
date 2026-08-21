@@ -24,8 +24,6 @@ import 'package:smart_coach_new/features/reports_and_alerts/hot_axle/presentatio
 import 'package:smart_coach_new/features/reports_and_alerts/hot_axle/presentation/widgets/hot_axle_modal.dart';
 import 'package:smart_coach_new/features/reports_and_alerts/hot_axle/presentation/widgets/hot_axle_report_generator.dart';
 import 'package:smart_coach_new/features/reports_and_alerts/hot_axle/presentation/hot_axle_detail_screen.dart';
-import 'package:smart_coach_new/features/reports_and_alerts/hot_axle/presentation/hot_axle_history_screen.dart';
-import 'package:smart_coach_new/features/reports_and_alerts/hot_axle/presentation/widgets/axle_list_card.dart';
 import '../data/models/hot_axle_model.dart';
 
 class HotAxleDashboard extends StatefulWidget {
@@ -535,7 +533,7 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
-                  child: Text('${coach.status.toUpperCase()} · ${coach.maxTemp.toStringAsFixed(1)}°C',
+                  child: Text(coach.status.toUpperCase(),
                     style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w700, color: statusColor)),
                 ),
               ],
@@ -546,24 +544,30 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
             padding: const EdgeInsets.all(12),
             child: Column(
               children: coach.axles.map((axle) {
-                final isHams = coach.coachType == 'HAMS' || coach.coachNumber.startsWith('Master:');
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: AxleListCard(
-                    axle: axle,
-                    onEyeIconTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => HotAxleDetailScreen(coach: coach)),
-                    ),
-                    onHistoryTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => HotAxleHistoryScreen(
-                          coach: coach,
-                          axleNumber: isHams ? null : axle.axleNumber,
-                          deviceId: isHams ? axle.sensorId : null,
-                        ),
-                      ),
+                final t = double.tryParse(axle.currentTemp.replaceAll('°C', '')) ?? 0;
+                final tColor = t > 80
+                    ? const Color(0xFFE53935)
+                    : (t > 60 ? const Color(0xFFFF9800) : const Color(0xFF4CAF50));
+                return GestureDetector(
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => HotAxleDetailScreen(coach: coach)),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      children: [
+                        Container(width: 8, height: 8, decoration: BoxDecoration(color: tColor, shape: BoxShape.circle)),
+                        const SizedBox(width: 10),
+                        Text('Axle ${axle.axleNumber}',
+                          style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500, color: const Color(0xFF1A1D21))),
+                        const Spacer(),
+                        Text(axle.currentTemp,
+                          style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: tColor)),
+                        const SizedBox(width: 10),
+                        Text(axle.status,
+                          style: GoogleFonts.poppins(fontSize: 11, color: const Color(0xFF6B7280))),
+                      ],
                     ),
                   ),
                 );
