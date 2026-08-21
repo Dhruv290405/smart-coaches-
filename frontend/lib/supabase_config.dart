@@ -12,4 +12,10 @@ class SupabaseConfig {
     _acpClient ??= SupabaseClient(acpUrl, acpAnonKey);
     return _acpClient!;
   }
+
+  static SupabaseClient? _odour2Client;
+  static SupabaseClient get odour2Client {
+    _odour2Client ??= SupabaseClient(url, anonKey);
+    return _odour2Client!;
+  }
 }

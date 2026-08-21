@@ -279,6 +279,9 @@ const acpSupabaseClient = require('./src/config/supabaseAcp');
 app.get('/health', (req, res) => {
   const acpUrl = !!(process.env.ACP_SUPABASE_URL);
   const acpKey = !!(process.env.ACP_SUPABASE_SERVICE_KEY || process.env.ACP_SUPABASE_ANON_KEY);
+  const odour2SupabaseClient = require('./src/config/supabaseOdour2');
+  const odour2Url = !!(process.env.ODOUR2_SUPABASE_URL);
+  const odour2Key = !!(process.env.ODOUR2_SUPABASE_SERVICE_KEY || process.env.ODOUR2_SUPABASE_ANON_KEY);
   res.status(200).json({
     status: 'ok',
     message: 'Server is running',
@@ -286,6 +289,11 @@ app.get('/health', (req, res) => {
       envUrl: acpUrl,
       envKey: acpKey,
       clientReady: !!acpSupabaseClient
+    },
+    odour2: {
+      envUrl: odour2Url,
+      envKey: odour2Key,
+      clientReady: !!odour2SupabaseClient
     }
   });
 });

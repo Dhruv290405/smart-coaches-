@@ -1,0 +1,13 @@
+.env
+.env.*
+check_api.js
+check_api2.js
+check_deployed.js
+check_deployed2.js
+check_hams.js
+check_hams2.js
+check_hams3.js
+minimal-test.js
+test-db.js
+fix_schema.js
+CURDATE()

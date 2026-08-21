@@ -32,6 +32,7 @@ class _OdourDashboardState extends State<OdourDashboard> {
   String selectedCoachType = 'All Types';
   String selectedCoachNumber = 'All Unique IDs';
   String selectedStatus = 'All';
+  String selectedCompany = 'All';
   String selectedViewType = 'Monitoring';
   String lastUpdated = 'Never';
   bool isRefreshing = false;
@@ -40,10 +41,12 @@ class _OdourDashboardState extends State<OdourDashboard> {
   List<String> trainNumbers = ['All Trains'];
   List<String> coachTypes = ['All Types'];
   List<String> coachNumbers = ['All Unique IDs'];
+  List<String> companies = ['All'];
 
   List<OdourCoachModel> _allRecords = [];
   List<OdourCoachModel> _filteredRecords = [];
   List<CoachToiletGroup> _groupedCoaches = [];
+  final Set<String> _expandedSections = {'odour_s1', 'odour_s2'};
 
   @override
   void initState() {
@@ -62,6 +65,7 @@ class _OdourDashboardState extends State<OdourDashboard> {
           trainNumbers = ['All Trains', ...records.map((e) => e.trainNumber).toSet()];
           coachTypes = ['All Types', ...records.map((e) => e.coachType).toSet()];
           coachNumbers = ['All Unique IDs', ...records.map((e) => e.coachNumber).toSet()];
+          companies = ['All', ...records.map((e) => e.section).toSet().toList()..sort()];
           _applyFilters();
           lastUpdated = DateFormat('HH:mm:ss').format(DateTime.now());
         });
@@ -79,6 +83,7 @@ class _OdourDashboardState extends State<OdourDashboard> {
       trainNumbers = ['All Trains', ...records.map((e) => e.trainNumber).toSet()];
       coachTypes = ['All Types', ...records.map((e) => e.coachType).toSet()];
       coachNumbers = ['All Unique IDs', ...records.map((e) => e.coachNumber).toSet()];
+      companies = ['All', ...records.map((e) => e.section).toSet().toList()..sort()];
       _applyFilters();
     });
   }
@@ -95,6 +100,7 @@ class _OdourDashboardState extends State<OdourDashboard> {
       selectedCoachType = 'All Types';
       selectedCoachNumber = 'All Unique IDs';
       selectedStatus = 'All';
+      selectedCompany = 'All';
     });
     _applyFilters();
   }
@@ -108,7 +114,8 @@ class _OdourDashboardState extends State<OdourDashboard> {
         final matchesStatus = selectedStatus == 'All' ||
             (selectedStatus == 'ON' && r.isActive) ||
             (selectedStatus == 'OFF' && !r.isActive);
-        return matchesTrain && matchesType && matchesCoach && matchesStatus;
+        final matchesCompany = selectedCompany == 'All' || r.section == selectedCompany;
+        return matchesTrain && matchesType && matchesCoach && matchesStatus && matchesCompany;
       }).toList();
       _groupedCoaches = CoachToiletGroup.groupByCoach(_filteredRecords);
     });
@@ -209,7 +216,7 @@ class _OdourDashboardState extends State<OdourDashboard> {
                     _buildSectionCard(child: _buildViewTypeSection()),
                     const SizedBox(height: 8),
                     if (selectedViewType == 'Monitoring')
-                      _buildSectionCard(child: OdourCoachesView(coaches: _filteredRecords, grouped: _groupedCoaches))
+                      _buildSectionCard(child: _buildMonitoringSections())
                     else if (selectedViewType == 'Analytics')
                       _buildSectionCard(child: OdourChartView(records: _allRecords, groups: _groupedCoaches))
                     else if (selectedViewType == 'Alerts')
@@ -227,6 +234,93 @@ class _OdourDashboardState extends State<OdourDashboard> {
       padding: const EdgeInsets.all(AppDimensions.paddingLarge),
       decoration: BoxDecoration(color: ColorConstants.white, borderRadius: BorderRadius.circular(AppDimensions.radiusLarge)),
       child: child,
+    );
+  }
+
+  Widget _buildMonitoringSections() {
+    final s1 = _filteredRecords.where((r) => r.section == 'Section 1').toList();
+    final s2 = _filteredRecords.where((r) => r.section == 'Section 2').toList();
+    final hasS1 = s1.isNotEmpty;
+    final hasS2 = s2.isNotEmpty;
+
+    if (!hasS1 && !hasS2) {
+      return Container(
+        height: 200,
+        alignment: Alignment.center,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.sensors_off, size: 48, color: Colors.grey[400]),
+            const SizedBox(height: 12),
+            Text('No coaches found matching filters', style: GoogleFonts.poppins(fontSize: 14, color: const Color(0xFF6B7280))),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (hasS1) _buildExpandableSection('Section 1', s1.length, 'odour_s1',
+            OdourCoachesView(coaches: s1, grouped: CoachToiletGroup.groupByCoach(s1))),
+        if (hasS1 && hasS2) const SizedBox(height: 8),
+        if (hasS2) _buildExpandableSection('Section 2', s2.length, 'odour_s2',
+            OdourCoachesView(coaches: s2, grouped: CoachToiletGroup.groupByCoach(s2))),
+      ],
+    );
+  }
+
+  Widget _buildExpandableSection(String title, int count, String key, Widget content) {
+    final expanded = _expandedSections.contains(key);
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE8ECF0), width: 1),
+      ),
+      child: Column(
+        children: [
+          InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () {
+              setState(() {
+                if (expanded) {
+                  _expandedSections.remove(key);
+                } else {
+                  _expandedSections.add(key);
+                }
+              });
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              child: Row(
+                children: [
+                  Container(
+                    width: 3, height: 18,
+                    decoration: BoxDecoration(color: ColorConstants.primary, borderRadius: BorderRadius.circular(2)),
+                  ),
+                  const SizedBox(width: 10),
+                  Text('$title  ·  $count', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: const Color(0xFF1A1D21))),
+                  const Spacer(),
+                  AnimatedRotation(
+                    turns: expanded ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: const Icon(Icons.keyboard_arrow_down, color: ColorConstants.iconGrey),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (expanded) ...[
+            const Divider(height: 1, color: Color(0xFFE8ECF0)),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: content,
+            ),
+          ],
+        ],
+      ),
     );
   }
 
@@ -255,11 +349,19 @@ class _OdourDashboardState extends State<OdourDashboard> {
         const SizedBox(height: 8),
         Row(
           children: [
+            Expanded(child: FilterDropdown(label: 'Section', value: selectedCompany, items: companies, onChanged: (v) { setState(() => selectedCompany = v!); _applyFilters(); })),
+            const SizedBox(width: 8),
             Expanded(child: FilterDropdown(label: AppStrings.trainNumber, value: selectedTrainNumber, items: trainNumbers, onChanged: (v) { setState(() => selectedTrainNumber = v!); _applyFilters(); })),
             const SizedBox(width: 8),
             Expanded(child: FilterDropdown(label: 'Coach Type', value: selectedCoachType, items: coachTypes, onChanged: (v) { setState(() => selectedCoachType = v!); _applyFilters(); })),
-            const SizedBox(width: 8),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
             Expanded(child: FilterDropdown(label: 'Unique ID', value: selectedCoachNumber, items: coachNumbers, onChanged: (v) { setState(() => selectedCoachNumber = v!); _applyFilters(); })),
+            const SizedBox(width: 8),
+            const Spacer(flex: 2),
           ],
         ),
         const SizedBox(height: 8),

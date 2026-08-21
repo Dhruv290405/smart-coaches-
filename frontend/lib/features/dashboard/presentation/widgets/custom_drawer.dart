@@ -18,11 +18,11 @@ class CustomDrawer extends StatefulWidget {
 }
 
 const Map<String, List<String>> _divisionModuleMap = {
-  'Danapur': ['acp', 'hot_axle_section2', 'bc_pressure', 'sensor_config'],
-  'Nagpur': ['brake_binding', 'hot_axle_section1', 'sensor_config'],
-  'Howrah': ['brake_binding'],
-  'Kolkata': ['brake_binding'],
-  'South Eastern': ['brake_binding'],
+  'Danapur': ['acp', 'hot_axle_section2', 'bc_pressure', 'sensor_config', 'odour'],
+  'Nagpur': ['brake_binding', 'hot_axle_section1', 'sensor_config', 'odour'],
+  'Howrah': ['brake_binding', 'odour'],
+  'Kolkata': ['brake_binding', 'odour'],
+  'South Eastern': ['brake_binding', 'odour'],
   'Jaipur': ['brake_binding'],
 };
 

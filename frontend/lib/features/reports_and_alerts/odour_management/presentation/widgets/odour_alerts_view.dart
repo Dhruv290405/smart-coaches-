@@ -143,8 +143,14 @@ class _OdourAlertsViewState extends State<OdourAlertsView> {
                   onPressed: () async {
                     setState(() => _resolvedIds.add(alert.id));
                     try {
-                      await SupabaseConfig.acpClient
-                          .from('iot_bad_odour')
+                      final client = alert.record.section == 'Section 2'
+                          ? SupabaseConfig.odour2Client
+                          : SupabaseConfig.acpClient;
+                      final table = alert.record.section == 'Section 2'
+                          ? 'odour_management_live'
+                          : 'iot_bad_odour';
+                      await client
+                          .from(table)
                           .update({'pending_action': 'RESOLVE'})
                           .eq('sensor_id', alert.record.sensorId);
                       if (context.mounted) {

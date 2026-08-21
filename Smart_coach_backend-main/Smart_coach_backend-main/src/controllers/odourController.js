@@ -54,8 +54,8 @@ const odourController = {
             if (!rbac.isModuleAuthorized(req.user, 'odour')) {
                 return res.status(200).json({ success: true, totalCoaches: 0, data: [] });
             }
-            const authorizedCoaches = await rbac.getAuthorizedCoachNumbers(req.user);
-            const statusData = await OdourModel.getLatestStatusForAllCoaches(authorizedCoaches);
+            const location = rbac.getUserLocation(req.user);
+            const statusData = await OdourModel.getLatestStatusForAllCoaches(location);
 
             return res.status(200).json({
                 success: true,
@@ -65,6 +65,29 @@ const odourController = {
 
         } catch (error) {
             console.error("Odour Dashboard Controller Error:", error.message);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    },
+
+    getSection2Data: async (req, res) => {
+        try {
+            if (!rbac.isModuleAuthorized(req.user, 'odour')) {
+                return res.status(200).json({ success: true, totalCoaches: 0, data: [] });
+            }
+
+            // Section 2 coaches live in a separate DB and are not registered in
+            // coaches_railway, so we intentionally do NOT apply the coach-number
+            // filter here (same bypass pattern as hot axle section 2).
+            const statusData = await OdourModel.getSection2Latest();
+
+            return res.status(200).json({
+                success: true,
+                totalCoaches: statusData.length,
+                data: statusData
+            });
+
+        } catch (error) {
+            console.error("Odour Section 2 Controller Error:", error.message);
             res.status(500).json({ success: false, error: error.message });
         }
     }

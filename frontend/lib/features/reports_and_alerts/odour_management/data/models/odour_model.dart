@@ -1,5 +1,6 @@
 class OdourCoachModel {
   final String coachNumber;
+  final String section;
   final String coachType;
   final String toiletPosition;
   final String status;
@@ -40,6 +41,7 @@ class OdourCoachModel {
 
   OdourCoachModel({
     required this.coachNumber,
+    this.section = 'Section 1',
     required this.coachType,
     required this.toiletPosition,
     required this.status,

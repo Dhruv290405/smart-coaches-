@@ -10,26 +10,34 @@ final Logger _log = Logger('OdourRepo');
 
 class OdourRepository {
   Future<List<OdourCoachModel>> getOdourData() async {
-    try {
-      final apiClient = GetIt.I<ApiClient>();
-      final response = await apiClient.get(ApiConstants.odourCoachesApiEndpoint);
+    final results = await Future.wait([
+      _fetchFromEndpoint(ApiConstants.odourCoachesApiEndpoint, 'Section 1'),
+      _fetchFromEndpoint(ApiConstants.odourSection2ApiEndpoint, 'Section 2'),
+    ]);
 
-      if (response is Map && response['success'] == true && response['data'] is List) {
-        final parsed = (response['data'] as List)
-            .map((map) => _buildModelFromBackend(map as Map<String, dynamic>))
-            .toList();
-        if (parsed.isNotEmpty) {
-          return parsed;
-        }
-      }
-    } catch (e) {
-      _log.warn('Backend unavailable ($e), using sample data.');
-    }
+    final parsed = <OdourCoachModel>[...results[0], ...results[1]];
+    if (parsed.isNotEmpty) return parsed;
 
     try {
       final userEmail = GetIt.I<Prefs>().getUser()?.email;
       if (userEmail == 'tester@example.com') return getSampleData();
     } catch (_) {}
+    return [];
+  }
+
+  Future<List<OdourCoachModel>> _fetchFromEndpoint(String endpoint, String section) async {
+    try {
+      final apiClient = GetIt.I<ApiClient>();
+      final response = await apiClient.get(endpoint);
+
+      if (response is Map && response['success'] == true && response['data'] is List) {
+        return (response['data'] as List)
+            .map((map) => _buildModelFromBackend(map as Map<String, dynamic>, section))
+            .toList();
+      }
+    } catch (e) {
+      _log.warn('$endpoint unavailable ($e).');
+    }
     return [];
   }
 
@@ -51,10 +59,11 @@ class OdourRepository {
     }
   }
 
-  OdourCoachModel _buildModelFromBackend(Map<String, dynamic> data) {
+  OdourCoachModel _buildModelFromBackend(Map<String, dynamic> data, [String section = 'Section 1']) {
     double _d(dynamic v, [double def = 0.0]) =>
-        (v as num?)?.toDouble() ?? def;
-    int _i(dynamic v, [int def = 0]) => (v as num?)?.toInt() ?? def;
+        v == null ? def : (v is num ? v.toDouble() : (double.tryParse(v.toString()) ?? def));
+    int _i(dynamic v, [int def = 0]) =>
+        v == null ? def : (v is num ? v.toInt() : (int.tryParse(v.toString()) ?? def));
     String _s(dynamic v, [String def = 'N/A']) =>
         v?.toString() ?? def;
 
@@ -64,6 +73,7 @@ class OdourRepository {
 
     return OdourCoachModel(
       coachNumber: _s(data['coach_number'] ?? data['device_id']),
+      section: section,
       coachType: _s(data['coach_type'], 'Unknown'),
       toiletPosition: _s(data['toilet_position']),
       status: _s(data['status'], 'Active'),
