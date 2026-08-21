@@ -44,15 +44,9 @@ class OdourModel {
                 }
             }
 
-            let latest = Object.values(grouped);
-
-            // Location / division scoping (case-insensitive). Admin (no location) sees all.
-            if (location) {
-                const loc = location.toLowerCase();
-                latest = latest.filter((r) => (r.location || '').toString().toLowerCase() === loc);
-            }
-
-            return latest.map((r) => this._mapBadOdourRow(r));
+            // Section 1 shows all live devices to every authorized user (same bypass
+            // pattern as Section 2), so both sections are always visible.
+            return Object.values(grouped).map((r) => this._mapBadOdourRow(r));
         } catch (err) {
             console.error("Odour Dashboard Error:", err.message);
             return [];
