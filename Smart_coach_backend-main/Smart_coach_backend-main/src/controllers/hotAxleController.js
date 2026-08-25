@@ -161,7 +161,7 @@ const hotAxleController = {
             startDate, 
             endDate, 
             page = 1, 
-            limit = 30 
+            limit = 10000 
         } = req.query;
 
         const isHams = (coachType && coachType.toLowerCase() === 'hams') ||
@@ -232,7 +232,7 @@ const hotAxleController = {
 
             let { data, error } = await query
                 .order('created_at', { ascending: false })
-                .limit(2000);
+                .limit(10000);
 
             if ((!data || data.length === 0) && startDate && endDate) {
                 let fbQuery = sOld.from('hams_data')
@@ -243,7 +243,7 @@ const hotAxleController = {
                 }
                 const fbRes = await fbQuery
                     .order('created_at', { ascending: false })
-                    .limit(2000);
+                    .limit(10000);
                 if (fbRes.data && fbRes.data.length > 0) {
                     data = fbRes.data;
                 }
@@ -462,7 +462,7 @@ const hotAxleController = {
             coachNumber: coachNumber || 'All',
             startDate: startDate || null,
             endDate: endDate || null,
-            limit: 2000,
+            limit: 10000,
             offset: 0,
             authorizedCoaches
         });

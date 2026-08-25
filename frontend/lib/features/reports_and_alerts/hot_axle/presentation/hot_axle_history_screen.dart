@@ -90,7 +90,7 @@ class _HotAxleHistoryScreenState extends State<HotAxleHistoryScreen> {
         'startDate': _startDate,
         'endDate': _endDate,
         'page': page,
-        'limit': 30,
+        'limit': 10000,
       };
       if (widget.deviceId != null) {
         params['deviceId'] = widget.deviceId;
