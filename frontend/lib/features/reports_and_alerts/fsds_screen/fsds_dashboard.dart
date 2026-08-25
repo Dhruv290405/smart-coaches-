@@ -110,7 +110,7 @@ class _FsdsDashboardState extends State<FsdsDashboard> {
     }
 
     try {
-      final assets = await FsdsRepository(getIt<ApiClient>()).getFsdsData(limit: 500);
+      final assets = await FsdsRepository(getIt<ApiClient>()).getFsdsData(limit: 10000);
 
       if (mounted) {
         setState(() {

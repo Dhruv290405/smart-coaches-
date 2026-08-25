@@ -57,7 +57,7 @@ const fsdsController = {
             }
             const { limit, offset, locName, trainNo } = req.query;
             const logs = await FsdsModel.getLogs({
-                limit: parseInt(limit) || 100,
+                limit: parseInt(limit) || 10000,
                 offset: parseInt(offset) || 0,
                 locName,
                 trainNo,

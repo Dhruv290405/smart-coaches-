@@ -76,7 +76,7 @@ async function getLatestReadings(sensorIds) {
   return Array.from(latestMap.values());
 }
 
-async function getReadingHistory(sensorId, limit = 50) {
+async function getReadingHistory(sensorId, limit = 10000) {
   const { data, error } = await supabaseAdmin
     .from('sensor_data')
     .select('value, timestamp')

@@ -10,8 +10,7 @@ part of 'rest_client.dart';
 
 class _RestClient implements RestClient {
   _RestClient(this._dio, {this.baseUrl, this.errorLogger}) {
-    baseUrl ??=
-        'https://api.vaspsystemic.com/smart_coach_api/api';
+    baseUrl ??= 'https://api.vaspsystemic.com/smart_coach_api/api';
   }
 
   final Dio _dio;
@@ -1937,12 +1936,14 @@ class _RestClient implements RestClient {
     String coachId,
     String? fromDate,
     String? toDate,
+    int? limit,
   ) async {
     final _extra = <String, dynamic>{};
     final queryParameters = <String, dynamic>{
       r'coachNo': coachId,
       r'fromDate': fromDate,
       r'toDate': toDate,
+      r'limit': limit,
     };
     queryParameters.removeWhere((k, v) => v == null);
     final _headers = <String, dynamic>{};

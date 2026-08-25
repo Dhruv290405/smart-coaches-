@@ -371,6 +371,7 @@ abstract class RestClient {
     @Query("coachNo") String coachId,
     @Query("fromDate") String? fromDate,
     @Query("toDate") String? toDate,
+    @Query("limit") int? limit,
   );
 
 

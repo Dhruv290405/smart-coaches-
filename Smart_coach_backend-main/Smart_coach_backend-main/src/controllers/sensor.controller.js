@@ -472,7 +472,7 @@ const sensorController = {
       const {
         start_date,
         end_date = new Date().toISOString(),
-        limit = 100
+        limit = 10000
       } = req.query;
 
       // Check if sensor exists
@@ -547,7 +547,7 @@ const sensorController = {
         resolved,
         start_date,
         end_date = new Date().toISOString(),
-        limit = 50
+        limit = 10000
       } = req.query;
 
       // Check if sensor exists

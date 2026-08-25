@@ -232,7 +232,7 @@ const AcpModel = {
         }
     },
 
-    getCoachAcpHistory: async (techCoachNo, startDate, endDate, limit = 100, offset = 0) => {
+    getCoachAcpHistory: async (techCoachNo, startDate, endDate, limit = 10000, offset = 0) => {
         try {
             let query = acpSupabase
                 .from(TABLE)
@@ -287,7 +287,7 @@ const AcpModel = {
 
             if (trainNo) query = query.eq('loc_name', trainNo);
 
-            query = query.order('created_at', { ascending: false }).limit(200);
+            query = query.order('created_at', { ascending: false }).limit(10000);
 
             const { data, error } = await query;
             if (error) throw error;

@@ -114,6 +114,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           .read<NotificationBloc>()
                           .add(MarkNotificationRead(notification.id));
                     }
+                    final route = _routeForType(notification.type);
+                    if (route != null) context.push(route);
                   },
                   onDelete: () {
                     context
@@ -290,6 +292,8 @@ class _NotificationCard extends StatelessWidget {
         return (Colors.deepOrange, Icons.thermostat_outlined);
       case 'ODOUR':
         return (Colors.purple, Icons.air_outlined);
+      case 'DIESEL':
+        return (Colors.teal, Icons.local_gas_station_outlined);
       case 'MAINTENANCE':
         return (Colors.blue, Icons.build_outlined);
       default:
@@ -310,5 +314,25 @@ class _NotificationCard extends StatelessWidget {
     } catch (_) {
       return '';
     }
+  }
+}
+
+String? _routeForType(String type) {
+  switch (type.toUpperCase()) {
+    case 'HOT_AXLE':
+      return '/hot_axle_monitoring';
+    case 'ACP':
+      return '/acp_monitoring';
+    case 'ODOUR':
+      return '/odour_management';
+    case 'DIESEL':
+      return '/diesel_level_monitoring';
+    case 'BRAKE':
+      return '/break_binding';
+    case 'WARNING':
+    case 'CRITICAL':
+      return '/alerts';
+    default:
+      return null;
   }
 }

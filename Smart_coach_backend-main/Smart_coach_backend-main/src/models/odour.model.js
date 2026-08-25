@@ -122,7 +122,7 @@ class OdourModel {
         }
     }
 
-    async getSection1History(deviceId, limit = 300) {
+    async getSection1History(deviceId, limit = 10000) {
         try {
             if (!deviceId) return [];
             const { data, error } = await acpSupabase
@@ -147,7 +147,7 @@ class OdourModel {
         }
     }
 
-    async getSection2History(deviceId, limit = 300) {
+    async getSection2History(deviceId, limit = 10000) {
         try {
             if (!deviceId || !odour2Supabase) return [];
             const { data, error } = await odour2Supabase

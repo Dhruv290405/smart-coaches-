@@ -23,6 +23,7 @@ abstract class AcpRemoteDataSource {
     required String coachId,
     String? fromDate,
     String? toDate,
+    int limit = 10000,
   });
 }
 
@@ -71,9 +72,10 @@ class AcpRemoteDataSourceImpl implements AcpRemoteDataSource {
     required String coachId,
     String? fromDate,
     String? toDate,
+    int limit = 10000,
   }) async {
     return safeRequest(() async {
-      return await restClient.getAcpCoachHistory(coachId, fromDate, toDate);
+      return await restClient.getAcpCoachHistory(coachId, fromDate, toDate, limit);
     });
   }
 }

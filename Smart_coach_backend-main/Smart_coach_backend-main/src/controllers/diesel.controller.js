@@ -1,6 +1,10 @@
 const dieselModel = require('../models/diesel.model');
 const rbac = require('../utils/rbac');
 const { successResponse, errorResponse } = require('../utils/response');
+const { broadcastPushNotification } = require('../utils/notificationService');
+
+// Tracks last status per sensor to only push on a Good -> Warning/Critical change.
+const _dieselAlertState = {};
 
 exports.getDieselReadings = async (req, res) => {
   try {
@@ -27,6 +31,20 @@ exports.getDieselReadings = async (req, res) => {
       let status = 'Good';
       if (percentage <= 25) status = 'Critical';
       else if (percentage <= 50) status = 'Warning';
+
+      const prevStatus = _dieselAlertState[sensor.sensor_id];
+      const isAlert = status === 'Warning' || status === 'Critical';
+      if (isAlert && prevStatus !== status && prevStatus !== 'Warning' && prevStatus !== 'Critical') {
+        const coachNo = sensor.coach_id || 'Unknown coach';
+        const trainNo = sensor.train_number || 'Unknown train';
+        broadcastPushNotification(
+          `Diesel Level Alert (${status})`,
+          `Loco ${coachNo} on train ${trainNo} fuel level at ${percentage}% (${status}).`,
+          'DIESEL',
+          { module: 'diesel', coach_no: coachNo, train_no: trainNo, percentage, status }
+        ).catch(() => {});
+      }
+      _dieselAlertState[sensor.sensor_id] = status;
 
       return {
         sensor_id: sensor.sensor_id,

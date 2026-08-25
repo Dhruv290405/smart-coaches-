@@ -40,6 +40,7 @@ AcpLogData _$AcpLogDataFromJson(Map<String, dynamic> json) => AcpLogData(
   powerCarNo: json['power_car_no'] as String?,
   totalCount: (json['total_count'] as num?)?.toInt(),
   deviceId: json['device_id'] as String?,
+  totalizedCount: (json['totalized_count'] as num?)?.toInt(),
   fsdsStatus: json['fsdsStatus'] as String?,
   fsdsTimestamp: json['fsdsTimestamp'] as String?,
 );
@@ -60,6 +61,7 @@ Map<String, dynamic> _$AcpLogDataToJson(AcpLogData instance) =>
       'power_car_no': instance.powerCarNo,
       'total_count': instance.totalCount,
       'device_id': instance.deviceId,
+      'totalized_count': instance.totalizedCount,
       'fsdsStatus': instance.fsdsStatus,
       'fsdsTimestamp': instance.fsdsTimestamp,
     };

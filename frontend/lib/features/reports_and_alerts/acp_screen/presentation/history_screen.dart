@@ -59,6 +59,7 @@ class _AcpHistoryScreenState extends State<AcpHistoryScreen> {
         coachId: widget.coach.sensorId,
         fromDate: _startDate(),
         toDate: _endDate(),
+        limit: 10000,
       );
       if (mounted) {
         setState(() {

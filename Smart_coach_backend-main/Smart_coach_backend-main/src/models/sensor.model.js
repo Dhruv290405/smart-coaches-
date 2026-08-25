@@ -164,7 +164,7 @@ class SensorModel extends BaseModel {
     return (data || []).length > 0;
   }
 
-  async getReadings(sensorId, limit = 100) {
+  async getReadings(sensorId, limit = 10000) {
     const { data, error } = await supabaseAdmin
       .from('sensor_readings')
       .select('*')

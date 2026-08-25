@@ -34,7 +34,7 @@ class _FsdsHistoryScreenState extends State<FsdsHistoryScreen> {
   Future<void> _fetchHistory() async {
     setState(() => _isLoading = true);
     try {
-      final logs = await FsdsRepository(getIt<ApiClient>()).getFsdsData(limit: 500);
+      final logs = await FsdsRepository(getIt<ApiClient>()).getFsdsData(limit: 10000);
 
       final filtered = logs.where((e) =>
         e.deviceId == widget.sensor.deviceId ||

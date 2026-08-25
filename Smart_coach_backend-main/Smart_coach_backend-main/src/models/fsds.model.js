@@ -28,7 +28,7 @@ class FsdsModel {
             query = query.order('timestamp', { ascending: false });
 
             if (limit) query = query.limit(limit);
-            if (offset) query = query.range(offset, offset + (limit || 100) - 1);
+            if (offset) query = query.range(offset, offset + (limit || 10000) - 1);
 
             const { data, error } = await query;
             if (error) throw error;

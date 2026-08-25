@@ -32,7 +32,7 @@ exports.getBreakBindingData = async (req, res) => {
     }
     try {
         const filterDeviceId = req.query.deviceId || null; 
-        const historyLimit = Math.min(parseInt(req.query.limit) || 10, 1000); 
+        const historyLimit = Math.min(parseInt(req.query.limit) || 10000, 10000); 
         const historyOffset = parseInt(req.query.offset) || 0;
         
         const fromDate = req.query.from_date || null;
@@ -66,16 +66,16 @@ exports.getBreakBindingData = async (req, res) => {
             }
             if (filterDeviceId) {
                 const activeDeviceId = filterDeviceId;
-                let eventQuery = supabase.from('event_publish')
-                    .select('id, timestamp, event_status, coach_no, event_message')
-                    .eq('device_id', activeDeviceId)
-                    .order('timestamp', { ascending: false })
-                    .limit(30);
-                let faultQuery = supabase.from('brake_fault_event')
-                    .select('device_id, fault_name, timestamp, event_message')
-                    .eq('device_id', activeDeviceId)
-                    .order('timestamp', { ascending: false })
-                    .limit(50);
+let eventQuery = supabase.from('event_publish')
+                .select('id, timestamp, event_status, coach_no, event_message')
+                .eq('device_id', activeDeviceId)
+                .order('timestamp', { ascending: false })
+                .limit(historyLimit);
+            let faultQuery = supabase.from('brake_fault_event')
+                .select('device_id, fault_name, timestamp, event_message')
+                .eq('device_id', activeDeviceId)
+                .order('timestamp', { ascending: false })
+                .limit(historyLimit);
                 const [evtData, fltData] = await Promise.all([eventQuery, faultQuery]);
                 return res.status(200).json({
                     success: true,
@@ -158,13 +158,13 @@ exports.getBreakBindingData = async (req, res) => {
             .select('id, timestamp, event_status, coach_no, bp, bc, event_message')
             .eq('device_id', activeDeviceId)
             .order('timestamp', { ascending: false })
-            .limit(30);
+            .limit(historyLimit);
 
         let faultQuery = supabase.from('brake_fault_event')
             .select('device_id, fault_name, timestamp, event_message')
             .eq('device_id', activeDeviceId)
             .order('timestamp', { ascending: false })
-            .limit(50);
+            .limit(historyLimit);
 
 
         if (fromDate) {

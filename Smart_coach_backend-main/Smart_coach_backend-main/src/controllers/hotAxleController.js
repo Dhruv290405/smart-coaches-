@@ -2,6 +2,7 @@ const HotAxleModel = require("../models/hotAxle.model");
 const supabaseAdmin = require("../config/supabaseAdmin");
 const rbac = require("../utils/rbac");
 const sOld = require('../config/supabaseOld');
+const { broadcastPushNotification } = require("../utils/notificationService");
 
 async function getRailwayTechnicalIds() {
     const deviceMapping = {
@@ -84,6 +85,17 @@ const hotAxleController = {
             };
 
             const insertId = await HotAxleModel.saveDynamicLog(dataToSave);
+
+            if (status !== 'Good') {
+                const coachNo = dataToSave.coach_no || 'Unknown coach';
+                const trainNo = dataToSave.train_no || 'Unknown train';
+                await broadcastPushNotification(
+                    `Hot Axle Alert (${status})`,
+                    `Coach ${coachNo} on train ${trainNo} reported ${status} axle temperature.`,
+                    'HOT_AXLE',
+                    { module: 'hot_axle', coach_no: coachNo, train_no: trainNo, status }
+                );
+            }
 
             return res.status(201).json({ 
                 success: true, 

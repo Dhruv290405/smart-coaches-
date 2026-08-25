@@ -13,7 +13,7 @@ class PressureModel {
         }
     }
 
-    async getLatestData(deviceId = null, limit = 30, authorizedCoaches = null) {
+    async getLatestData(deviceId = null, limit = 10000, authorizedCoaches = null) {
         try {
             let query = supabaseAdmin
                 .from('pressure_logs')

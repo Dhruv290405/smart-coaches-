@@ -23,6 +23,7 @@ abstract class AcpRepository {
     required String coachId,
     String? fromDate,
     String? toDate,
+    int limit = 10000,
   });
 }
 
@@ -77,11 +78,13 @@ class AcpRepositoryImpl implements AcpRepository {
     required String coachId,
     String? fromDate,
     String? toDate,
+    int limit = 10000,
   }) async {
     final response = await remoteDataSource.getAcpCoachHistory(
       coachId: coachId,
       fromDate: fromDate,
       toDate: toDate,
+      limit: limit,
     );
     return response.data ?? [];
   }

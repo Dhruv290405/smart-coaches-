@@ -1,5 +1,6 @@
 const AcpModel = require('../models/acpModel');
 const rbac = require('../utils/rbac');
+const { broadcastPushNotification } = require('../utils/notificationService');
 const BLOCKED_COACHES = ['205063'];
 let cachedBlockedCoaches = new Set();
 let lastCacheUpdate = 0;
@@ -86,6 +87,12 @@ const receiveAcpData = async (req, res) => {
             if (currentCount > 0) {
                 await AcpModel.saveCriticalEvent(assetData);
                 await AcpModel.updateLiveStatus(assetData, 'TRIGGER');
+                await broadcastPushNotification(
+                    'ACP Obstruction Alert',
+                    `Coach ${techCoachNo} on train ${assetData.train_no} reported an ACP obstruction (count: ${currentCount}).`,
+                    'ACP',
+                    { module: 'acp', coach_no: techCoachNo, train_no: assetData.train_no, count: currentCount }
+                );
             } else {
                 await AcpModel.updateLiveStatus(assetData, 'HEARTBEAT');
             }
@@ -200,7 +207,7 @@ const getCoachHistory = async (req, res) => {
         if (!rbac.isModuleAuthorized(req.user, 'acp')) {
             return res.status(200).json({ success: true, total_events_returned: 0, data: [] });
         }
-        const { coachNo, fromDate, toDate, page = 1, limit = 100 } = req.query;
+        const { coachNo, fromDate, toDate, page = 1, limit = 10000 } = req.query;
 
         if (!coachNo) {
             return res.status(400).json({ success: false, message: "coachNo is required" });

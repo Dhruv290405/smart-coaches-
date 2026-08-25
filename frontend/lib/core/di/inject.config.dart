@@ -14,7 +14,9 @@ import 'package:get_it/get_it.dart' as _i174;
 import 'package:injectable/injectable.dart' as _i526;
 import 'package:shared_preferences/shared_preferences.dart' as _i460;
 import 'package:smart_coach_new/core/di/injectable.dart' as _i152;
+import 'package:smart_coach_new/core/network/api_cache.dart' as _i1035;
 import 'package:smart_coach_new/core/network/api_client.dart' as _i689;
+import 'package:smart_coach_new/core/network/network_optimizer.dart' as _i1009;
 import 'package:smart_coach_new/core/network/rest_client.dart' as _i100;
 import 'package:smart_coach_new/core/permissions/bloc/permission_bloc.dart'
     as _i416;
@@ -203,6 +205,7 @@ extension GetItInjectableX on _i174.GetIt {
       preResolve: true,
     );
     gh.singleton<_i416.PermissionBloc>(() => _i416.PermissionBloc());
+    gh.lazySingleton<_i1035.ApiCache>(() => registerModule.apiCache);
     gh.lazySingleton<_i1038.Prefs>(
       () => _i1038.Prefs(gh<_i460.SharedPreferences>()),
     );
@@ -211,6 +214,9 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.lazySingleton<_i689.ApiClient>(
       () => _i689.ApiClient(gh<_i1038.Prefs>()),
+    );
+    gh.lazySingleton<_i1009.NetworkOptimizer>(
+      () => registerModule.provideNetworkOptimizer(gh<_i361.Dio>()),
     );
     gh.lazySingleton<_i100.RestClient>(
       () => registerModule.provideRestClient(gh<_i361.Dio>()),

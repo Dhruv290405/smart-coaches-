@@ -1,5 +1,9 @@
 const OdourModel = require("../models/odour.model");
 const rbac = require('../utils/rbac');
+const { broadcastPushNotification } = require('../utils/notificationService');
+
+// Tracks last alert state per device to avoid spamming pushes on every reading.
+const _odourAlertState = {};
 
 const odourController = {
     receiveData: async (req, res) => {
@@ -32,6 +36,23 @@ const odourController = {
             };
 
             const insertId = await OdourModel.saveLog(dataToSave);
+
+            const isAlert = dataToSave.voc_index >= 800
+                || dataToSave.h2s_ppm > 0.05
+                || dataToSave.nh3_ppm > 0.2;
+            const deviceKey = dataToSave.device_id || dataToSave.coach_number || 'unknown';
+            const wasAlert = _odourAlertState[deviceKey];
+            if (isAlert && !wasAlert) {
+                const coachNo = dataToSave.coach_number || 'Unknown coach';
+                const trainNo = dataToSave.train_number || 'Unknown train';
+                await broadcastPushNotification(
+                    'Bad Odour Alert',
+                    `Coach ${coachNo} on train ${trainNo} reported poor air quality (VOC: ${dataToSave.voc_index}, H₂S: ${dataToSave.h2s_ppm}, NH₃: ${dataToSave.nh3_ppm}).`,
+                    'ODOUR',
+                    { module: 'odour', coach_no: coachNo, train_no: trainNo, device_id: deviceKey }
+                );
+            }
+            _odourAlertState[deviceKey] = isAlert;
 
             if (global._io) {
                 global._io.emit('odour_data_update', dataToSave);

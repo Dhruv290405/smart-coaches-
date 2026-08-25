@@ -18,7 +18,7 @@ exports.getSensorData = async ({ sensor_id, from_date, to_date, limit }) => {
 
   const { data, error } = await query
     .order('timestamp', { ascending: false })
-    .limit(limit || 100);
+    .limit(limit || 10000);
 
   if (error) throw error;
   return data || [];
