@@ -3,7 +3,7 @@ const { insertIoTData, getWaterLevelData, getWaterLevelDataForCoach,
 } = require('../models/iot_water_level.model');
 const { evaluateRule } = require('../utils/ruleEvaluator');
 const { successResponse, errorResponse } = require('../utils/response');
-const { sendPushNotification } = require("../utils/notificationService");
+const { sendPushNotification, saveInAppNotificationForAllUsers } = require("../utils/notificationService");
 const supabaseAdmin = require('../config/supabaseAdmin');
 const { get } = require('../..');
 const { getAlerts } = require('./sensor.controller');
@@ -101,6 +101,10 @@ exports.addIoTData = async (req, res) => {
             `${alert.description} (Sensor ID: ${sensor_id})`,
             { sensor_id, water_level });
         }
+        await saveInAppNotificationForAllUsers(
+          alert.alert_type_name,
+          `${alert.description} (Sensor ID: ${sensor_id})`,
+          'WATER');
       }
     }
 

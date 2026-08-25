@@ -283,6 +283,8 @@ class _NotificationCard extends StatelessWidget {
   (Color, IconData) _resolveType(String type) {
     switch (type.toUpperCase()) {
       case 'BRAKE':
+      case 'BRAKE_BINDING':
+      case 'CR_OVERCHARGE':
       case 'CRITICAL':
         return (Colors.red, Icons.error_outline);
       case 'ACP':
@@ -294,6 +296,8 @@ class _NotificationCard extends StatelessWidget {
         return (Colors.purple, Icons.air_outlined);
       case 'DIESEL':
         return (Colors.teal, Icons.local_gas_station_outlined);
+      case 'WATER':
+        return (Colors.blue, Icons.water_drop_outlined);
       case 'MAINTENANCE':
         return (Colors.blue, Icons.build_outlined);
       default:
@@ -328,7 +332,11 @@ String? _routeForType(String type) {
     case 'DIESEL':
       return '/diesel_level_monitoring';
     case 'BRAKE':
+    case 'BRAKE_BINDING':
+    case 'CR_OVERCHARGE':
       return '/break_binding';
+    case 'WATER':
+      return '/water_tank_monitoring';
     case 'WARNING':
     case 'CRITICAL':
       return '/alerts';

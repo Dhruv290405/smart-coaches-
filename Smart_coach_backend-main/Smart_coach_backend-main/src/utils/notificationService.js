@@ -50,22 +50,45 @@ async function broadcastPushNotification(title, body, type, data = {}) {
       await sendPushNotification(token, title, body, data);
     }
 
-    if (userIds.size > 0) {
-      const inserts = Array.from(userIds).map(uid => ({
-        user_id: uid,
-        title,
-        body,
-        type,
-        is_read: false,
-      }));
-      const { error: insErr } = await supabaseAdmin
-        .from('user_notifications')
-        .insert(inserts);
-      if (insErr) console.error("❌ Failed to save in-app notifications:", insErr.message);
-    }
+    await saveInAppNotificationForAllUsers(title, body, type);
   } catch (err) {
     console.error("❌ broadcastPushNotification error:", err.message);
   }
 }
 
-module.exports = { sendPushNotification, broadcastPushNotification };
+/**
+ * Save an in-app notification row for every user (so it appears in the bell).
+ * User list is derived from registered FCM tokens.
+ */
+async function saveInAppNotificationForAllUsers(title, body, type) {
+  try {
+    const { data: rows, error } = await supabaseAdmin
+      .from('user_fcm_tokens')
+      .select('user_id');
+    if (error) {
+      console.error("❌ Failed to fetch users for notifications:", error.message);
+      return;
+    }
+    const userIds = new Set();
+    for (const row of (rows || [])) {
+      if (row.user_id != null) userIds.add(row.user_id);
+    }
+    if (userIds.size === 0) return;
+
+    const inserts = Array.from(userIds).map(uid => ({
+      user_id: uid,
+      title,
+      body,
+      type,
+      is_read: false,
+    }));
+    const { error: insErr } = await supabaseAdmin
+      .from('user_notifications')
+      .insert(inserts);
+    if (insErr) console.error("❌ Failed to save in-app notifications:", insErr.message);
+  } catch (err) {
+    console.error("❌ saveInAppNotificationForAllUsers error:", err.message);
+  }
+}
+
+module.exports = { sendPushNotification, broadcastPushNotification, saveInAppNotificationForAllUsers };

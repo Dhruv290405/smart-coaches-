@@ -2,6 +2,10 @@ const Pneumatic = require('../models/pneumatic.model');
 const supabase = require('../config/supabaseOld');
 const supabaseAdmin = require('../config/supabaseAdmin');
 const NotificationService = require('../services/notificationService');
+const { saveInAppNotificationForAllUsers } = require('../utils/notificationService');
+
+// Tracks last CR-overcharge state per device to only notify on a green->red change.
+const _crOverchargeState = {};
 const rbac = require('../utils/rbac');
 const OLD_BACKEND = 'https://smart-coach-api-production.up.railway.app';
 
@@ -257,7 +261,29 @@ let eventQuery = supabase.from('event_publish')
 
                 NotificationService.sendTopicNotification('brake_alerts', title, body, extraData)
                     .catch(err => console.error("Background Push Notification Error:", err.message));
+                saveInAppNotificationForAllUsers(title, body, 'BRAKE_BINDING');
             }
+        }
+
+        if (newAlerts.cr_overcharge === 'red') {
+            const crKey = String(activeDeviceId || finalCoachInfo.coach_no);
+            if (_crOverchargeState[crKey] !== 'red') {
+                const crTitle = `CR Overcharge Alert: Coach ${finalCoachInfo.coach_no}`;
+                const crBody = `Coach ${finalCoachInfo.coach_no} on train ${finalCoachInfo.Train_no} reported CR overcharge (CR: ${cr}).`;
+                const crData = {
+                    type: 'CR_OVERCHARGE',
+                    device_id: String(activeDeviceId),
+                    coach_no: String(finalCoachInfo.coach_no),
+                    train_no: String(finalCoachInfo.Train_no)
+                };
+                NotificationService.sendTopicNotification('brake_alerts', crTitle, crBody, crData)
+                    .catch(err => console.error("CR Overcharge Push Error:", err.message));
+                saveInAppNotificationForAllUsers(crTitle, crBody, 'CR_OVERCHARGE');
+            }
+            _crOverchargeState[crKey] = 'red';
+        } else {
+            const crKey = String(activeDeviceId || finalCoachInfo.coach_no);
+            _crOverchargeState[crKey] = 'green';
         }
 
         res.status(200).json({
