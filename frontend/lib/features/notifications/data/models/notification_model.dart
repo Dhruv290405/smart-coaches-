@@ -20,7 +20,7 @@ class NotificationModel {
     return NotificationModel(
       id: json['id'] as int,
       title: json['title'] as String,
-      body: json['body'] as String,
+      body: (json['message'] ?? json['body'] ?? '') as String,
       isRead: isReadRaw == 1 || isReadRaw == true,
       type: json['type'] as String,
       createdAt: json['created_at'] as String?,

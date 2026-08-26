@@ -276,6 +276,23 @@ app.get('/get-env', (req, res) => {
 
 
 const acpSupabaseClient = require('./src/config/supabaseAcp');
+app.post('/smart_coach_api/api/test-notification', async (req, res) => {
+  try {
+    if (process.env.ENABLE_TEST_PUSH !== 'true') {
+      return res.status(403).json({ error: 'Test push disabled. Set ENABLE_TEST_PUSH=true' });
+    }
+    const { title, body, type } = req.body || {};
+    const t = type || 'TEST';
+    const ti = title || 'Test Notification (Smart Coaches)';
+    const bo = body || 'Sample push + in-app notification to verify the pipeline.';
+    const { broadcastPushNotification } = require('./src/utils/notificationService');
+    await broadcastPushNotification(ti, bo, t, { module: 'test', ts: new Date().toISOString() });
+    res.json({ success: true, message: 'Test notification dispatched to all registered tokens + in-app bell', title: ti, body: bo, type: t });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/health', (req, res) => {
   const acpUrl = !!(process.env.ACP_SUPABASE_URL);
   const acpKey = !!(process.env.ACP_SUPABASE_SERVICE_KEY || process.env.ACP_SUPABASE_ANON_KEY);

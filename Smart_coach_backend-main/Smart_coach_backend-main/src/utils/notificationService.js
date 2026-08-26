@@ -78,7 +78,7 @@ async function saveInAppNotificationForAllUsers(title, body, type) {
     const inserts = Array.from(userIds).map(uid => ({
       user_id: uid,
       title,
-      body,
+      message: body,
       type,
       is_read: false,
     }));
