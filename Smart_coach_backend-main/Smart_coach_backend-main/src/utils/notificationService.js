@@ -8,8 +8,15 @@ async function sendPushNotification(fcmToken, title, body, data = {}) {
   const message = {
     token: fcmToken,
     notification: { title, body },
+    android: {
+      notification: {
+        sound: 'default',
+        clickAction: 'FLUTTER_NOTIFICATION_CLICK',
+      },
+      priority: 'high',
+    },
     data: Object.fromEntries(
-      Object.entries(data).map(([k, v]) => [k, String(v)]) // ensure all values are strings
+      Object.entries(data).map(([k, v]) => [k, String(v)])
     ),
   };
 
