@@ -501,6 +501,8 @@ const startServer = async () => {
       console.log(' Supabase connection verified.');
     }
 
+    startSupabaseListener();
+
     const server = httpServer.listen(PORT, () => {
       console.log(`\nServer live: http://localhost:${PORT}`);
       console.log(`Env: ${process.env.NODE_ENV || 'production'}`);
