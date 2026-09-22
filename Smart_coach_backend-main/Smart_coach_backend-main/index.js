@@ -75,6 +75,7 @@ app.use("/smart_coach_api/api/fsds", require("./src/routes/fsds.routes"));
 app.use("/smart_coach_api/api/coach-config", require("./src/routes/coachConfig.routes.js"));
 app.use('/smart_coach_api/api/notifications', notificationRoutes);
 app.use('/smart_coach_api/api/diesel', require('./src/routes/diesel.routes'));
+app.use('/smart_coach_api/api/service-requests', require('./src/routes/serviceRequest.routes'));
 
 app.get('/smart_coach_api/api', (req, res) => {
   res.json({

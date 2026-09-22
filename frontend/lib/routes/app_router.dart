@@ -42,6 +42,7 @@ import '../features/reports_and_alerts/break_binding/presentation/bloc/break_bin
 import '../features/reports_and_alerts/break_binding/presentation/brake_binding_screen.dart';
 import '../features/coach_dashboard/presentation/bloc/coach_dashboard_bloc.dart';
 import '../features/coach_dashboard/presentation/coach_dashboard_screen.dart';
+import '../features/passenger_service/presentation/service_request_screen.dart';
 
 class AppRouter {
   static const String splashRoute = '/';
@@ -71,6 +72,7 @@ class AppRouter {
   static const String notificationsRoute = '/notifications';
   static const String alertsRoute = '/alerts';
   static const String coachDashboardRoute = '/coach_dashboard';
+  static const String serviceRequestRoute = '/service-request';
 
   static final router = GoRouter(
     initialLocation: splashRoute,
@@ -254,6 +256,10 @@ class AppRouter {
           create: (_) => GetIt.I<CoachDashboardBloc>(),
           child: const CoachDashboardScreen(),
         ),
+      ),
+      GoRoute(
+        path: serviceRequestRoute,
+        builder: (context, state) => const ServiceRequestScreen(),
       ),
 
     ],

@@ -45,6 +45,7 @@ class ApiConstants {
   static const String wliCoachesApiEndpoint = '/wli/coaches';
   static const String dieselReadingsApiEndpoint = '/diesel/readings';
   static const String dieselHistoryApiEndpoint = '/diesel/history';
+  static const String serviceRequestApiEndpoint = '/service-requests';
   static const String notificationsApiEndpoint = '/notifications';
   static const String markAllNotificationsReadApiEndpoint = '/notifications/mark-all-read';
   static const String notificationLimitDefault = '10';
