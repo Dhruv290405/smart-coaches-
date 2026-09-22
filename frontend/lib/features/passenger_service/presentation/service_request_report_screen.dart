@@ -334,7 +334,7 @@ class _ServiceRequestReportScreenState extends State<ServiceRequestReportScreen>
                           ),
                         ),
                         SizedBox(height: 0.5.h),
-                        Text(day.slice(5), style: TextStyle(fontSize: 7.sp, color: Colors.grey)),
+                        Text(day.length > 5 ? day.substring(5) : day, style: TextStyle(fontSize: 7.sp, color: Colors.grey)),
                       ],
                     ),
                   ),
