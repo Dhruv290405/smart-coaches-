@@ -416,33 +416,44 @@ class _RegisterScreenState extends State<RegisterScreen> {
     String password,
     String mobileNumber,
   ) {
-    if (fName.isEmpty) {
-      ToastMessageUtils.showMessage(context, 'Please enter first name');
+    final firstNameError = Validators.validateFirstName(fName);
+    if (firstNameError != null) {
+      ToastMessageUtils.showMessage(context, firstNameError);
       return false;
-    } else if (lName.isEmpty) {
-      ToastMessageUtils.showMessage(context, 'Please enter last name');
+    }
+
+    final lastNameError = Validators.validateLastName(lName);
+    if (lastNameError != null) {
+      ToastMessageUtils.showMessage(context, lastNameError);
       return false;
-    } else if (email.isEmpty || !Validators.isEmailValid(email)) {
+    }
+
+    if (!Validators.isEmailValid(email)) {
       ToastMessageUtils.showMessage(
         context,
-        'Please enter valid email address',
+        'Please enter a valid email address (e.g. name@example.com)',
       );
       return false;
-    } else if (Validators.validatePassword(password) != null) {
-      ToastMessageUtils.showMessage(
-        context,
-        Validators.validatePassword(password),
-      );
+    }
+
+    final passwordError = Validators.validatePassword(password);
+    if (passwordError != null) {
+      ToastMessageUtils.showMessage(context, passwordError);
       return false;
-    } else if (mobileNumber.isEmpty) {
-      ToastMessageUtils.showMessage(context, 'Please enter mobile number');
+    }
+
+    final mobileError = Validators.validateMobile(mobileNumber);
+    if (mobileError != null) {
+      ToastMessageUtils.showMessage(context, mobileError);
       return false;
-    } else if ((registerBloc.state.registerRequest.gender ?? '').isEmpty) {
+    }
+
+    if ((registerBloc.state.registerRequest.gender ?? '').isEmpty) {
       ToastMessageUtils.showMessage(context, 'Please select your gender');
       return false;
-    } else {
-      return true;
     }
+
+    return true;
   }
 
   bool _doValidateStep2(
