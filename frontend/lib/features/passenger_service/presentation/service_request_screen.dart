@@ -1,9 +1,11 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:sizer/sizer.dart';
 import 'package:smart_coach_new/core/network/api_constants.dart';
 import 'package:smart_coach_new/core/utils/color_constants.dart';
+import 'package:smart_coach_new/routes/app_router.dart';
 import 'package:smart_coach_new/core/utils/loader.dart';
 import 'package:smart_coach_new/core/utils/toast_message_utils.dart';
 import 'package:smart_coach_new/core/widgets/custom_button.dart';
@@ -71,15 +73,18 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
         final requestId = body['data']?['id'] ?? 'N/A';
         _showSuccessDialog(requestId.toString());
       } else {
-        final body = jsonDecode(response.body);
-        ToastMessageUtils.showMessage(
-            context, body['message'] ?? 'Something went wrong');
+        String msg = 'Something went wrong (Error ${response.statusCode})';
+        try {
+          final body = jsonDecode(response.body);
+          msg = body['message'] ?? body['error'] ?? msg;
+        } catch (_) {}
+        ToastMessageUtils.showMessage(context, msg);
       }
     } catch (e) {
       Loader.dismiss();
       setState(() => _isSubmitting = false);
       ToastMessageUtils.showMessage(
-          context, 'Network error. Please try again.');
+          context, 'Network error: ${e.toString().length > 80 ? e.toString().substring(0, 80) : e.toString()}');
     }
   }
 
@@ -125,7 +130,7 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
               text: "Back to Login",
               onPressed: () {
                 Navigator.of(ctx).pop();
-                Navigator.of(context).pop();
+                context.go(AppRouter.loginRoute);
               },
             ),
           ],
@@ -154,7 +159,7 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
         elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.arrow_back_ios, color: Colors.black87, size: 5.w),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => context.go(AppRouter.loginRoute),
         ),
         title: Text(
           "Service Request",

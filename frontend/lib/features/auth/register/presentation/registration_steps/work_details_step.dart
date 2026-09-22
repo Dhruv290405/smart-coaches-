@@ -533,11 +533,8 @@ class WorkDetailsStep extends StatelessWidget {
     final roleId = bloc.state.registerRequest.roleId;
     if (roleId == null) return false;
 
-    final selectedRole = bloc.state.jobRoles.firstWhere(
-      (role) => role.roleId == roleId,
-      orElse: () => bloc.state.jobRoles.first,
-    );
-
-    return selectedRole.name?.toLowerCase() == 'train operator';
+    return bloc.state.jobRoles
+        .where((role) => role.roleId == roleId)
+        .any((role) => role.name?.toLowerCase() == 'train operator');
   }
 }

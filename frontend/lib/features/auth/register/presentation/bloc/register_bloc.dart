@@ -118,12 +118,9 @@ class RegisterBloc extends Bloc<RegisterEvent, RegisterState> {
     final roleId = state.registerRequest.roleId;
     if (roleId == null) return false;
 
-    final selectedRole = state.jobRoles.firstWhere(
-      (role) => role.roleId == roleId,
-      orElse: () => state.jobRoles.first,
-    );
-
-    return selectedRole.name?.toLowerCase() == 'train operator';
+    return state.jobRoles
+        .where((role) => role.roleId == roleId)
+        .any((role) => role.name?.toLowerCase() == 'train operator');
   }
 
   void _onLoadAllRoles(

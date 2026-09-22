@@ -1,11 +1,13 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:get_it/get_it.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:sizer/sizer.dart';
 import 'package:smart_coach_new/core/network/api_constants.dart';
 import 'package:smart_coach_new/core/utils/color_constants.dart';
 import 'package:smart_coach_new/core/utils/loader.dart';
+import 'package:smart_coach_new/core/utils/prefs.dart';
 import 'package:smart_coach_new/core/utils/toast_message_utils.dart';
 import 'package:smart_coach_new/core/widgets/custom_button.dart';
 import 'package:smart_coach_new/features/passenger_service/presentation/widgets/service_request_report_generator.dart';
@@ -49,6 +51,8 @@ class _ServiceRequestReportScreenState extends State<ServiceRequestReportScreen>
 
       final response = await http.get(Uri.parse(url), headers: {
         'Content-Type': 'application/json',
+        if (GetIt.I<Prefs>().token != null)
+          'Authorization': 'Bearer ${GetIt.I<Prefs>().token}',
       });
 
       Loader.dismiss();

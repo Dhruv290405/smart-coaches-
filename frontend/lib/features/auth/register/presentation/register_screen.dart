@@ -352,7 +352,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'An OTP has been sent to ${_mobileController.text}',
+            'An OTP call is being made to ${_mobileController.text}. Enter the code you hear below.',
             style: const TextStyle(fontSize: 14, color: Colors.black54),
           ),
           if (registerBloc.state.otpCode != null) ...[
