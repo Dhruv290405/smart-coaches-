@@ -1,7 +1,6 @@
 const ServiceRequestModel = require("../models/serviceRequest.model");
 
 const serviceRequestController = {
-    // Passenger submits (no auth required)
     create: async (req, res) => {
         try {
             const { train_no, coach_no, seat_berth, service_type, description, passenger_name, passenger_phone } = req.body;
@@ -14,19 +13,10 @@ const serviceRequestController = {
             }
 
             const request = await ServiceRequestModel.create({
-                train_no,
-                coach_no,
-                seat_berth,
-                service_type,
-                description,
-                passenger_name,
-                passenger_phone
+                train_no, coach_no, seat_berth, service_type, description, passenger_name, passenger_phone
             });
 
-            // Emit real-time event for train operators
-            try {
-                if (global._io) global._io.emit("service_request:new", request);
-            } catch (_) {}
+            try { if (global._io) global._io.emit("service_request:new", request); } catch (_) {}
 
             return res.status(201).json({
                 success: true,
@@ -39,16 +29,16 @@ const serviceRequestController = {
         }
     },
 
-    // Train operator views all requests (auth required)
     getAll: async (req, res) => {
         try {
-            const { status, limit, offset } = req.query;
+            const { status, limit, offset, dateFrom, dateTo } = req.query;
             const result = await ServiceRequestModel.getAll({
                 status,
                 limit: parseInt(limit) || 50,
-                offset: parseInt(offset) || 0
+                offset: parseInt(offset) || 0,
+                dateFrom,
+                dateTo
             });
-
             return res.json({ success: true, data: result.data, count: result.count });
         } catch (error) {
             console.error("ServiceRequest getAll error:", error.message);
@@ -56,7 +46,6 @@ const serviceRequestController = {
         }
     },
 
-    // Train operator views single request (auth required)
     getById: async (req, res) => {
         try {
             const { id } = req.params;
@@ -68,11 +57,10 @@ const serviceRequestController = {
         }
     },
 
-    // Train operator updates status (auth required)
     updateStatus: async (req, res) => {
         try {
             const { id } = req.params;
-            const { status } = req.body;
+            const { status, resolution_notes } = req.body;
 
             if (!status || !["pending", "in_progress", "resolved"].includes(status)) {
                 return res.status(400).json({
@@ -81,16 +69,26 @@ const serviceRequestController = {
                 });
             }
 
-            const updated = await ServiceRequestModel.updateStatus(id, status, req.user?.user_id);
+            const updated = await ServiceRequestModel.updateStatus(
+                id, status, req.user?.user_id, resolution_notes
+            );
 
-            // Emit real-time event
-            try {
-                if (global._io) global._io.emit("service_request:update", updated);
-            } catch (_) {}
+            try { if (global._io) global._io.emit("service_request:update", updated); } catch (_) {}
 
             return res.json({ success: true, data: updated });
         } catch (error) {
             console.error("ServiceRequest updateStatus error:", error.message);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    },
+
+    getReport: async (req, res) => {
+        try {
+            const { dateFrom, dateTo } = req.query;
+            const report = await ServiceRequestModel.getReportSummary({ dateFrom, dateTo });
+            return res.json({ success: true, data: report });
+        } catch (error) {
+            console.error("ServiceRequest getReport error:", error.message);
             res.status(500).json({ success: false, error: error.message });
         }
     }

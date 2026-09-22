@@ -267,6 +267,13 @@ class _CustomDrawerState extends State<CustomDrawer> {
                       context.push(AppRouter.breakBinding);
                     },
                   ),
+                _drawerItem(
+                  'Service Request Report',
+                  icon: Icons.support_agent,
+                  onTap: () {
+                    context.push(AppRouter.serviceRequestReportRoute);
+                  },
+                ),
               ],
             ),
           ],

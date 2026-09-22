@@ -6,8 +6,9 @@ const { authenticate } = require("../middleware/auth.middleware");
 // Passenger submits — NO auth
 router.post("/", serviceRequestController.create);
 
-// Train operator views — auth required
+// Auth required below
 router.get("/", authenticate, serviceRequestController.getAll);
+router.get("/report", authenticate, serviceRequestController.getReport);
 router.get("/:id", authenticate, serviceRequestController.getById);
 router.patch("/:id/status", authenticate, serviceRequestController.updateStatus);
 
