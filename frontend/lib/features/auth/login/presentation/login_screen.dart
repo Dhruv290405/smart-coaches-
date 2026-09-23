@@ -23,72 +23,31 @@ import 'package:flutter/material.dart';import 'package:flutter_bloc/flutter_blo
                         ),
                       ),
                       SizedBox(height: 2.h),
-                      GestureDetector(
-                        onTap: () => context.go(AppRouter.serviceRequestRoute),
-                        child: Container(
-                          width: double.infinity,
-                          padding: EdgeInsets.all(4.w),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(3.w),
-                            border: Border.all(
-                              color: ColorConstants.primary.withValues(alpha: 0.2),
-                              width: 0.4.w,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.05),
-                                blurRadius: 8,
-                                offset: Offset(0, 3),
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: EdgeInsets.all(2.w),
-                                decoration: BoxDecoration(
-                                  color: ColorConstants.primary.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(2.w),
-                                ),
-                                child: Icon(
-                                  Icons.support_agent,
-                                  color: ColorConstants.primary,
-                                  size: 6.w,
-                                ),
-                              ),
-                              SizedBox(width: 3.w),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      "Passenger Service Request",
-                                      style: TextStyle(
-                                        fontSize: 13.sp,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.black87,
-                                      ),
-                                    ),
-                                    SizedBox(height: 0.3.h),
-                                    Text(
-                                      "Submit a service request for your coach",
-                                      style: TextStyle(
-                                        fontSize: 10.5.sp,
-                                        color: ColorConstants.textSecondary,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Icon(
-                                Icons.arrow_forward_ios,
-                                size: 4.w,
+                                            Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          GestureDetector(
+                            onTap: () => context.go(AppRouter.registerRoute),
+                            child: Text(
+                              "Don't have an account?",
+                              style: TextStyle(
+                                fontSize: 11.5.sp,
                                 color: Colors.grey,
                               ),
-                            ],
+                            ),
                           ),
-                        ),
+                          GestureDetector(
+                            onTap: () => context.go(AppRouter.registerRoute),
+                            child: Text(
+                              " Register",
+                              style: TextStyle(
+                                fontSize: 11.5.sp,
+                                fontWeight: FontWeight.w700,
+                                color: ColorConstants.primary,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                                             SizedBox(height: 2.h),
                     ],

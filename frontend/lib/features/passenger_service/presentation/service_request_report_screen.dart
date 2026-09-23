@@ -71,6 +71,33 @@ class _ServiceRequestReportScreenState extends State<ServiceRequestReportScreen>
     }
   }
 
+  Future<void> _updateRequestStatus(int id, String status) async {
+    Loader.show();
+    try {
+      final response = await http.patch(
+        Uri.parse('${ApiConstants.devUrl}/service-requests/$id/status'),
+        headers: {
+          'Content-Type': 'application/json',
+          if (GetIt.I<Prefs>().token != null)
+            'Authorization': 'Bearer ${GetIt.I<Prefs>().token}',
+        },
+        body: jsonEncode({'status': status}),
+      );
+
+      Loader.dismiss();
+
+      if (response.statusCode == 200) {
+        ToastMessageUtils.showMessage(context, 'Request marked as $status');
+        await _fetchReport();
+      } else {
+        ToastMessageUtils.showMessage(context, 'Failed to update request');
+      }
+    } catch (e) {
+      Loader.dismiss();
+      ToastMessageUtils.showMessage(context, 'Network error');
+    }
+  }
+
   Future<void> _pickDate({bool isFrom = true}) async {
     final picked = await showDatePicker(
       context: context,
@@ -455,6 +482,49 @@ class _ServiceRequestReportScreenState extends State<ServiceRequestReportScreen>
             _fmtDateTime('${request['created_at'] ?? ''}'),
             style: TextStyle(fontSize: 9.sp, color: Colors.grey),
           ),
+          if (status != 'resolved') ...[
+            SizedBox(height: 1.h),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                if (status == 'pending') ...[
+                  GestureDetector(
+                    onTap: () => _updateRequestStatus(
+                        int.tryParse('${request['id']}') ?? 0, 'in_progress'),
+                    child: Container(
+                      padding: EdgeInsets.symmetric(horizontal: 3.w, vertical: 1.h),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: ColorConstants.primary),
+                        borderRadius: BorderRadius.circular(2.w),
+                      ),
+                      child: Text('Accept',
+                          style: TextStyle(
+                              fontSize: 10.sp,
+                              color: ColorConstants.primary,
+                              fontWeight: FontWeight.w600)),
+                    ),
+                  ),
+                  SizedBox(width: 2.w),
+                ],
+                GestureDetector(
+                  onTap: () => _updateRequestStatus(
+                      int.tryParse('${request['id']}') ?? 0, 'resolved'),
+                  child: Container(
+                    padding: EdgeInsets.symmetric(horizontal: 3.w, vertical: 1.h),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2E7D32),
+                      borderRadius: BorderRadius.circular(2.w),
+                    ),
+                    child: Text('Mark Resolved',
+                        style: TextStyle(
+                            fontSize: 10.sp,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600)),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
