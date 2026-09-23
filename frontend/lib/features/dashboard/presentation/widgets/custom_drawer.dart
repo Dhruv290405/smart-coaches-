@@ -268,17 +268,10 @@ class _CustomDrawerState extends State<CustomDrawer> {
                     },
                   ),
                 _drawerItem(
-                  'Hardware Issue Report',
+                  'Service Request Report',
                   icon: Icons.support_agent,
                   onTap: () {
                     context.push(AppRouter.serviceRequestReportRoute);
-                  },
-                ),
-                _drawerItem(
-                  'Device Simulator',
-                  icon: Icons.smart_button,
-                  onTap: () {
-                    context.push(AppRouter.hardwareIssueSimulatorRoute);
                   },
                 ),
               ],

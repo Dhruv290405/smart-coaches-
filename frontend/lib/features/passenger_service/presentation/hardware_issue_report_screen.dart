@@ -11,6 +11,7 @@ import 'package:smart_coach_new/core/utils/loader.dart';
 import 'package:smart_coach_new/core/utils/prefs.dart';
 import 'package:smart_coach_new/core/utils/toast_message_utils.dart';
 import 'package:smart_coach_new/features/passenger_service/presentation/widgets/hardware_issue_report_generator.dart';
+import 'package:smart_coach_new/features/passenger_service/presentation/hardware_issue_simulator_screen.dart';
 
 class HardwareIssueReportScreen extends StatefulWidget {
   const HardwareIssueReportScreen({super.key});
@@ -109,11 +110,18 @@ class _HardwareIssueReportScreenState extends State<HardwareIssueReportScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
-          "Hardware Issue Report",
+          "Service Request Report",
           style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.w600, color: Colors.black87),
         ),
         centerTitle: true,
         actions: [
+          IconButton(
+            icon: Icon(Icons.smart_button, color: ColorConstants.primary, size: 6.w),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const HardwareIssueSimulatorScreen()),
+            ),
+            tooltip: 'Device Simulator',
+          ),
           if (_report != null && ((_report!['requests'] as List?)?.isNotEmpty ?? false))
             IconButton(
               icon: Icon(Icons.file_download, color: ColorConstants.primary, size: 6.w),

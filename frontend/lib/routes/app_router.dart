@@ -43,7 +43,6 @@ import '../features/reports_and_alerts/break_binding/presentation/brake_binding_
 import '../features/coach_dashboard/presentation/bloc/coach_dashboard_bloc.dart';
 import '../features/coach_dashboard/presentation/coach_dashboard_screen.dart';
 import '../features/passenger_service/presentation/hardware_issue_report_screen.dart';
-import '../features/passenger_service/presentation/hardware_issue_simulator_screen.dart';
 
 class AppRouter {
   static const String splashRoute = '/';
@@ -74,7 +73,6 @@ class AppRouter {
   static const String alertsRoute = '/alerts';
   static const String coachDashboardRoute = '/coach_dashboard';
   static const String serviceRequestReportRoute = '/service-request-report';
-  static const String hardwareIssueSimulatorRoute = '/hardware-issue-simulator';
 
   static final router = GoRouter(
     initialLocation: splashRoute,
@@ -262,10 +260,6 @@ class AppRouter {
       GoRoute(
         path: serviceRequestReportRoute,
         builder: (context, state) => const HardwareIssueReportScreen(),
-      ),
-      GoRoute(
-        path: hardwareIssueSimulatorRoute,
-        builder: (context, state) => const HardwareIssueSimulatorScreen(),
       ),
 
     ],
