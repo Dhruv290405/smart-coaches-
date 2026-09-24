@@ -85,7 +85,7 @@ const HardwareIssueModel = {
     return data;
   },
 
-  async getAll({ status, coachNo, trainNo, compartmentNo, deviceId, dateFrom, dateTo, limit = 200 } = {}) {
+  async getAll({ status, coachNo, trainNo, compartmentNo, deviceId, issueType, dateFrom, dateTo, limit = 200 } = {}) {
     try {
       let query = supabaseAdmin
         .from("hardware_issues")
@@ -97,6 +97,7 @@ const HardwareIssueModel = {
       if (trainNo) query = query.eq("train_no", trainNo);
       if (compartmentNo) query = query.eq("compartment_no", compartmentNo);
       if (deviceId) query = query.eq("device_id", deviceId);
+      if (issueType) query = query.eq("issue_type", issueType);
       if (dateFrom) query = query.gte("opened_at", dateFrom);
       if (dateTo) query = query.lte("opened_at", dateTo);
 
@@ -109,7 +110,7 @@ const HardwareIssueModel = {
     }
   },
 
-  async getReportSummary({ dateFrom, dateTo, trainNo, coachNo, compartmentNo, deviceId } = {}) {
+  async getReportSummary({ dateFrom, dateTo, trainNo, coachNo, compartmentNo, deviceId, issueType } = {}) {
     let query = supabaseAdmin
       .from("hardware_issues")
       .select("*")
@@ -121,6 +122,7 @@ const HardwareIssueModel = {
     if (coachNo) query = query.eq("coach_no", coachNo);
     if (compartmentNo) query = query.eq("compartment_no", compartmentNo);
     if (deviceId) query = query.eq("device_id", deviceId);
+    if (issueType) query = query.eq("issue_type", issueType);
 
     const { data, error } = await query;
     if (error) {
@@ -138,6 +140,10 @@ const HardwareIssueModel = {
       linen: { count: 0, responseSeconds: 0 },
       cleaning: { count: 0, responseSeconds: 0 },
     };
+    const typeStats = {
+      linen: { requested: 0, responded: 0, pending: 0, responseSeconds: 0 },
+      cleaning: { requested: 0, responded: 0, pending: 0, responseSeconds: 0 },
+    };
     const byDay = {};
     const peakHours = Array.from({ length: 24 }, (_, h) => ({
       hour: h,
@@ -151,6 +157,16 @@ const HardwareIssueModel = {
       const type = r.issue_type || "unknown";
       if (!byType[type]) byType[type] = { count: 0, responseSeconds: 0 };
       byType[type].count++;
+
+      if (typeStats[type]) {
+        typeStats[type].requested++;
+        if (r.status === "closed") {
+          typeStats[type].responded++;
+          if (r.response_seconds) typeStats[type].responseSeconds += r.response_seconds;
+        } else {
+          typeStats[type].pending++;
+        }
+      }
 
       if (r.opened_at) {
         const d = new Date(r.opened_at);
@@ -198,6 +214,20 @@ const HardwareIssueModel = {
       shareByType.cleaning = Math.round(((byType.cleaning?.count || 0) / totalCount) * 100);
     }
 
+    const typeBreakdown = {};
+    Object.keys(typeStats).forEach((t) => {
+      const s = typeStats[t];
+      typeBreakdown[t] = {
+        requested: s.requested,
+        responded: s.responded,
+        pending: s.pending,
+        responseRate:
+          s.requested > 0 ? Math.round((s.responded / s.requested) * 100) : 0,
+        avgResponseSeconds:
+          s.responded > 0 ? Math.round(s.responseSeconds / s.responded) : null,
+      };
+    });
+
     return {
       totalCount,
       openCount,
@@ -206,6 +236,7 @@ const HardwareIssueModel = {
       cleaningCount: byType.cleaning?.count || 0,
       avgResponseSeconds,
       shareByType,
+      typeStats: typeBreakdown,
       byDay: Object.values(byDay).sort((a, b) => a.date.localeCompare(b.date)),
       peakHours,
       resolvedPerHour,
