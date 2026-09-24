@@ -299,6 +299,10 @@ class _HardwareIssueReportScreenState extends State<HardwareIssueReportScreen> {
                         const SizedBox(height: AppDimensions.paddingLarge),
                         _buildSectionCard(child: _buildPeakTimeSection()),
                         const SizedBox(height: AppDimensions.paddingLarge),
+                        _buildSectionCard(child: _buildRequestedRespondedSection()),
+                        const SizedBox(height: AppDimensions.paddingLarge),
+                        _buildSectionCard(child: _buildResponseTimeSection()),
+                        const SizedBox(height: AppDimensions.paddingLarge),
                         _buildSectionCard(child: _buildResponseSection()),
                         const SizedBox(height: AppDimensions.paddingLarge),
                         _buildIssuesTable(),
@@ -955,41 +959,168 @@ class _HardwareIssueReportScreenState extends State<HardwareIssueReportScreen> {
   }
 
 
-  // ----------------------------- PEAK CALL TIME -----------------------------
+  // ----------------------------- PEAK TIME -----------------------------
 
   Widget _buildPeakTimeSection() {
     final peak = List<Map<String, dynamic>>.from(_report!['peakHours'] ?? []);
-    final hasData = peak.any((p) =>
-        (p['count'] ?? 0) > 0 ||
-        (p['resolved'] ?? 0) > 0 ||
-        (p['responseCount'] ?? 0) > 0);
+    final requested = List.generate(
+        24, (h) => ((peak[h]['count'] ?? 0) as num).toDouble());
+    final hasData = requested.any((v) => v > 0);
+
+    var peakHour = 0;
+    var peakCount = 0.0;
+    for (var h = 0; h < 24; h++) {
+      if (requested[h] > peakCount) {
+        peakCount = requested[h];
+        peakHour = h;
+      }
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Hourly Activity', style: AppTextStyles.header2),
+        Text('Peak Time', style: AppTextStyles.header2),
         const SizedBox(height: 4),
         Text(
-          'Requested vs Resolved (bars) · Avg Response (line)',
+          'Hour of the day with the highest number of requests',
           style: GoogleFonts.poppins(
             fontSize: 10,
             color: ColorConstants.textTertiary,
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 14),
+        if (!hasData)
+          _emptyChart('No requests recorded')
+        else ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: _responseColor.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
+              border: Border.all(color: _responseColor.withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.local_fire_department,
+                    color: _responseColor, size: 18),
+                const SizedBox(width: 8),
+                Text(
+                  'Busiest hour: ',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: ColorConstants.textSecondary,
+                  ),
+                ),
+                Text(
+                  '${_hourLabel(peakHour)} · ${peakCount.toInt()} requests',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: _responseColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 180,
+            child: _hourlyBarChart(
+              series: [requested],
+              colors: [_requestedColor],
+              names: ['Requests'],
+              formatValue: (v) => v.toInt().toString(),
+              highlightHour: peakHour,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  // ----------------------- REQUESTED VS RESPONDED -----------------------
+
+  Widget _buildRequestedRespondedSection() {
+    final peak = List<Map<String, dynamic>>.from(_report!['peakHours'] ?? []);
+    final requested = List.generate(
+        24, (h) => ((peak[h]['count'] ?? 0) as num).toDouble());
+    final responded = List.generate(
+        24, (h) => ((peak[h]['resolved'] ?? 0) as num).toDouble());
+    final hasData = requested.any((v) => v > 0) || responded.any((v) => v > 0);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Requested vs Responded', style: AppTextStyles.header2),
+        const SizedBox(height: 4),
+        Text(
+          'Number of requests received and responded, per hour',
+          style: GoogleFonts.poppins(
+            fontSize: 10,
+            color: ColorConstants.textTertiary,
+          ),
+        ),
+        const SizedBox(height: 14),
         Row(
           children: [
             _chartLegendDot(_requestedColor, 'Requested'),
-            const SizedBox(width: 14),
-            _chartLegendDot(_resolvedColor, 'Resolved'),
-            const SizedBox(width: 14),
-            _chartLegendDot(_responseColor, 'Avg Response'),
+            const SizedBox(width: 16),
+            _chartLegendDot(_resolvedColor, 'Responded'),
           ],
         ),
         const SizedBox(height: 14),
         if (!hasData)
           _emptyChart('No requests recorded')
         else
-          SizedBox(height: 220, child: _buildPeakComboChart(peak)),
+          SizedBox(
+            height: 190,
+            child: _hourlyBarChart(
+              series: [requested, responded],
+              colors: [_requestedColor, _resolvedColor],
+              names: ['Requested', 'Responded'],
+              formatValue: (v) => v.toInt().toString(),
+            ),
+          ),
+      ],
+    );
+  }
+
+  // ----------------------- AVG RESPONSE TIME -----------------------
+
+  Widget _buildResponseTimeSection() {
+    final peak = List<Map<String, dynamic>>.from(_report!['peakHours'] ?? []);
+    final avgResp = List.generate(24, (h) {
+      final s = (peak[h]['responseSeconds'] ?? 0) as num;
+      final c = (peak[h]['responseCount'] ?? 0) as num;
+      return c > 0 ? s / c : 0.0;
+    });
+    final hasData = avgResp.any((v) => v > 0);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Average Response Time', style: AppTextStyles.header2),
+        const SizedBox(height: 4),
+        Text(
+          'Mean time taken to respond to requests, per hour',
+          style: GoogleFonts.poppins(
+            fontSize: 10,
+            color: ColorConstants.textTertiary,
+          ),
+        ),
+        const SizedBox(height: 14),
+        if (!hasData)
+          _emptyChart('No responses recorded')
+        else
+          SizedBox(
+            height: 190,
+            child: _hourlyBarChart(
+              series: [avgResp],
+              colors: [_responseColor],
+              names: ['Avg Response'],
+              formatValue: (v) => v <= 0 ? '-' : _fmtResponse(v.round()),
+            ),
+          ),
       ],
     );
   }
@@ -1019,227 +1150,127 @@ class _HardwareIssueReportScreenState extends State<HardwareIssueReportScreen> {
     );
   }
 
-  Widget _buildPeakComboChart(List<Map<String, dynamic>> peak) {
-    final requested = List.generate(
-        24, (h) => ((peak[h]['count'] ?? 0) as num).toDouble());
-    final resolved = List.generate(
-        24, (h) => ((peak[h]['resolved'] ?? 0) as num).toDouble());
-    final avgResp = List.generate(24, (h) {
-      final s = (peak[h]['responseSeconds'] ?? 0) as num;
-      final c = (peak[h]['responseCount'] ?? 0) as num;
-      return c > 0 ? s / c : 0.0;
-    });
+  Widget _hourlyBarChart({
+    required List<List<double>> series,
+    required List<Color> colors,
+    required List<String> names,
+    required String Function(double) formatValue,
+    int? highlightHour,
+  }) {
+    final flat = series.expand((s) => s).toList();
+    final maxVal = flat.fold<double>(0, (m, v) => v > m ? v : m);
+    final maxY = (maxVal == 0 ? 1.0 : maxVal) * 1.25;
+    final interval = _niceIntervalInterval(maxVal.toInt());
+    final isSingle = series.length == 1;
 
-    final maxCount = <double>[...requested, ...resolved]
-        .fold<double>(0, (m, v) => v > m ? v : m);
-    final maxResp = avgResp.fold<double>(0, (m, v) => v > m ? v : m);
-    final maxY = (maxCount == 0 ? 1.0 : maxCount) * 1.25;
-    final respFactor = maxResp == 0 ? 0.0 : maxY / maxResp;
-
-    final leftTitles = AxisTitles(
-      sideTitles: SideTitles(
-        showTitles: true,
-        reservedSize: 26,
-        interval: _niceIntervalInterval(maxCount.toInt()),
-        getTitlesWidget: (value, meta) => Text(
-          value.toInt().toString(),
-          style: GoogleFonts.poppins(
-              fontSize: 9, color: ColorConstants.textSecondary),
-        ),
-      ),
-    );
-    final rightTitles = AxisTitles(
-      sideTitles: SideTitles(
-        showTitles: true,
-        reservedSize: 34,
-        interval: _niceIntervalInterval(maxCount.toInt()),
-        getTitlesWidget: (value, meta) {
-          if (respFactor == 0) return const SizedBox.shrink();
-          final secs = value / respFactor;
-          return Text(
-            _fmtResponse(secs.round()),
-            style: GoogleFonts.poppins(
-                fontSize: 8, color: _responseColor),
-          );
-        },
-      ),
-    );
-    final bottomTitles = AxisTitles(
-      sideTitles: SideTitles(
-        showTitles: true,
-        reservedSize: 26,
-        interval: 3,
-        getTitlesWidget: (value, meta) => Padding(
-          padding: const EdgeInsets.only(top: 6),
-          child: Text(
-            _hourLabel(value.toInt()),
-            style: GoogleFonts.poppins(
-                fontSize: 8, color: ColorConstants.textSecondary),
-          ),
-        ),
-      ),
-    );
-
-    return Stack(
-      children: [
-        BarChart(
-          BarChartData(
-            maxY: maxY,
-            alignment: BarChartAlignment.spaceAround,
-            barTouchData: BarTouchData(
-              touchTooltipData: BarTouchTooltipData(
-                getTooltipColor: (_) => Colors.black87,
-                tooltipPadding: const EdgeInsets.all(8),
-                getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                  if (rodIndex != 0) return null;
-                  final h = group.x;
-                  return BarTooltipItem(
-                    '${_hourLabel(h)}\n',
-                    const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12),
-                    children: [
-                      TextSpan(
-                        text: 'Requested: ${requested[h].toInt()}\n',
-                        style: TextStyle(
-                            color: _requestedColor,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600),
-                      ),
-                      TextSpan(
-                        text: 'Resolved: ${resolved[h].toInt()}\n',
-                        style: TextStyle(
-                            color: _resolvedColor,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600),
-                      ),
-                      TextSpan(
-                        text: 'Avg Resp: ${_fmtResponse(avgResp[h].round())}',
-                        style: TextStyle(
-                            color: _responseColor,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600),
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ),
-            gridData: FlGridData(
-              show: true,
-              drawVerticalLine: false,
-              horizontalInterval: _niceIntervalInterval(maxCount.toInt()),
-              getDrawingHorizontalLine: (value) => FlLine(
-                color: ColorConstants.divider,
-                strokeWidth: 1,
-                dashArray: [4, 4],
-              ),
-            ),
-            borderData: FlBorderData(show: false),
-            titlesData: FlTitlesData(
-              leftTitles: leftTitles,
-              rightTitles: rightTitles,
-              topTitles:
-                  const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-              bottomTitles: bottomTitles,
-            ),
-            barGroups: List.generate(24, (h) {
-              return BarChartGroupData(
-                x: h,
-                barsSpace: 1.5,
-                barRods: [
-                  BarChartRodData(
-                    toY: requested[h],
-                    color: _requestedColor,
-                    width: 4,
-                    borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(2)),
+    return BarChart(
+      BarChartData(
+        maxY: maxY,
+        alignment: BarChartAlignment.spaceAround,
+        barTouchData: BarTouchData(
+          touchTooltipData: BarTouchTooltipData(
+            getTooltipColor: (_) => Colors.black87,
+            tooltipPadding: const EdgeInsets.all(8),
+            getTooltipItem: (group, groupIndex, rod, rodIndex) {
+              if (rodIndex != 0) return null;
+              final h = group.x;
+              return BarTooltipItem(
+                '${_hourLabel(h)}\n',
+                const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12),
+                children: List.generate(
+                  series.length,
+                  (i) => TextSpan(
+                    text:
+                        '${names[i]}: ${formatValue(series[i][h])}${i < series.length - 1 ? '\n' : ''}',
+                    style: TextStyle(
+                        color: colors[i],
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600),
                   ),
-                  BarChartRodData(
-                    toY: resolved[h],
-                    color: _resolvedColor,
-                    width: 4,
-                    borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(2)),
-                  ),
-                ],
+                ),
               );
-            }),
+            },
           ),
         ),
-        IgnorePointer(
-          child: LineChart(
-            LineChartData(
-              minX: -0.5,
-              maxX: 23.5,
-              minY: 0,
-              maxY: maxY,
-              clipData: const FlClipData.all(),
-              gridData: const FlGridData(show: false),
-              borderData: FlBorderData(show: false),
-              lineTouchData: const LineTouchData(enabled: false),
-              titlesData: FlTitlesData(
-                leftTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    reservedSize: 26,
-                    getTitlesWidget: (v, m) => const SizedBox.shrink(),
-                  ),
-                ),
-                rightTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    reservedSize: 34,
-                    getTitlesWidget: (v, m) => const SizedBox.shrink(),
-                  ),
-                ),
-                topTitles: const AxisTitles(
-                    sideTitles: SideTitles(showTitles: false)),
-                bottomTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    reservedSize: 26,
-                    getTitlesWidget: (v, m) => const SizedBox.shrink(),
-                  ),
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: false,
+          horizontalInterval: interval,
+          getDrawingHorizontalLine: (value) => FlLine(
+            color: ColorConstants.divider,
+            strokeWidth: 1,
+            dashArray: [4, 4],
+          ),
+        ),
+        borderData: FlBorderData(show: false),
+        titlesData: FlTitlesData(
+          leftTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 30,
+              interval: interval,
+              getTitlesWidget: (value, meta) => Text(
+                formatValue(value),
+                style: GoogleFonts.poppins(
+                    fontSize: 9, color: ColorConstants.textSecondary),
+              ),
+            ),
+          ),
+          rightTitles:
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          topTitles:
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 26,
+              interval: 3,
+              getTitlesWidget: (value, meta) => Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  _hourLabel(value.toInt()),
+                  style: GoogleFonts.poppins(
+                      fontSize: 8, color: ColorConstants.textSecondary),
                 ),
               ),
-              lineBarsData: [
-                LineChartBarData(
-                  spots: List.generate(
-                    24,
-                    (h) => FlSpot(h.toDouble(), avgResp[h] * respFactor),
-                  ),
-                  isCurved: true,
-                  curveSmoothness: 0.3,
-                  barWidth: 2.5,
-                  isStrokeCapRound: true,
-                  color: _responseColor,
-                  dotData: FlDotData(
-                    show: true,
-                    getDotPainter: (spot, percent, barData, index) {
-                      if (avgResp[index].round() == 0) {
-                        return FlDotCirclePainter(
-                          radius: 0,
-                          color: Colors.transparent,
-                          strokeWidth: 0,
-                          strokeColor: Colors.transparent,
-                        );
-                      }
-                      return FlDotCirclePainter(
-                        radius: 3,
-                        color: _responseColor,
-                        strokeWidth: 1.5,
-                        strokeColor: Colors.white,
-                      );
-                    },
-                  ),
+            ),
+          ),
+        ),
+        barGroups: List.generate(24, (h) {
+          if (isSingle) {
+            final isPeak = h == highlightHour;
+            return BarChartGroupData(
+              x: h,
+              barRods: [
+                BarChartRodData(
+                  toY: series[0][h],
+                  color: isPeak ? _responseColor : colors[0],
+                  width: 7,
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(3)),
                 ),
               ],
+            );
+          }
+          return BarChartGroupData(
+            x: h,
+            barsSpace: 1.5,
+            barRods: List.generate(
+              series.length,
+              (i) => BarChartRodData(
+                toY: series[i][h],
+                color: colors[i],
+                width: 4,
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(2)),
+              ),
             ),
-          ),
-        ),
-      ],
+          );
+        }),
+      ),
     );
   }
 
