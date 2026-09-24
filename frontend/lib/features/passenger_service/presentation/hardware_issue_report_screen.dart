@@ -35,10 +35,9 @@ class _HardwareIssueReportScreenState extends State<HardwareIssueReportScreen> {
   // Chart selection state (persistent until another point is tapped).
   int _touchedPieIndex = -1;
   int? _selectedPeakHour;
-  int? _selectedCompareHour;
   int? _selectedRespHour;
   int? _selectedDayIndex;
-
+  int? _selectedActivityIndex;
   String _selectedTrain = 'All Trains';
   String _selectedCoach = 'All Coach Types';
   String _selectedCompartment = 'All Compartments';
@@ -184,7 +183,7 @@ class _HardwareIssueReportScreenState extends State<HardwareIssueReportScreen> {
       _selectedType = 'All Types';
       _selectedRange = 'All';
       _selectedPeakHour = null;
-      _selectedCompareHour = null;
+      _selectedActivityIndex = null;
       _selectedRespHour = null;
       _selectedDayIndex = null;
     });
@@ -226,7 +225,7 @@ class _HardwareIssueReportScreenState extends State<HardwareIssueReportScreen> {
           _report = body['data'];
           _touchedPieIndex = -1;
           _selectedPeakHour = null;
-          _selectedCompareHour = null;
+          _selectedActivityIndex = null;
           _selectedRespHour = null;
           _selectedDayIndex = null;
         });
@@ -526,7 +525,7 @@ class _HardwareIssueReportScreenState extends State<HardwareIssueReportScreen> {
                         const SizedBox(height: AppDimensions.paddingLarge),
                         _sectionCard(child: _buildPeakTimeSection()),
                         const SizedBox(height: AppDimensions.paddingLarge),
-                        _sectionCard(child: _buildRequestedRespondedSection()),
+                        _sectionCard(child: _buildActivityTimelineSection()),
                         const SizedBox(height: AppDimensions.paddingLarge),
                         _sectionCard(child: _buildTypeComparisonSection()),
                         const SizedBox(height: AppDimensions.paddingLarge),
@@ -1050,111 +1049,164 @@ class _HardwareIssueReportScreenState extends State<HardwareIssueReportScreen> {
     );
   }
 
-  // ----------------------------- REQUESTED VS RESPONDED -----------------------------
+  // ----------------------------- REQUEST / RESPONSE TIMELINE -----------------------------
 
-  Widget _buildRequestedRespondedSection() {
-    final peak = List<Map<String, dynamic>>.from(_report!['peakHours'] ?? []);
-    final requested = List.generate(24, (h) => ((peak[h]['count'] ?? 0) as num).toDouble());
-    final responded = List.generate(24, (h) => ((peak[h]['resolved'] ?? 0) as num).toDouble());
-    final hasData = requested.any((v) => v > 0) || responded.any((v) => v > 0);
-    final sel = _selectedCompareHour;
-
-    String bannerTitle;
-    String bannerValue;
-    if (sel != null) {
-      final req = requested[sel].toInt();
-      final res = responded[sel].toInt();
-      final pend = (req - res).clamp(0, req);
-      final rate = req > 0 ? (res / req * 100).round() : 0;
-      bannerTitle = _hourLabel(sel);
-      bannerValue = 'Req $req · Resp $res · Pend $pend · $rate%';
-    } else {
-      final req = requested.fold<int>(0, (a, b) => a + b.toInt());
-      final res = responded.fold<int>(0, (a, b) => a + b.toInt());
-      final rate = req > 0 ? (res / req * 100).round() : 0;
-      bannerTitle = 'All hours';
-      bannerValue = 'Req $req · Resp $res · $rate%';
+  Widget _buildActivityTimelineSection() {
+    final rows = List<Map<String, dynamic>>.from(_report!['requests'] ?? []);
+    final events = <_ActivityEvent>[];
+    for (final r in rows) {
+      final reqAt = _tryParse(r['opened_at']);
+      if (reqAt == null) continue;
+      events.add(_ActivityEvent(r: r, requestAt: reqAt, responseAt: _tryParse(r['closed_at'])));
     }
+    events.sort((a, b) => a.requestAt.compareTo(b.requestAt));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _sectionHeader('Requested vs Responded', subtitle: 'Requests received and responded, per hour'),
+        _sectionHeader('Request / Response Timeline',
+            subtitle: 'Each event plotted over time — line length shows how long the response took'),
         const SizedBox(height: 12),
-        Row(
+        Wrap(
+          spacing: 16,
+          runSpacing: 6,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            _legendDot(_requestedColor, 'Requested'),
-            const SizedBox(width: 16),
-            _legendDot(_resolvedColor, 'Responded'),
+            _legendDot(_requestedColor, 'Request'),
+            _legendDot(_resolvedColor, 'Response'),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(width: 18, height: 2, color: _responseColor),
+                const SizedBox(width: 5),
+                Text('Time taken',
+                    style: GoogleFonts.poppins(
+                        fontSize: 10.5, fontWeight: FontWeight.w600, color: ColorConstants.textSecondary)),
+              ],
+            ),
           ],
         ),
         const SizedBox(height: 12),
-        if (!hasData)
+        if (events.isEmpty)
           _emptyState('No service requests for the selected period.')
         else ...[
-          _infoBanner(icon: Icons.info_outline, color: _requestedColor, title: bannerTitle, value: bannerValue),
+          _activityBanner(events),
           const SizedBox(height: 14),
-          SizedBox(height: 190, child: _compareBarChart(requested, responded, sel)),
+          SizedBox(height: 220, child: _activityChart(events)),
           const SizedBox(height: 6),
-          Text('Tap a bar to see requested, responded, pending and response rate',
+          Text('Tap any point to see that request / response detail',
               style: GoogleFonts.poppins(fontSize: 9.5, color: ColorConstants.textTertiary)),
         ],
       ],
     );
   }
 
-  Widget _compareBarChart(List<double> requested, List<double> responded, int? selectedHour) {
-    final maxVal = [...requested, ...responded].fold<double>(0, (m, v) => v > m ? v : m);
-    final maxY = (maxVal == 0 ? 1.0 : maxVal) * 1.25;
-    final interval = _niceInterval(maxVal.toInt());
+  Widget _activityBanner(List<_ActivityEvent> events) {
+    final sel = _selectedActivityIndex;
+    if (sel == null || sel < 0 || sel >= events.length) {
+      final pending = events.where((e) => e.responseAt == null).length;
+      return _infoBanner(
+        icon: Icons.timeline,
+        color: _requestedColor,
+        title: 'All events',
+        value: 'Req ${events.length} · Resp ${events.length - pending} · Pending $pending',
+      );
+    }
+    final e = events[sel];
+    final r = e.r;
+    final dur = e.responseAt == null
+        ? 'Pending — no response yet'
+        : _fmtResponse(e.responseAt!.difference(e.requestAt).inSeconds);
+    return _infoBanner(
+      icon: e.responseAt == null ? Icons.hourglass_empty : Icons.check_circle_outline,
+      color: e.responseAt == null ? _pendingColor : _resolvedColor,
+      title: '${r['coach_no'] ?? ''} / ${_formatType('${r['issue_type'] ?? ''}')} · ${_fmtDateTime('${r['opened_at'] ?? ''}')}',
+      value: 'Time: $dur',
+    );
+  }
 
-    return BarChart(
-      BarChartData(
-        maxY: maxY,
-        alignment: BarChartAlignment.spaceAround,
-        barTouchData: BarTouchData(
-          touchTooltipData: BarTouchTooltipData(
-            getTooltipColor: (_) => Colors.black87,
-            tooltipPadding: const EdgeInsets.all(8),
-            getTooltipItem: (group, groupIndex, rod, rodIndex) {
-              if (rodIndex != 0) return null;
-              final h = group.x;
-              final req = requested[h].toInt();
-              final res = responded[h].toInt();
-              final pend = (req - res).clamp(0, req);
-              final rate = req > 0 ? (res / req * 100).round() : 0;
-              return BarTooltipItem(
-                '${_hourLabel(h)}\n',
-                const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
-                children: [
-                  TextSpan(text: 'Requested     $req\n', style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w600)),
-                  TextSpan(text: 'Responded     $res\n', style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w600)),
-                  TextSpan(text: 'Pending       $pend\n', style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w600)),
-                  TextSpan(text: 'Response Rate $rate%', style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w600)),
-                ],
+  Widget _activityChart(List<_ActivityEvent> events) {
+    final times = <DateTime>[];
+    for (final e in events) {
+      times.add(e.requestAt);
+      if (e.responseAt != null) times.add(e.responseAt!);
+    }
+    times.sort();
+    final minTime = times.first;
+    final spanMin = times.last.difference(minTime).inSeconds / 60.0;
+    double xOf(DateTime t) => t.difference(minTime).inSeconds / 60.0;
+    final maxX = (spanMin <= 0 ? 1.0 : spanMin) * 1.02;
+    final labelInterval = _niceTimeInterval(spanMin);
+    final selected = _selectedActivityIndex;
+
+    final bars = <LineChartBarData>[];
+    for (var i = 0; i < events.length; i++) {
+      final e = events[i];
+      final isSel = i == selected;
+      final spots = <FlSpot>[FlSpot(xOf(e.requestAt), 1)];
+      if (e.responseAt != null) spots.add(FlSpot(xOf(e.responseAt!), 0));
+      bars.add(
+        LineChartBarData(
+          spots: spots,
+          isCurved: false,
+          color: isSel ? _responseColor : _responseColor.withValues(alpha: 0.4),
+          barWidth: isSel ? 2.4 : 1.4,
+          dotData: FlDotData(
+            show: true,
+            getDotPainter: (spot, percent, bar, index) {
+              final isRequest = index == 0;
+              return FlDotCirclePainter(
+                radius: isSel ? 5 : 3.4,
+                color: isRequest ? _requestedColor : _resolvedColor,
+                strokeWidth: isSel ? 1.6 : 0,
+                strokeColor: isSel ? Colors.white : Colors.transparent,
               );
             },
           ),
-          touchCallback: (event, response) {
-            if (event is FlTapUpEvent && response?.spot != null) {
-              setState(() => _selectedCompareHour = response!.spot!.touchedBarGroupIndex);
-            }
-          },
         ),
-        gridData: FlGridData(
-          show: true,
-          drawVerticalLine: false,
-          horizontalInterval: interval,
-          getDrawingHorizontalLine: (value) => FlLine(color: ColorConstants.divider, strokeWidth: 1, dashArray: [4, 4]),
+      );
+    }
+
+    return LineChart(
+      LineChartData(
+        minX: 0,
+        maxX: maxX,
+        minY: -0.5,
+        maxY: 1.5,
+        clipData: const FlClipData.all(),
+        extraLinesData: ExtraLinesData(
+          horizontalLines: [
+            HorizontalLine(y: 0, color: ColorConstants.divider, strokeWidth: 1, dashArray: [4, 4]),
+            HorizontalLine(y: 1, color: ColorConstants.divider, strokeWidth: 1, dashArray: [4, 4]),
+          ],
         ),
+        gridData: const FlGridData(show: false),
         borderData: FlBorderData(show: false),
         titlesData: FlTitlesData(
           leftTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
-              reservedSize: 26,
-              interval: interval,
-              getTitlesWidget: (value, meta) => Text(value.toInt().toString(), style: GoogleFonts.poppins(fontSize: 9, color: ColorConstants.textSecondary)),
+              reservedSize: 60,
+              interval: 0.5,
+              getTitlesWidget: (value, meta) {
+                if ((value - 1).abs() < 0.01) {
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: Text('Request',
+                        style: GoogleFonts.poppins(
+                            fontSize: 9.5, fontWeight: FontWeight.w700, color: _requestedColor)),
+                  );
+                }
+                if (value.abs() < 0.01) {
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: Text('Response',
+                        style: GoogleFonts.poppins(
+                            fontSize: 9.5, fontWeight: FontWeight.w700, color: _resolvedColor)),
+                  );
+                }
+                return const SizedBox.shrink();
+              },
             ),
           ),
           rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -1162,40 +1214,84 @@ class _HardwareIssueReportScreenState extends State<HardwareIssueReportScreen> {
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
-              reservedSize: 24,
-              interval: 3,
+              reservedSize: 26,
+              interval: labelInterval,
               getTitlesWidget: (value, meta) => Padding(
                 padding: const EdgeInsets.only(top: 6),
-                child: Text(_hourLabel(value.toInt()), style: GoogleFonts.poppins(fontSize: 8, color: ColorConstants.textSecondary)),
+                child: Text(_activityTimeLabel(minTime, value, spanMin),
+                    style: GoogleFonts.poppins(fontSize: 8, color: ColorConstants.textSecondary)),
               ),
             ),
           ),
         ),
-        barGroups: List.generate(24, (h) {
-          final isSel = h == selectedHour;
-          return BarChartGroupData(
-            x: h,
-            barsSpace: 1.5,
-            barRods: [
-              BarChartRodData(
-                toY: requested[h],
-                color: _requestedColor,
-                width: 4,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(2)),
-                borderSide: isSel ? const BorderSide(color: Colors.black45, width: 0.8) : BorderSide.none,
-              ),
-              BarChartRodData(
-                toY: responded[h],
-                color: _resolvedColor,
-                width: 4,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(2)),
-                borderSide: isSel ? const BorderSide(color: Colors.black45, width: 0.8) : BorderSide.none,
-              ),
-            ],
-          );
-        }),
+        lineTouchData: LineTouchData(
+          enabled: true,
+          handleBuiltInTouches: true,
+          touchTooltipData: LineTouchTooltipData(
+            getTooltipColor: (_) => Colors.black87,
+            tooltipPadding: const EdgeInsets.all(8),
+            getTooltipItems: (spots) => spots.map((s) {
+              final e = events[s.barIndex];
+              final r = e.r;
+              final dur = e.responseAt == null
+                  ? 'Pending'
+                  : _fmtResponse(e.responseAt!.difference(e.requestAt).inSeconds);
+              return LineTooltipItem(
+                '${r['coach_no'] ?? ''} / Comp ${r['compartment_no'] ?? ''}\n',
+                const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
+                children: [
+                  TextSpan(
+                      text: '${_formatType('${r['issue_type'] ?? ''}')}\n',
+                      style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w600)),
+                  TextSpan(
+                      text: 'Req   ${DateFormat('HH:mm:ss').format(e.requestAt)}\n',
+                      style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w600)),
+                  TextSpan(
+                      text: e.responseAt == null
+                          ? 'Resp  —\n'
+                          : 'Resp  ${DateFormat('HH:mm:ss').format(e.responseAt!)}\n',
+                      style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w600)),
+                  TextSpan(
+                      text: 'Time  $dur',
+                      style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w600)),
+                ],
+              );
+            }).toList(),
+          ),
+          touchCallback: (event, response) {
+            final spots = response?.lineBarSpots;
+            if (event is FlTapUpEvent && spots != null && spots.isNotEmpty) {
+              setState(() => _selectedActivityIndex = spots.first.barIndex);
+            }
+          },
+        ),
+        lineBarsData: bars,
       ),
     );
+  }
+
+  DateTime? _tryParse(dynamic v) {
+    if (v == null) return null;
+    final s = v.toString();
+    if (s.isEmpty) return null;
+    return DateTime.tryParse(s);
+  }
+
+  double _niceTimeInterval(double spanMinutes) {
+    if (spanMinutes <= 0) return 1;
+    final raw = spanMinutes / 6;
+    const steps = [1, 2, 5, 10, 15, 30, 60, 120, 180, 360, 720, 1440, 2880, 4320, 10080];
+    for (final s in steps) {
+      if (raw <= s) return s.toDouble();
+    }
+    return (raw / 10080).ceil() * 10080.0;
+  }
+
+  String _activityTimeLabel(DateTime minTime, double x, double spanMin) {
+    final dt = minTime.add(Duration(minutes: x.round()));
+    if (spanMin > 2 * 24 * 60) return DateFormat('dd MMM').format(dt);
+    if (spanMin > 24 * 60) return DateFormat('dd MMM HH:mm').format(dt);
+    return DateFormat('HH:mm').format(dt);
   }
 
   // ----------------------------- LINEN VS CLEANING -----------------------------
@@ -1903,4 +1999,11 @@ class _PeakInfo {
   _PeakInfo(this.hour, this.count);
   final int hour;
   final int count;
+}
+
+class _ActivityEvent {
+  _ActivityEvent({required this.r, required this.requestAt, required this.responseAt});
+  final Map<String, dynamic> r;
+  final DateTime requestAt;
+  final DateTime? responseAt;
 }
