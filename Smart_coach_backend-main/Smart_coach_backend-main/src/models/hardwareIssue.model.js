@@ -139,7 +139,13 @@ const HardwareIssueModel = {
       cleaning: { count: 0, responseSeconds: 0 },
     };
     const byDay = {};
-    const peakHours = Array.from({ length: 24 }, (_, h) => ({ hour: h, count: 0 }));
+    const peakHours = Array.from({ length: 24 }, (_, h) => ({
+      hour: h,
+      count: 0,
+      resolved: 0,
+      responseSeconds: 0,
+      responseCount: 0,
+    }));
 
     rows.forEach(r => {
       const type = r.issue_type || "unknown";
@@ -156,11 +162,27 @@ const HardwareIssueModel = {
         peakHours[d.getHours()].count++;
       }
 
+      if (r.status === "closed" && r.closed_at) {
+        const res = peakHours[new Date(r.closed_at).getHours()];
+        res.resolved++;
+        if (r.response_seconds) {
+          res.responseSeconds += r.response_seconds;
+          res.responseCount++;
+        }
+      }
+
       if (r.status === "closed" && r.response_seconds) {
         if (!byType[type].responseSeconds) byType[type].responseSeconds = 0;
         byType[type].responseSeconds += r.response_seconds;
       }
     });
+
+    const resolvedPerHour = peakHours.map(h => ({
+      hour: h.hour,
+      resolved: h.resolved,
+      avgResponseSeconds:
+        h.responseCount > 0 ? Math.round(h.responseSeconds / h.responseCount) : null,
+    }));
 
     const totalResponseSeconds = Object.values(byType).reduce(
       (sum, t) => sum + t.responseSeconds, 0
@@ -186,6 +208,7 @@ const HardwareIssueModel = {
       shareByType,
       byDay: Object.values(byDay).sort((a, b) => a.date.localeCompare(b.date)),
       peakHours,
+      resolvedPerHour,
       requests: rows.slice(0, 200),
     };
   },

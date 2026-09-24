@@ -86,7 +86,7 @@ class HardwareIssueReportGenerator {
     final summary = excel['Summary'];
     excel.setDefaultSheet('Summary');
 
-    _header(summary, 0, 0, 'Hardware Issue Report');
+    _header(summary, 0, 0, 'Passenger Service Request');
     _header(summary, 1, 0, 'Generated: ${_fmt(now)} ${DateFormat('HH:mm:ss').format(now)}');
     _blankRow(summary, 2);
 
@@ -158,7 +158,7 @@ class HardwareIssueReportGenerator {
     }
 
     final dir = await getApplicationDocumentsDirectory();
-    final fileName = 'HardwareIssue_Report_${DateFormat('dd-MM-yyyy_HH-mm').format(now)}.xlsx';
+    final fileName = 'PassengerServiceRequest_${DateFormat('dd-MM-yyyy_HH-mm').format(now)}.xlsx';
     final file = File('${dir.path}/$fileName');
     await file.writeAsBytes(excel.encode()!);
     return file;
@@ -184,7 +184,7 @@ class HardwareIssueReportGenerator {
             pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [
-                pw.Text('Hardware Issue Report',
+                pw.Text('Passenger Service Request',
                     style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: PdfColors.blue900)),
                 pw.Text(DateFormat('dd/MM/yyyy HH:mm:ss').format(now),
                     style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey600)),
@@ -224,7 +224,7 @@ class HardwareIssueReportGenerator {
     );
 
     final dir = await getApplicationDocumentsDirectory();
-    final fileName = 'HardwareIssue_Report_${DateFormat('dd-MM-yyyy_HH-mm').format(now)}.pdf';
+    final fileName = 'PassengerServiceRequest_${DateFormat('dd-MM-yyyy_HH-mm').format(now)}.pdf';
     final file = File('${dir.path}/$fileName');
     await file.writeAsBytes(await pdf.save());
     return file;
@@ -248,7 +248,7 @@ class HardwareIssueReportGenerator {
   static String _fmtDateTime(String raw) {
     try {
       final dt = DateTime.parse(raw);
-      return DateFormat('dd/MM/yy HH:mm').format(dt);
+      return DateFormat('dd/MM/yyyy HH:mm:ss').format(dt);
     } catch (_) {
       return raw.isNotEmpty ? raw : '-';
     }
@@ -304,7 +304,7 @@ class HardwareIssueReportGenerator {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Hardware issue report generated successfully.',
+            Text('Passenger service request report generated successfully.',
                 style: const TextStyle(fontSize: 13)),
             const SizedBox(height: 8),
             Container(
@@ -334,7 +334,7 @@ class HardwareIssueReportGenerator {
             style: ElevatedButton.styleFrom(backgroundColor: Colors.blueGrey[700]),
             onPressed: () {
               Navigator.pop(context);
-              Share.shareXFiles([XFile(path)], text: 'Hardware Issue Report');
+              Share.shareXFiles([XFile(path)], text: 'Passenger Service Request');
             },
             child: const Text('Share',
                 style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),

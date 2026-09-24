@@ -29,6 +29,8 @@ class _HardwareIssueReportScreenState extends State<HardwareIssueReportScreen> {
   DateTime? _dateTo;
   Map<String, dynamic>? _report;
   bool _isLoading = false;
+  bool _filtersExpanded = true;
+  int _touchedPieIndex = -1;
 
   String _selectedTrain = 'All Trains';
   String _selectedCoach = 'All Coach Types';
@@ -43,6 +45,9 @@ class _HardwareIssueReportScreenState extends State<HardwareIssueReportScreen> {
 
   static const Color _cleaningColor = Color(0xFF1A9DF8);
   static const Color _linenColor = Color(0xFF8E2DE2);
+  static const Color _requestedColor = Color(0xFF1565C0);
+  static const Color _resolvedColor = Color(0xFF2E7D32);
+  static const Color _responseColor = Color(0xFFE64A19);
 
   @override
   void initState() {
@@ -311,88 +316,128 @@ class _HardwareIssueReportScreenState extends State<HardwareIssueReportScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Filters',
-              style: AppTextStyles.header2.copyWith(color: ColorConstants.primary),
-            ),
-            GestureDetector(
-              onTap: _clearFilters,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: ColorConstants.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Row(children: [
-                  const Icon(Icons.clear_all, size: 14, color: ColorConstants.primary),
-                  const SizedBox(width: 4),
+        InkWell(
+          onTap: () => setState(() => _filtersExpanded = !_filtersExpanded),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
                   Text(
-                    'Clear Filters',
+                    'Filters',
+                    style: AppTextStyles.header2.copyWith(color: ColorConstants.primary),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Train · Coach · Compartment · Unique ID',
                     style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: ColorConstants.primary,
+                      fontSize: 10,
+                      color: ColorConstants.textTertiary,
                     ),
                   ),
-                ]),
+                ],
               ),
-            ),
-          ],
+              Row(
+                children: [
+                  GestureDetector(
+                    onTap: _clearFilters,
+                    child: Container(
+                      margin: const EdgeInsets.only(right: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: ColorConstants.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Row(children: [
+                        const Icon(Icons.clear_all, size: 14, color: ColorConstants.primary),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Clear',
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: ColorConstants.primary,
+                          ),
+                        ),
+                      ]),
+                    ),
+                  ),
+                  AnimatedRotation(
+                    turns: _filtersExpanded ? 0 : 0.5,
+                    duration: const Duration(milliseconds: 200),
+                    child: const Icon(
+                      Icons.keyboard_arrow_down,
+                      color: ColorConstants.iconGrey,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(child: _dateField(isFrom: true)),
-            const SizedBox(width: 8),
-            Expanded(child: _dateField(isFrom: false)),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: FilterDropdown(
-                label: 'Train Number',
-                value: _selectedTrain,
-                items: _trainNumbers,
-                onChanged: (v) => _onTrainChanged(v!),
+        AnimatedCrossFade(
+          duration: const Duration(milliseconds: 200),
+          crossFadeState: _filtersExpanded
+              ? CrossFadeState.showFirst
+              : CrossFadeState.showSecond,
+          firstChild: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(child: _dateField(isFrom: true)),
+                  const SizedBox(width: 8),
+                  Expanded(child: _dateField(isFrom: false)),
+                ],
               ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: FilterDropdown(
-                label: 'Coach Type',
-                value: _selectedCoach,
-                items: _coachTypes,
-                onChanged: (v) => _onCoachChanged(v!),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: FilterDropdown(
+                      label: 'Train Number',
+                      value: _selectedTrain,
+                      items: _trainNumbers,
+                      onChanged: (v) => _onTrainChanged(v!),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: FilterDropdown(
+                      label: 'Coach Type',
+                      value: _selectedCoach,
+                      items: _coachTypes,
+                      onChanged: (v) => _onCoachChanged(v!),
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: FilterDropdown(
-                label: 'Compartment',
-                value: _selectedCompartment,
-                items: _compartments,
-                onChanged: (v) => _onCompartmentChanged(v!),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: FilterDropdown(
+                      label: 'Compartment',
+                      value: _selectedCompartment,
+                      items: _compartments,
+                      onChanged: (v) => _onCompartmentChanged(v!),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: FilterDropdown(
+                      label: 'Unique ID',
+                      value: _selectedUniqueId,
+                      items: _uniqueIds,
+                      onChanged: (v) => _onUniqueIdChanged(v!),
+                    ),
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: FilterDropdown(
-                label: 'Unique ID',
-                value: _selectedUniqueId,
-                items: _uniqueIds,
-                onChanged: (v) => _onUniqueIdChanged(v!),
-              ),
-            ),
-          ],
+            ],
+          ),
+          secondChild: const SizedBox.shrink(),
         ),
       ],
     );
@@ -446,108 +491,62 @@ class _HardwareIssueReportScreenState extends State<HardwareIssueReportScreen> {
 
   Widget _buildKpiSection() {
     final r = _report!;
-    return Column(
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
       children: [
-        Row(
-          children: [
-            _kpiCard(
-              'Total Requests',
-              '${r['totalCount'] ?? 0}',
-              ColorConstants.primary,
-              Icons.assignment_outlined,
-            ),
-            const SizedBox(width: 12),
-            _kpiCard(
-              'Open',
-              '${r['openCount'] ?? 0}',
-              ColorConstants.statusWarning,
-              Icons.error_outline,
-            ),
-            const SizedBox(width: 12),
-            _kpiCard(
-              'Resolved',
-              '${r['closedCount'] ?? 0}',
-              const Color(0xFF2E7D32),
-              Icons.check_circle_outline,
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            _kpiCard(
-              'Cleaning',
-              '${r['cleaningCount'] ?? 0}',
-              _cleaningColor,
-              Icons.cleaning_services_outlined,
-            ),
-            const SizedBox(width: 12),
-            _kpiCard(
-              'Linen',
-              '${r['linenCount'] ?? 0}',
-              _linenColor,
-              Icons.bed_outlined,
-            ),
-            const SizedBox(width: 12),
-            _kpiCard(
-              'Avg Response',
-              _fmtResponse(r['avgResponseSeconds'] as int?),
-              const Color(0xFFE64A19),
-              Icons.timer_outlined,
-            ),
-          ],
-        ),
+        _kpiCard('Total', '${r['totalCount'] ?? 0}', ColorConstants.primary),
+        _kpiCard('Open', '${r['openCount'] ?? 0}', ColorConstants.statusWarning),
+        _kpiCard('Resolved', '${r['closedCount'] ?? 0}', const Color(0xFF2E7D32)),
+        _kpiCard('Cleaning', '${r['cleaningCount'] ?? 0}', _cleaningColor),
+        _kpiCard('Linen', '${r['linenCount'] ?? 0}', _linenColor),
+        _kpiCard('Avg Resp', _fmtResponse(r['avgResponseSeconds'] as int?),
+            const Color(0xFFE64A19)),
       ],
     );
   }
 
-  Widget _kpiCard(String label, String value, Color color, IconData icon) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(AppDimensions.radiusLarge),
-          border: Border.all(color: color.withValues(alpha: 0.2)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [color.withValues(alpha: 0.2), color.withValues(alpha: 0.05)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+  Widget _kpiCard(String label, String value, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: GoogleFonts.poppins(
+                  fontSize: 9,
+                  color: ColorConstants.textTertiary,
                 ),
-                shape: BoxShape.circle,
               ),
-              child: Icon(icon, color: color, size: 16),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              value,
-              style: GoogleFonts.poppins(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: color,
+              Text(
+                value,
+                style: GoogleFonts.poppins(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: color,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: GoogleFonts.poppins(
-                fontSize: 10,
-                color: ColorConstants.textSecondary,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -718,8 +717,13 @@ class _HardwareIssueReportScreenState extends State<HardwareIssueReportScreen> {
     final total = (r['totalCount'] ?? 0) as int;
     final cleaning = (r['cleaningCount'] ?? 0) as int;
     final linen = (r['linenCount'] ?? 0) as int;
-    final cleaningPct = total == 0 ? 0.0 : cleaning / total;
-    final linenPct = total == 0 ? 0.0 : linen / total;
+
+    final entries = <_TypeEntry>[
+      if (cleaning > 0)
+        _TypeEntry('Cleaning', cleaning, _cleaningColor, Icons.cleaning_services_outlined),
+      if (linen > 0)
+        _TypeEntry('Linen', linen, _linenColor, Icons.bed_outlined),
+    ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -739,460 +743,503 @@ class _HardwareIssueReportScreenState extends State<HardwareIssueReportScreen> {
           ],
         ),
         const SizedBox(height: 18),
-        if (total == 0)
+        if (total == 0 || entries.isEmpty)
           _emptyChart('No issues in the selected period')
         else
-          Column(
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: _typeGauge(
-                      color: _cleaningColor,
-                      icon: Icons.cleaning_services_outlined,
-                      label: 'Cleaning',
-                      value: cleaning,
-                      percent: cleaningPct,
-                      highlighted: cleaning >= linen,
-                      onTap: () => _showTypeDetail('Cleaning', cleaning, cleaningPct),
+              SizedBox(
+                width: 180,
+                height: 180,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    PieChart(
+                      PieChartData(
+                        sectionsSpace: 2,
+                        centerSpaceRadius: 44,
+                        startDegreeOffset: -90,
+                        pieTouchData: PieTouchData(
+                          touchCallback: (event, response) {
+                            if (response == null ||
+                                response.touchedSection == null) {
+                              if (_touchedPieIndex != -1) {
+                                setState(() => _touchedPieIndex = -1);
+                              }
+                              return;
+                            }
+                            final idx =
+                                response.touchedSection!.touchedSectionIndex;
+                            if (idx != _touchedPieIndex) {
+                              setState(() => _touchedPieIndex = idx);
+                            }
+                          },
+                        ),
+                        sections: entries.asMap().entries.map((e) {
+                          final selected = e.key == _touchedPieIndex;
+                          final percent = e.value.value / total * 100;
+                          return PieChartSectionData(
+                            value: e.value.value.toDouble(),
+                            color: e.value.color,
+                            radius: selected ? 66 : 56,
+                            showTitle: percent >= 10,
+                            title: '${percent.round()}%',
+                            titleStyle: GoogleFonts.poppins(
+                              fontSize: selected ? 13 : 11,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                            titlePositionPercentageOffset: 0.58,
+                            borderSide: const BorderSide(
+                              color: Colors.white,
+                              width: 2,
+                            ),
+                          );
+                        }).toList(),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _typeGauge(
-                      color: _linenColor,
-                      icon: Icons.bed_outlined,
-                      label: 'Linen',
-                      value: linen,
-                      percent: linenPct,
-                      highlighted: linen > cleaning,
-                      onTap: () => _showTypeDetail('Linen', linen, linenPct),
-                    ),
-                  ),
-                ],
+                    _buildPieCenter(entries, total),
+                  ],
+                ),
               ),
-              const SizedBox(height: 18),
-              _buildProportionBar(cleaningPct, linenPct),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: entries.asMap().entries.map((e) {
+                    final selected = e.key == _touchedPieIndex;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: GestureDetector(
+                        onTap: () => setState(() {
+                          _touchedPieIndex =
+                              _touchedPieIndex == e.key ? -1 : e.key;
+                        }),
+                        child: _pieLegendRow(
+                          e.value,
+                          total,
+                          selected: selected,
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
             ],
           ),
       ],
     );
   }
 
-  Widget _typeGauge({
-    required Color color,
-    required IconData icon,
-    required String label,
-    required int value,
-    required double percent,
-    required bool highlighted,
-    required VoidCallback onTap,
-  }) {
-    final pctText = '${(percent * 100).round()}%';
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 8),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(AppDimensions.radiusLarge),
-          border: Border.all(
-            color: highlighted
-                ? color.withValues(alpha: 0.5)
-                : color.withValues(alpha: 0.15),
-            width: highlighted ? 1.5 : 1,
+  Widget _buildPieCenter(List<_TypeEntry> entries, int total) {
+    if (_touchedPieIndex >= 0 && _touchedPieIndex < entries.length) {
+      final e = entries[_touchedPieIndex];
+      final percent = (e.value / total * 100).round();
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(e.icon, color: e.color, size: 18),
+          const SizedBox(height: 2),
+          Text(
+            '${e.value}',
+            style: GoogleFonts.poppins(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: e.color,
+            ),
+          ),
+          Text(
+            '$percent% ${e.label}',
+            style: GoogleFonts.poppins(
+              fontSize: 9,
+              color: ColorConstants.textSecondary,
+            ),
+          ),
+        ],
+      );
+    }
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          '$total',
+          style: GoogleFonts.poppins(
+            fontSize: 22,
+            fontWeight: FontWeight.w700,
+            color: ColorConstants.textPrimary,
           ),
         ),
-        child: Column(
-          children: [
-            SizedBox(
-              width: 92,
-              height: 92,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  // background full ring
-                  SizedBox(
-                    width: 92,
-                    height: 92,
-                    child: CircularProgressIndicator(
-                      value: 1,
-                      strokeWidth: 9,
-                      strokeCap: StrokeCap.round,
-                      backgroundColor: color.withValues(alpha: 0.12),
-                      valueColor: const AlwaysStoppedAnimation<Color>(Colors.transparent),
-                    ),
-                  ),
-                  // actual progress ring
-                  SizedBox(
-                    width: 92,
-                    height: 92,
-                    child: TweenAnimationBuilder<double>(
-                      tween: Tween(begin: 0, end: percent),
-                      duration: const Duration(milliseconds: 700),
-                      curve: Curves.easeOutCubic,
-                      builder: (context, v, _) => CircularProgressIndicator(
-                        value: v,
-                        strokeWidth: 9,
-                        strokeCap: StrokeCap.round,
-                        backgroundColor: Colors.transparent,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          color.withValues(alpha: 0.12),
-                        ),
-                        color: color,
-                      ),
-                    ),
-                  ),
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: color.withValues(alpha: 0.14),
-                        ),
-                        child: Icon(icon, color: color, size: 16),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        '$value',
-                        style: GoogleFonts.poppins(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: ColorConstants.textPrimary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              label,
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: ColorConstants.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              pctText,
-              style: GoogleFonts.poppins(
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
-                color: color,
-              ),
-            ),
-          ],
+        Text(
+          'Total Issues',
+          style: GoogleFonts.poppins(
+            fontSize: 10,
+            color: ColorConstants.textSecondary,
+          ),
         ),
+        const SizedBox(height: 2),
+        Text(
+          'tap a slice',
+          style: GoogleFonts.poppins(
+            fontSize: 8,
+            color: ColorConstants.textTertiary,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _pieLegendRow(_TypeEntry e, int total, {required bool selected}) {
+    final percent = total == 0 ? 0 : (e.value / total * 100).round();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: selected ? e.color.withValues(alpha: 0.1) : Colors.transparent,
+        borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
+        border: Border.all(
+          color: selected ? e.color.withValues(alpha: 0.4) : ColorConstants.divider,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(color: e.color, shape: BoxShape.circle),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  e.label,
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: ColorConstants.textPrimary,
+                  ),
+                ),
+              ),
+              Text(
+                '${e.value}',
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: e.color,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: LinearProgressIndicator(
+              value: total == 0 ? 0 : e.value / total,
+              minHeight: 5,
+              backgroundColor: ColorConstants.divider.withValues(alpha: 0.6),
+              valueColor: AlwaysStoppedAnimation<Color>(e.color),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '$percent% of total',
+            style: GoogleFonts.poppins(
+              fontSize: 9,
+              color: ColorConstants.textSecondary,
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildProportionBar(double cleaningPct, double linenPct) {
+
+  // ----------------------------- PEAK CALL TIME -----------------------------
+
+  Widget _buildPeakTimeSection() {
+    final peak = List<Map<String, dynamic>>.from(_report!['peakHours'] ?? []);
+    final hasData = peak.any((p) =>
+        (p['count'] ?? 0) > 0 ||
+        (p['resolved'] ?? 0) > 0 ||
+        (p['responseCount'] ?? 0) > 0);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Text('Hourly Activity', style: AppTextStyles.header2),
+        const SizedBox(height: 4),
         Text(
-          'Share of total',
+          'Requested vs Resolved (bars) · Avg Response (line)',
           style: GoogleFonts.poppins(
-            fontSize: 11,
-            fontWeight: FontWeight.w500,
+            fontSize: 10,
+            color: ColorConstants.textTertiary,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            _chartLegendDot(_requestedColor, 'Requested'),
+            const SizedBox(width: 14),
+            _chartLegendDot(_resolvedColor, 'Resolved'),
+            const SizedBox(width: 14),
+            _chartLegendDot(_responseColor, 'Avg Response'),
+          ],
+        ),
+        const SizedBox(height: 14),
+        if (!hasData)
+          _emptyChart('No requests recorded')
+        else
+          SizedBox(height: 220, child: _buildPeakComboChart(peak)),
+      ],
+    );
+  }
+
+  Widget _chartLegendDot(Color color, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
             color: ColorConstants.textSecondary,
           ),
         ),
-        const SizedBox(height: 8),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(6),
-          child: SizedBox(
-            height: 12,
-            child: Stack(
-              children: [
-                Container(color: ColorConstants.divider.withValues(alpha: 0.4)),
-                FractionallySizedBox(
-                  widthFactor: cleaningPct,
-                  child: Container(
-                    color: _cleaningColor,
-                    child: cleaningPct > 0.08
-                        ? Center(
-                            child: Text(
-                              '${(cleaningPct * 100).round()}%',
-                              style: GoogleFonts.poppins(
-                                fontSize: 8,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white,
-                              ),
-                            ),
-                          )
-                        : null,
+      ],
+    );
+  }
+
+  Widget _buildPeakComboChart(List<Map<String, dynamic>> peak) {
+    final requested = List.generate(
+        24, (h) => ((peak[h]['count'] ?? 0) as num).toDouble());
+    final resolved = List.generate(
+        24, (h) => ((peak[h]['resolved'] ?? 0) as num).toDouble());
+    final avgResp = List.generate(24, (h) {
+      final s = (peak[h]['responseSeconds'] ?? 0) as num;
+      final c = (peak[h]['responseCount'] ?? 0) as num;
+      return c > 0 ? s / c : 0.0;
+    });
+
+    final maxCount = <double>[...requested, ...resolved]
+        .fold<double>(0, (m, v) => v > m ? v : m);
+    final maxResp = avgResp.fold<double>(0, (m, v) => v > m ? v : m);
+    final maxY = (maxCount == 0 ? 1.0 : maxCount) * 1.25;
+    final respFactor = maxResp == 0 ? 0.0 : maxY / maxResp;
+
+    final leftTitles = AxisTitles(
+      sideTitles: SideTitles(
+        showTitles: true,
+        reservedSize: 26,
+        interval: _niceIntervalInterval(maxCount.toInt()),
+        getTitlesWidget: (value, meta) => Text(
+          value.toInt().toString(),
+          style: GoogleFonts.poppins(
+              fontSize: 9, color: ColorConstants.textSecondary),
+        ),
+      ),
+    );
+    final rightTitles = AxisTitles(
+      sideTitles: SideTitles(
+        showTitles: true,
+        reservedSize: 34,
+        interval: _niceIntervalInterval(maxCount.toInt()),
+        getTitlesWidget: (value, meta) {
+          if (respFactor == 0) return const SizedBox.shrink();
+          final secs = value / respFactor;
+          return Text(
+            _fmtResponse(secs.round()),
+            style: GoogleFonts.poppins(
+                fontSize: 8, color: _responseColor),
+          );
+        },
+      ),
+    );
+    final bottomTitles = AxisTitles(
+      sideTitles: SideTitles(
+        showTitles: true,
+        reservedSize: 26,
+        interval: 3,
+        getTitlesWidget: (value, meta) => Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Text(
+            _hourLabel(value.toInt()),
+            style: GoogleFonts.poppins(
+                fontSize: 8, color: ColorConstants.textSecondary),
+          ),
+        ),
+      ),
+    );
+
+    return Stack(
+      children: [
+        BarChart(
+          BarChartData(
+            maxY: maxY,
+            alignment: BarChartAlignment.spaceAround,
+            barTouchData: BarTouchData(
+              touchTooltipData: BarTouchTooltipData(
+                getTooltipColor: (_) => Colors.black87,
+                tooltipPadding: const EdgeInsets.all(8),
+                getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                  if (rodIndex != 0) return null;
+                  final h = group.x;
+                  return BarTooltipItem(
+                    '${_hourLabel(h)}\n',
+                    const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12),
+                    children: [
+                      TextSpan(
+                        text: 'Requested: ${requested[h].toInt()}\n',
+                        style: TextStyle(
+                            color: _requestedColor,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600),
+                      ),
+                      TextSpan(
+                        text: 'Resolved: ${resolved[h].toInt()}\n',
+                        style: TextStyle(
+                            color: _resolvedColor,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600),
+                      ),
+                      TextSpan(
+                        text: 'Avg Resp: ${_fmtResponse(avgResp[h].round())}',
+                        style: TextStyle(
+                            color: _responseColor,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+            gridData: FlGridData(
+              show: true,
+              drawVerticalLine: false,
+              horizontalInterval: _niceIntervalInterval(maxCount.toInt()),
+              getDrawingHorizontalLine: (value) => FlLine(
+                color: ColorConstants.divider,
+                strokeWidth: 1,
+                dashArray: [4, 4],
+              ),
+            ),
+            borderData: FlBorderData(show: false),
+            titlesData: FlTitlesData(
+              leftTitles: leftTitles,
+              rightTitles: rightTitles,
+              topTitles:
+                  const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              bottomTitles: bottomTitles,
+            ),
+            barGroups: List.generate(24, (h) {
+              return BarChartGroupData(
+                x: h,
+                barsSpace: 1.5,
+                barRods: [
+                  BarChartRodData(
+                    toY: requested[h],
+                    color: _requestedColor,
+                    width: 4,
+                    borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(2)),
+                  ),
+                  BarChartRodData(
+                    toY: resolved[h],
+                    color: _resolvedColor,
+                    width: 4,
+                    borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(2)),
+                  ),
+                ],
+              );
+            }),
+          ),
+        ),
+        IgnorePointer(
+          child: LineChart(
+            LineChartData(
+              minX: -0.5,
+              maxX: 23.5,
+              minY: 0,
+              maxY: maxY,
+              clipData: const FlClipData.all(),
+              gridData: const FlGridData(show: false),
+              borderData: FlBorderData(show: false),
+              lineTouchData: const LineTouchData(enabled: false),
+              titlesData: FlTitlesData(
+                leftTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 26,
+                    getTitlesWidget: (v, m) => const SizedBox.shrink(),
+                  ),
+                ),
+                rightTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 34,
+                    getTitlesWidget: (v, m) => const SizedBox.shrink(),
+                  ),
+                ),
+                topTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false)),
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 26,
+                    getTitlesWidget: (v, m) => const SizedBox.shrink(),
+                  ),
+                ),
+              ),
+              lineBarsData: [
+                LineChartBarData(
+                  spots: List.generate(
+                    24,
+                    (h) => FlSpot(h.toDouble(), avgResp[h] * respFactor),
+                  ),
+                  isCurved: true,
+                  curveSmoothness: 0.3,
+                  barWidth: 2.5,
+                  isStrokeCapRound: true,
+                  color: _responseColor,
+                  dotData: FlDotData(
+                    show: true,
+                    getDotPainter: (spot, percent, barData, index) {
+                      if (avgResp[index].round() == 0) {
+                        return FlDotCirclePainter(
+                          radius: 0,
+                          color: Colors.transparent,
+                          strokeWidth: 0,
+                          strokeColor: Colors.transparent,
+                        );
+                      }
+                      return FlDotCirclePainter(
+                        radius: 3,
+                        color: _responseColor,
+                        strokeWidth: 1.5,
+                        strokeColor: Colors.white,
+                      );
+                    },
                   ),
                 ),
               ],
             ),
           ),
         ),
-        const SizedBox(height: 6),
-        Row(
-          children: [
-            _miniLegend(_cleaningColor, 'Cleaning ${(cleaningPct * 100).round()}%'),
-            const SizedBox(width: 16),
-            _miniLegend(_linenColor, 'Linen ${(linenPct * 100).round()}%'),
-          ],
-        ),
       ],
-    );
-  }
-
-  Widget _miniLegend(Color color, String label) {
-    return Row(
-      children: [
-        Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-        const SizedBox(width: 5),
-        Text(label, style: AppTextStyles.bodySmall),
-      ],
-    );
-  }
-
-  void _showTypeDetail(String label, int value, double percent) {
-    showDialog(
-      context: context,
-      builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                label,
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: ColorConstants.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 14),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _detailStat('Requests', '$value', ColorConstants.primary),
-                  const SizedBox(width: 16),
-                  _detailStat('Share', '${(percent * 100).round()}%', const Color(0xFFE64A19)),
-                ],
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: ColorConstants.primary,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  onPressed: () => Navigator.of(ctx).pop(),
-                  child: const Text('Close', style: TextStyle(color: Colors.white)),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _detailStat(String label, String value, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: [
-          Text(
-            value,
-            style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w700, color: color),
-          ),
-          Text(
-            label,
-            style: GoogleFonts.poppins(fontSize: 10, color: ColorConstants.textSecondary),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ----------------------------- PEAK CALL TIME -----------------------------
-
-  Widget _buildPeakTimeSection() {
-    final peak = List<Map<String, dynamic>>.from(_report!['peakHours'] ?? []);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Peak Call Time (per hour)', style: AppTextStyles.header2),
-        const SizedBox(height: 18),
-        if (peak.every((p) => (p['count'] ?? 0) == 0))
-          _emptyChart('No requests recorded')
-        else
-          SizedBox(height: 200, child: _buildPeakLineChart(peak)),
-      ],
-    );
-  }
-
-  Widget _buildPeakLineChart(List<Map<String, dynamic>> peak) {
-    final spots = List.generate(
-      peak.length,
-      (h) => FlSpot(h.toDouble(), ((peak[h]['count'] ?? 0) as num).toDouble()),
-    );
-    final maxVal = peak.fold<int>(0, (m, p) {
-      final c = (p['count'] ?? 0) as int;
-      return c > m ? c : m;
-    });
-    final maxY = (maxVal + 2).toDouble();
-    int peakHour = 0;
-    int peakCount = 0;
-    for (var i = 0; i < peak.length; i++) {
-      final c = (peak[i]['count'] ?? 0) as int;
-      if (c > peakCount) {
-        peakCount = c;
-        peakHour = i;
-      }
-    }
-
-    return LineChart(
-      LineChartData(
-        minX: 0,
-        maxX: 23,
-        minY: 0,
-        maxY: maxY,
-        clipData: const FlClipData.all(),
-        gridData: FlGridData(
-          show: true,
-          drawVerticalLine: true,
-          horizontalInterval: _niceIntervalInterval(maxVal),
-          getDrawingHorizontalLine: (value) => FlLine(
-            color: ColorConstants.divider,
-            strokeWidth: 1,
-            dashArray: [4, 4],
-          ),
-          getDrawingVerticalLine: (value) => FlLine(
-            color: ColorConstants.divider,
-            strokeWidth: 1,
-            dashArray: [2, 4],
-          ),
-        ),
-        borderData: FlBorderData(show: false),
-        lineTouchData: LineTouchData(
-          touchTooltipData: LineTouchTooltipData(
-            getTooltipColor: (_) => Colors.black87,
-            tooltipPadding: const EdgeInsets.all(8),
-            getTooltipItems: (touchedSpots) {
-              return touchedSpots.map((spot) {
-                final h = spot.x.toInt();
-                return LineTooltipItem(
-                  '${_hourLabel(h)}\n',
-                  const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                  children: [
-                    TextSpan(
-                      text: '${spot.y.toInt()} requests',
-                      style: TextStyle(color: _cleaningColor, fontSize: 11, fontWeight: FontWeight.w500),
-                    ),
-                  ],
-                );
-              }).toList();
-            },
-          ),
-        ),
-        titlesData: FlTitlesData(
-          leftTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 28,
-              getTitlesWidget: (value, meta) => Text(
-                value.toInt().toString(),
-                style: GoogleFonts.poppins(fontSize: 10, color: ColorConstants.textSecondary),
-              ),
-            ),
-          ),
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 28,
-              interval: 3,
-              getTitlesWidget: (value, meta) => Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  _hourLabel(value.toInt()),
-                  style: GoogleFonts.poppins(fontSize: 9, color: ColorConstants.textSecondary),
-                ),
-              ),
-            ),
-          ),
-        ),
-        extraLinesData: ExtraLinesData(
-          horizontalLines: [
-            HorizontalLine(
-              y: peakCount.toDouble(),
-              color: const Color(0xFFE64A19).withValues(alpha: 0.6),
-              strokeWidth: 1.5,
-              dashArray: [6, 4],
-              label: HorizontalLineLabel(
-                show: true,
-                alignment: Alignment.topRight,
-                style: GoogleFonts.poppins(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFFE64A19),
-                ),
-                labelResolver: (_) => 'Peak ${_hourLabel(peakHour)} · $peakCount',
-              ),
-            ),
-          ],
-        ),
-        lineBarsData: [
-          LineChartBarData(
-            spots: spots,
-            isCurved: true,
-            curveSmoothness: 0.3,
-            barWidth: 3,
-            isStrokeCapRound: true,
-            gradient: const LinearGradient(
-              colors: [ColorConstants.primary, Color(0xFF64B5F6)],
-            ),
-            dotData: FlDotData(
-              show: true,
-              getDotPainter: (spot, percent, barData, index) {
-                final isPeak = spot.x.toInt() == peakHour;
-                return FlDotCirclePainter(
-                  radius: isPeak ? 5 : 3,
-                  color: spot.y == 0
-                      ? Colors.transparent
-                      : (isPeak ? const Color(0xFFE64A19) : ColorConstants.primary),
-                  strokeWidth: isPeak ? 2 : 0,
-                  strokeColor: Colors.white,
-                );
-              },
-            ),
-            belowBarData: BarAreaData(
-              show: true,
-              gradient: LinearGradient(
-                colors: [
-                  ColorConstants.primary.withValues(alpha: 0.25),
-                  ColorConstants.primary.withValues(alpha: 0.0),
-                ],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -1324,9 +1371,9 @@ class _HardwareIssueReportScreenState extends State<HardwareIssueReportScreen> {
                     isClosed ? const Color(0xFF2E7D32) : ColorConstants.statusWarning;
                 return DataRow(
                   cells: [
-                    DataCell(Text('${r['coach_no'] ?? ''}', style: AppTextStyles.coachNumber)),
-                    DataCell(Text('${r['compartment_no'] ?? ''}', style: AppTextStyles.bodyMedium)),
-                    DataCell(Text(_formatType('${r['issue_type'] ?? ''}'), style: AppTextStyles.bodyMedium)),
+                    DataCell(_singleLine('${r['coach_no'] ?? ''}', AppTextStyles.coachNumber)),
+                    DataCell(_singleLine('${r['compartment_no'] ?? ''}', AppTextStyles.bodyMedium)),
+                    DataCell(_singleLine(_formatType('${r['issue_type'] ?? ''}'), AppTextStyles.bodyMedium)),
                     DataCell(
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -1336,6 +1383,8 @@ class _HardwareIssueReportScreenState extends State<HardwareIssueReportScreen> {
                         ),
                         child: Text(
                           isClosed ? 'Resolved' : 'Open',
+                          maxLines: 1,
+                          softWrap: false,
                           style: GoogleFonts.poppins(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
@@ -1344,11 +1393,13 @@ class _HardwareIssueReportScreenState extends State<HardwareIssueReportScreen> {
                         ),
                       ),
                     ),
-                    DataCell(Text(_fmtDateTime('${r['opened_at'] ?? ''}'), style: AppTextStyles.bodySmall)),
-                    DataCell(Text(_fmtDateTime('${r['closed_at'] ?? ''}'), style: AppTextStyles.bodySmall)),
+                    DataCell(_singleLine(_fmtDateTime('${r['opened_at'] ?? ''}'), AppTextStyles.bodySmall)),
+                    DataCell(_singleLine(_fmtDateTime('${r['closed_at'] ?? ''}'), AppTextStyles.bodySmall)),
                     DataCell(
                       Text(
                         _fmtResponse(r['response_seconds'] as int?),
+                        maxLines: 1,
+                        softWrap: false,
                         style: GoogleFonts.poppins(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
@@ -1387,6 +1438,16 @@ class _HardwareIssueReportScreenState extends State<HardwareIssueReportScreen> {
     );
   }
 
+  Widget _singleLine(String text, TextStyle style) {
+    return Text(
+      text,
+      maxLines: 1,
+      softWrap: false,
+      overflow: TextOverflow.visible,
+      style: style,
+    );
+  }
+
   Widget _emptyChart(String message) {
     return Container(
       width: double.infinity,
@@ -1410,9 +1471,17 @@ class _HardwareIssueReportScreenState extends State<HardwareIssueReportScreen> {
   String _fmtDateTime(String raw) {
     try {
       final dt = DateTime.parse(raw);
-      return DateFormat('dd MMM, hh:mm:ss a').format(dt);
+      return DateFormat('dd MMM yyyy, HH:mm:ss').format(dt);
     } catch (_) {
       return raw.isNotEmpty ? raw : '-';
     }
   }
+}
+
+class _TypeEntry {
+  _TypeEntry(this.label, this.value, this.color, this.icon);
+  final String label;
+  final int value;
+  final Color color;
+  final IconData icon;
 }
