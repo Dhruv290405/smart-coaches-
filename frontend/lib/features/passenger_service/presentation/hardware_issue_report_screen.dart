@@ -8,12 +8,15 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'package:smart_coach_new/core/network/api_constants.dart';
 import 'package:smart_coach_new/core/utils/app_dimensions.dart';
+import 'package:smart_coach_new/core/utils/app_icons.dart';
+import 'package:smart_coach_new/core/utils/app_strings.dart';
 import 'package:smart_coach_new/core/utils/app_text_styles.dart';
 import 'package:smart_coach_new/core/utils/color_constants.dart';
 import 'package:smart_coach_new/core/utils/loader.dart';
 import 'package:smart_coach_new/core/utils/prefs.dart';
 import 'package:smart_coach_new/core/utils/toast_message_utils.dart';
 import 'package:smart_coach_new/core/widgets/filter_dropdown.dart';
+import 'package:smart_coach_new/core/widgets/view_type_selector.dart';
 import 'package:smart_coach_new/features/passenger_service/presentation/widgets/hardware_issue_report_generator.dart';
 import 'package:smart_coach_new/features/passenger_service/presentation/hardware_issue_simulator_screen.dart';
 
@@ -43,6 +46,7 @@ class _HardwareIssueReportScreenState extends State<HardwareIssueReportScreen> {
   String _selectedUniqueId = 'All Unique IDs';
   String _selectedType = 'All Types';
   String _selectedRange = 'All';
+  String _selectedViewType = 'Summary';
 
   static const List<String> _typeOptions = ['All Types', 'Linen', 'Cleaning'];
   static const List<String> _rangeOptions = ['All', 'Today', '7 Days', '30 Days', 'Custom'];
@@ -519,24 +523,156 @@ class _HardwareIssueReportScreenState extends State<HardwareIssueReportScreen> {
                       children: [
                         _sectionCard(child: _buildFiltersSection()),
                         const SizedBox(height: AppDimensions.paddingLarge),
-                        _buildKpiSection(),
+                        _sectionCard(child: _buildViewTypeSelector()),
                         const SizedBox(height: AppDimensions.paddingLarge),
-                        _sectionCard(child: _buildPeakTimeSection()),
-                        const SizedBox(height: AppDimensions.paddingLarge),
-                        _sectionCard(child: _buildActivityTimelineSection()),
-                        const SizedBox(height: AppDimensions.paddingLarge),
-                        _sectionCard(child: _buildIssueByDaySection()),
-                        const SizedBox(height: AppDimensions.paddingLarge),
-                        _sectionCard(child: _buildTypePieSection()),
-                        const SizedBox(height: AppDimensions.paddingLarge),
-                        _sectionCard(child: _buildResponseTimeSection()),
-                        const SizedBox(height: AppDimensions.paddingLarge),
-                        _buildIssuesTable(),
+                        if (_selectedViewType == 'Summary') ...[
+                          _buildKpiSection(),
+                          const SizedBox(height: AppDimensions.paddingLarge),
+                          _buildIssuesTable(),
+                        ] else if (_selectedViewType == 'Chart View') ...[
+                          _sectionCard(child: _buildPeakTimeSection()),
+                          const SizedBox(height: AppDimensions.paddingLarge),
+                          _sectionCard(child: _buildActivityTimelineSection()),
+                          const SizedBox(height: AppDimensions.paddingLarge),
+                          _sectionCard(child: _buildIssueByDaySection()),
+                          const SizedBox(height: AppDimensions.paddingLarge),
+                          _sectionCard(child: _buildTypePieSection()),
+                          const SizedBox(height: AppDimensions.paddingLarge),
+                          _sectionCard(child: _buildResponseTimeSection()),
+                        ] else ...[
+                          _sectionCard(child: _buildAlertsSection()),
+                        ],
                         const SizedBox(height: AppDimensions.paddingLarge),
                       ],
                     ),
                   ),
                 ),
+    );
+  }
+
+  // ----------------------------- VIEW TYPE -----------------------------
+
+  Widget _buildViewTypeSelector() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(AppStrings.viewType, style: AppTextStyles.header2),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: ViewTypeSelector(
+                label: 'Summary',
+                svgIcon: AppIcons.report,
+                isSelected: _selectedViewType == 'Summary',
+                onTap: () => setState(() => _selectedViewType = 'Summary'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: ViewTypeSelector(
+                label: AppStrings.chartView,
+                svgIcon: AppIcons.graph,
+                isSelected: _selectedViewType == 'Chart View',
+                onTap: () => setState(() => _selectedViewType = 'Chart View'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: ViewTypeSelector(
+                label: AppStrings.alerts,
+                svgIcon: AppIcons.alert,
+                isSelected: _selectedViewType == 'Alerts',
+                onTap: () => setState(() => _selectedViewType = 'Alerts'),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // ----------------------------- ALERTS -----------------------------
+
+  Widget _buildAlertsSection() {
+    final rows = List<Map<String, dynamic>>.from(_report!['requests'] ?? []);
+    final open = rows.where((r) => '${r['status'] ?? ''}' != 'closed').toList()
+      ..sort((a, b) => '${b['opened_at'] ?? ''}'.compareTo('${a['opened_at'] ?? ''}'));
+    final total = (_report!['totalCount'] ?? 0) as int;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Open Service Requests', style: AppTextStyles.header2),
+            if (open.isNotEmpty)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _pendingColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text('${open.length} Pending',
+                    style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600, color: _pendingColor)),
+              ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        if (total == 0 || open.isEmpty)
+          _emptyState('No service requests for the selected period.')
+        else
+          ...open.map((r) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _alertCard(r),
+              )),
+      ],
+    );
+  }
+
+  Widget _alertCard(Map<String, dynamic> r) {
+    final type = _formatType('${r['issue_type'] ?? ''}');
+    final color = _pendingColor;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(AppDimensions.radiusLarge),
+        border: Border.all(color: color.withValues(alpha: 0.22)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: ColorConstants.white,
+              shape: BoxShape.circle,
+              boxShadow: [BoxShadow(color: color.withValues(alpha: 0.2), blurRadius: 4, offset: const Offset(0, 2))],
+            ),
+            child: Icon(Icons.hourglass_empty, color: color, size: 22),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('$type request awaiting response',
+                    style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: color)),
+                const SizedBox(height: 3),
+                Text('Coach ${r['coach_no'] ?? '-'}  |  Compartment ${r['compartment_no'] ?? '-'}',
+                    style: GoogleFonts.poppins(fontSize: 11, color: ColorConstants.textSecondary)),
+                Text('Requested: ${_fmtDateTime('${r['opened_at'] ?? ''}')}',
+                    style: GoogleFonts.poppins(fontSize: 11, color: ColorConstants.textSecondary)),
+                const SizedBox(height: 2),
+                Text('Pending — no response yet',
+                    style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w500, color: color)),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1139,8 +1275,8 @@ class _HardwareIssueReportScreenState extends State<HardwareIssueReportScreen> {
     for (var i = 0; i < events.length; i++) {
       final e = events[i];
       final isSel = i == selected;
-      final spots = <FlSpot>[FlSpot(xOf(e.requestAt), 1)];
-      if (e.responseAt != null) spots.add(FlSpot(xOf(e.responseAt!), 0));
+      final spots = <FlSpot>[FlSpot(xOf(e.requestAt), 0)];
+      if (e.responseAt != null) spots.add(FlSpot(xOf(e.responseAt!), 1));
       bars.add(
         LineChartBarData(
           spots: spots,
@@ -1188,17 +1324,17 @@ class _HardwareIssueReportScreenState extends State<HardwareIssueReportScreen> {
                 if ((value - 1).abs() < 0.01) {
                   return Padding(
                     padding: const EdgeInsets.only(right: 6),
-                    child: Text('Request',
+                    child: Text('Response',
                         style: GoogleFonts.poppins(
-                            fontSize: 9.5, fontWeight: FontWeight.w700, color: _requestedColor)),
+                            fontSize: 9.5, fontWeight: FontWeight.w700, color: _resolvedColor)),
                   );
                 }
                 if (value.abs() < 0.01) {
                   return Padding(
                     padding: const EdgeInsets.only(right: 6),
-                    child: Text('Response',
+                    child: Text('Request',
                         style: GoogleFonts.poppins(
-                            fontSize: 9.5, fontWeight: FontWeight.w700, color: _resolvedColor)),
+                            fontSize: 9.5, fontWeight: FontWeight.w700, color: _requestedColor)),
                   );
                 }
                 return const SizedBox.shrink();
