@@ -33,7 +33,6 @@ class _HardwareIssueReportScreenState extends State<HardwareIssueReportScreen> {
   bool _filtersInitialized = false;
 
   // Chart selection state (persistent until another point is tapped).
-  int _touchedPieIndex = -1;
   int? _selectedPeakHour;
   int? _selectedRespHour;
   int? _selectedDayIndex;
@@ -223,7 +222,6 @@ class _HardwareIssueReportScreenState extends State<HardwareIssueReportScreen> {
         final body = jsonDecode(response.body);
         setState(() {
           _report = body['data'];
-          _touchedPieIndex = -1;
           _selectedPeakHour = null;
           _selectedActivityIndex = null;
           _selectedRespHour = null;
@@ -526,8 +524,6 @@ class _HardwareIssueReportScreenState extends State<HardwareIssueReportScreen> {
                         _sectionCard(child: _buildPeakTimeSection()),
                         const SizedBox(height: AppDimensions.paddingLarge),
                         _sectionCard(child: _buildActivityTimelineSection()),
-                        const SizedBox(height: AppDimensions.paddingLarge),
-                        _sectionCard(child: _buildTypeComparisonSection()),
                         const SizedBox(height: AppDimensions.paddingLarge),
                         _sectionCard(child: _buildIssueByDaySection()),
                         const SizedBox(height: AppDimensions.paddingLarge),
@@ -1294,111 +1290,6 @@ class _HardwareIssueReportScreenState extends State<HardwareIssueReportScreen> {
     return DateFormat('HH:mm').format(dt);
   }
 
-  // ----------------------------- LINEN VS CLEANING -----------------------------
-
-  Widget _buildTypeComparisonSection() {
-    final r = _report!;
-    final stats = Map<String, dynamic>.from(r['typeStats'] ?? {});
-    final linen = Map<String, dynamic>.from(stats['linen'] ?? {});
-    final cleaning = Map<String, dynamic>.from(stats['cleaning'] ?? {});
-    final total = (r['totalCount'] ?? 0) as int;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _sectionHeader('Linen vs Cleaning', subtitle: 'Tap a category to filter the whole report'),
-        const SizedBox(height: 14),
-        if (total == 0)
-          _emptyState('No service requests for the selected period.')
-        else
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final wide = constraints.maxWidth >= 460;
-              final linenCard = _typeStatCard('Linen', _linenColor, Icons.bed_outlined, linen, 'Linen');
-              final cleanCard = _typeStatCard('Cleaning', _cleaningColor, Icons.cleaning_services_outlined, cleaning, 'Cleaning');
-              if (!wide) {
-                return Column(children: [linenCard, const SizedBox(height: 12), cleanCard]);
-              }
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [Expanded(child: linenCard), const SizedBox(width: 12), Expanded(child: cleanCard)],
-              );
-            },
-          ),
-      ],
-    );
-  }
-
-  Widget _typeStatCard(String title, Color color, IconData icon, Map<String, dynamic> s, String typeValue) {
-    final requested = (s['requested'] ?? 0) as int;
-    final responded = (s['responded'] ?? 0) as int;
-    final pending = (s['pending'] ?? 0) as int;
-    final rate = (s['responseRate'] ?? 0) as int;
-    final isSelected = _selectedType == typeValue;
-
-    return InkWell(
-      onTap: () => _onTypeChanged(isSelected ? 'All Types' : typeValue),
-      borderRadius: BorderRadius.circular(AppDimensions.radiusLarge),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: isSelected ? color.withValues(alpha: 0.08) : ColorConstants.cardBackground,
-          borderRadius: BorderRadius.circular(AppDimensions.radiusLarge),
-          border: Border.all(color: isSelected ? color : ColorConstants.divider, width: isSelected ? 1.4 : 1),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(5),
-                  decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)),
-                  child: Icon(icon, size: 15, color: color),
-                ),
-                const SizedBox(width: 8),
-                Text(title, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w700, color: ColorConstants.textPrimary)),
-                const Spacer(),
-                if (isSelected)
-                  Icon(Icons.check_circle, size: 16, color: color)
-                else
-                  Icon(Icons.filter_alt_outlined, size: 14, color: ColorConstants.iconGrey),
-              ],
-            ),
-            const SizedBox(height: 12),
-            _statRow('Requested', '$requested', _requestedColor),
-            _statRow('Responded', '$responded', _resolvedColor),
-            _statRow('Pending', '$pending', _pendingColor),
-            _statRow('Response Rate', '$rate%', color),
-            const SizedBox(height: 10),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: rate / 100,
-                minHeight: 6,
-                backgroundColor: ColorConstants.divider.withValues(alpha: 0.6),
-                valueColor: AlwaysStoppedAnimation<Color>(color),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _statRow(String label, String value, Color color) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: GoogleFonts.poppins(fontSize: 11.5, color: ColorConstants.textSecondary)),
-          Text(value, style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w700, color: color)),
-        ],
-      ),
-    );
-  }
-
   // ----------------------------- ISSUES PER DAY -----------------------------
 
   Widget _buildIssueByDaySection() {
@@ -1585,20 +1476,31 @@ class _HardwareIssueReportScreenState extends State<HardwareIssueReportScreen> {
   Widget _buildTypePieSection() {
     final r = _report!;
     final total = (r['totalCount'] ?? 0) as int;
-    final cleaning = (r['cleaningCount'] ?? 0) as int;
-    final linen = (r['linenCount'] ?? 0) as int;
+    final stats = Map<String, dynamic>.from(r['typeStats'] ?? {});
+    final cleaning = Map<String, dynamic>.from(stats['cleaning'] ?? {});
+    final linen = Map<String, dynamic>.from(stats['linen'] ?? {});
+
+    _TypeEntry entry(String label, Color color, IconData icon, Map<String, dynamic> s) => _TypeEntry(
+          label,
+          (s['requested'] ?? 0) as int,
+          color,
+          icon,
+          responded: (s['responded'] ?? 0) as int,
+          pending: (s['pending'] ?? 0) as int,
+          rate: (s['responseRate'] ?? 0) as int,
+        );
 
     final entries = <_TypeEntry>[
-      if (cleaning > 0)
-        _TypeEntry('Cleaning', cleaning, _cleaningColor, Icons.cleaning_services_outlined),
-      if (linen > 0)
-        _TypeEntry('Linen', linen, _linenColor, Icons.bed_outlined),
+      if ((cleaning['requested'] ?? 0) as int > 0)
+        entry('Cleaning', _cleaningColor, Icons.cleaning_services_outlined, cleaning),
+      if ((linen['requested'] ?? 0) as int > 0)
+        entry('Linen', _linenColor, Icons.bed_outlined, linen),
     ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _sectionHeader('Issue Type Distribution', subtitle: 'Share of each service request type'),
+        _sectionHeader('Issue Type Distribution', subtitle: 'Tap a type to filter the whole report'),
         const SizedBox(height: 16),
         if (total == 0 || entries.isEmpty)
           _emptyState('No service requests for the selected period.')
@@ -1619,15 +1521,16 @@ class _HardwareIssueReportScreenState extends State<HardwareIssueReportScreen> {
                         startDegreeOffset: -90,
                         pieTouchData: PieTouchData(
                           touchCallback: (event, response) {
+                            if (event is! FlTapUpEvent) return;
                             if (response == null || response.touchedSection == null) return;
                             final idx = response.touchedSection!.touchedSectionIndex;
-                            if (idx != _touchedPieIndex) {
-                              setState(() => _touchedPieIndex = idx);
-                            }
+                            if (idx < 0 || idx >= entries.length) return;
+                            final label = entries[idx].label;
+                            _onTypeChanged(_selectedType == label ? 'All Types' : label);
                           },
                         ),
                         sections: entries.asMap().entries.map((e) {
-                          final selected = e.key == _touchedPieIndex;
+                          final selected = _isTypeSelected(e.value);
                           final percent = e.value.value / total * 100;
                           return PieChartSectionData(
                             value: e.value.value.toDouble(),
@@ -1653,14 +1556,15 @@ class _HardwareIssueReportScreenState extends State<HardwareIssueReportScreen> {
               final legend = Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: entries.asMap().entries.map((e) {
-                  final selected = e.key == _touchedPieIndex;
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 10),
-                    child: GestureDetector(
-                      onTap: () => setState(() {
-                        _touchedPieIndex = _touchedPieIndex == e.key ? -1 : e.key;
-                      }),
-                      child: _pieLegendRow(e.value, total, selected: selected),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
+                      onTap: () {
+                        final label = e.value.label;
+                        _onTypeChanged(_selectedType == label ? 'All Types' : label);
+                      },
+                      child: _pieLegendRow(e.value, total),
                     ),
                   );
                 }).toList(),
@@ -1678,17 +1582,24 @@ class _HardwareIssueReportScreenState extends State<HardwareIssueReportScreen> {
     );
   }
 
+  bool _isTypeSelected(_TypeEntry e) => _selectedType == e.label;
+
   Widget _buildPieCenter(List<_TypeEntry> entries, int total) {
-    if (_touchedPieIndex >= 0 && _touchedPieIndex < entries.length) {
-      final e = entries[_touchedPieIndex];
-      final percent = (e.value / total * 100).round();
+    _TypeEntry? sel;
+    for (final e in entries) {
+      if (_isTypeSelected(e)) sel = e;
+    }
+    if (sel != null) {
+      final percent = (sel.value / total * 100).round();
       return Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(e.icon, color: e.color, size: 18),
+          Icon(sel.icon, color: sel.color, size: 18),
           const SizedBox(height: 2),
-          Text('${e.value}', style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w700, color: e.color)),
-          Text('$percent% ${e.label}', style: GoogleFonts.poppins(fontSize: 9, color: ColorConstants.textSecondary)),
+          Text('${sel.value}', style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w700, color: sel.color)),
+          Text('$percent% ${sel.label}', style: GoogleFonts.poppins(fontSize: 9, color: ColorConstants.textSecondary)),
+          const SizedBox(height: 2),
+          Text('tap to clear', style: GoogleFonts.poppins(fontSize: 8, color: ColorConstants.textTertiary)),
         ],
       );
     }
@@ -1703,14 +1614,15 @@ class _HardwareIssueReportScreenState extends State<HardwareIssueReportScreen> {
     );
   }
 
-  Widget _pieLegendRow(_TypeEntry e, int total, {required bool selected}) {
+  Widget _pieLegendRow(_TypeEntry e, int total) {
     final percent = total == 0 ? 0 : (e.value / total * 100).round();
+    final selected = _isTypeSelected(e);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
       decoration: BoxDecoration(
         color: selected ? e.color.withValues(alpha: 0.1) : Colors.transparent,
         borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
-        border: Border.all(color: selected ? e.color.withValues(alpha: 0.4) : ColorConstants.divider),
+        border: Border.all(color: selected ? e.color.withValues(alpha: 0.45) : ColorConstants.divider, width: selected ? 1.4 : 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1719,15 +1631,36 @@ class _HardwareIssueReportScreenState extends State<HardwareIssueReportScreen> {
             children: [
               Container(width: 10, height: 10, decoration: BoxDecoration(color: e.color, shape: BoxShape.circle)),
               const SizedBox(width: 8),
-              Expanded(child: Text(e.label, style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: ColorConstants.textPrimary))),
-              Text('${e.value}', style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w700, color: e.color)),
+              Expanded(
+                child: Text(e.label,
+                    style: GoogleFonts.poppins(fontSize: 12.5, fontWeight: FontWeight.w700, color: ColorConstants.textPrimary)),
+              ),
+              if (selected) ...[
+                Icon(Icons.check_circle, size: 14, color: e.color),
+                const SizedBox(width: 6),
+              ] else ...[
+                Icon(Icons.filter_alt_outlined, size: 13, color: ColorConstants.iconGrey),
+                const SizedBox(width: 6),
+              ],
+              Text('${e.value}', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w700, color: e.color)),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 7),
+          Wrap(
+            spacing: 10,
+            runSpacing: 4,
+            children: [
+              _pieStat('Requested', '${e.requested}', _requestedColor),
+              _pieStat('Responded', '${e.responded}', _resolvedColor),
+              _pieStat('Pending', '${e.pending}', _pendingColor),
+              _pieStat('Rate', '${e.rate}%', e.color),
+            ],
+          ),
+          const SizedBox(height: 7),
           ClipRRect(
             borderRadius: BorderRadius.circular(3),
             child: LinearProgressIndicator(
-              value: total == 0 ? 0 : e.value / total,
+              value: e.rate / 100,
               minHeight: 5,
               backgroundColor: ColorConstants.divider.withValues(alpha: 0.6),
               valueColor: AlwaysStoppedAnimation<Color>(e.color),
@@ -1737,6 +1670,16 @@ class _HardwareIssueReportScreenState extends State<HardwareIssueReportScreen> {
           Text('$percent% of total', style: GoogleFonts.poppins(fontSize: 9, color: ColorConstants.textSecondary)),
         ],
       ),
+    );
+  }
+
+  Widget _pieStat(String label, String value, Color color) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text('$label ', style: GoogleFonts.poppins(fontSize: 10, color: ColorConstants.textTertiary)),
+        Text(value, style: GoogleFonts.poppins(fontSize: 10.5, fontWeight: FontWeight.w700, color: color)),
+      ],
     );
   }
 
@@ -1988,11 +1931,17 @@ class _HardwareIssueReportScreenState extends State<HardwareIssueReportScreen> {
 }
 
 class _TypeEntry {
-  _TypeEntry(this.label, this.value, this.color, this.icon);
+  _TypeEntry(this.label, this.value, this.color, this.icon,
+      {this.responded = 0, this.pending = 0, this.rate = 0});
   final String label;
   final int value;
   final Color color;
   final IconData icon;
+  final int responded;
+  final int pending;
+  final int rate;
+
+  int get requested => value;
 }
 
 class _PeakInfo {
