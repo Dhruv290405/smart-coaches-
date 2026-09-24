@@ -85,7 +85,7 @@ const HardwareIssueModel = {
     return data;
   },
 
-  async getAll({ status, coachNo, trainNo, dateFrom, dateTo, limit = 200 } = {}) {
+  async getAll({ status, coachNo, trainNo, compartmentNo, deviceId, dateFrom, dateTo, limit = 200 } = {}) {
     try {
       let query = supabaseAdmin
         .from("hardware_issues")
@@ -95,6 +95,8 @@ const HardwareIssueModel = {
       if (status) query = query.eq("status", status);
       if (coachNo) query = query.eq("coach_no", coachNo);
       if (trainNo) query = query.eq("train_no", trainNo);
+      if (compartmentNo) query = query.eq("compartment_no", compartmentNo);
+      if (deviceId) query = query.eq("device_id", deviceId);
       if (dateFrom) query = query.gte("opened_at", dateFrom);
       if (dateTo) query = query.lte("opened_at", dateTo);
 
@@ -107,7 +109,7 @@ const HardwareIssueModel = {
     }
   },
 
-  async getReportSummary({ dateFrom, dateTo } = {}) {
+  async getReportSummary({ dateFrom, dateTo, trainNo, coachNo, compartmentNo, deviceId } = {}) {
     let query = supabaseAdmin
       .from("hardware_issues")
       .select("*")
@@ -115,6 +117,10 @@ const HardwareIssueModel = {
 
     if (dateFrom) query = query.gte("opened_at", dateFrom);
     if (dateTo) query = query.lte("opened_at", dateTo);
+    if (trainNo) query = query.eq("train_no", trainNo);
+    if (coachNo) query = query.eq("coach_no", coachNo);
+    if (compartmentNo) query = query.eq("compartment_no", compartmentNo);
+    if (deviceId) query = query.eq("device_id", deviceId);
 
     const { data, error } = await query;
     if (error) {

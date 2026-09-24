@@ -250,7 +250,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                       },
                                     ),
                                   )
-                                : Container(),
+                                : SizedBox(
+                                    height: 6.h,
+                                    child: CustomButton(
+                                      text: 'Back to Login',
+                                      color: Color(0xFFF3F3F5),
+                                      textColor: Colors.black,
+                                      prefixIcon: Icons.arrow_back_ios_sharp,
+                                      onPressed: () {
+                                        context.go(AppRouter.loginRoute);
+                                      },
+                                    ),
+                                  ),
                             SizedBox(
                               child: CustomButton(
                                 text: state.isSubmitting ? "Registering..." : (_step < 3 ? "Next" : (_step == 3 ? "Send OTP" : (_isOtpVerified ? "Register" : "Verify OTP"))),

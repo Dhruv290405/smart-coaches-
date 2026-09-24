@@ -55,11 +55,13 @@ const hardwareIssueController = {
 
   async getAll(req, res) {
     try {
-      const { status, coachNo, trainNo, dateFrom, dateTo } = req.query;
+      const { status, coachNo, trainNo, compartmentNo, deviceId, dateFrom, dateTo } = req.query;
       const data = await HardwareIssueModel.getAll({
         status,
         coachNo,
         trainNo,
+        compartmentNo,
+        deviceId,
         dateFrom,
         dateTo,
       });
@@ -72,8 +74,15 @@ const hardwareIssueController = {
 
   async getReport(req, res) {
     try {
-      const { dateFrom, dateTo } = req.query;
-      const report = await HardwareIssueModel.getReportSummary({ dateFrom, dateTo });
+      const { dateFrom, dateTo, trainNo, coachNo, compartmentNo, deviceId } = req.query;
+      const report = await HardwareIssueModel.getReportSummary({
+        dateFrom,
+        dateTo,
+        trainNo,
+        coachNo,
+        compartmentNo,
+        deviceId,
+      });
       return successResponse(res, "Hardware issue report generated", report);
     } catch (error) {
       console.error("HardwareIssue getReport error:", error.message);
