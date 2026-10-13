@@ -63,11 +63,11 @@ class _OdourDashboardState extends State<OdourDashboard> {
     _odourSubscription = repository.watchOdourData().listen((records) {
       if (mounted) {
         setState(() {
-          _allRecords = records;
-          trainNumbers = ['All Trains', ...records.map((e) => e.trainNumber).toSet()];
-          coachTypes = ['All Types', ...records.map((e) => e.coachType).toSet()];
-          coachNumbers = ['All Unique IDs', ...records.map((e) => e.coachNumber).toSet()];
-          companies = ['All', ...records.map((e) => e.section).toSet().toList()..sort()];
+          _allRecords = _mergeLastGood(records);
+          trainNumbers = ['All Trains', ..._allRecords.map((e) => e.trainNumber).toSet()];
+          coachTypes = ['All Types', ..._allRecords.map((e) => e.coachType).toSet()];
+          coachNumbers = ['All Unique IDs', ..._allRecords.map((e) => e.coachNumber).toSet()];
+          companies = ['All', ..._allRecords.map((e) => e.section).toSet().toList()..sort()];
           _applyFilters();
           lastUpdated = DateFormat('HH:mm:ss').format(DateTime.now());
         });
@@ -75,6 +75,19 @@ class _OdourDashboardState extends State<OdourDashboard> {
     }, onError: (error) {
       log('Error streaming odour data: $error');
     });
+  }
+
+  List<OdourCoachModel> _mergeLastGood(List<OdourCoachModel> incoming) {
+    final merged = <OdourCoachModel>[];
+    for (final section in ['Section 1', 'Section 2']) {
+      final fresh = incoming.where((r) => r.section == section).toList();
+      if (fresh.isNotEmpty) {
+        merged.addAll(fresh);
+      } else {
+        merged.addAll(_allRecords.where((r) => r.section == section).toList());
+      }
+    }
+    return merged;
   }
 
   void _loadSampleDataInstantly() {
