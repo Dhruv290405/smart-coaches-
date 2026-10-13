@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:developer';
 import 'package:flutter/material.dart';
+import 'package:get_it/get_it.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -9,6 +10,7 @@ import 'package:smart_coach_new/core/utils/app_icons.dart';
 import 'package:smart_coach_new/core/utils/app_strings.dart';
 import 'package:smart_coach_new/core/utils/app_text_styles.dart';
 import 'package:smart_coach_new/core/utils/color_constants.dart';
+import 'package:smart_coach_new/core/utils/prefs.dart';
 import 'package:smart_coach_new/core/widgets/action_button.dart';
 import 'package:smart_coach_new/core/widgets/filter_dropdown.dart';
 import 'package:smart_coach_new/core/widgets/status_chip.dart';
@@ -76,6 +78,11 @@ class _OdourDashboardState extends State<OdourDashboard> {
   }
 
   void _loadSampleDataInstantly() {
+    bool isTester = false;
+    try {
+      isTester = GetIt.I<Prefs>().getUser()?.email == 'tester@example.com';
+    } catch (_) {}
+    if (!isTester) return;
     final repository = OdourRepository();
     final records = repository.getSampleData();
     setState(() {
@@ -240,33 +247,58 @@ class _OdourDashboardState extends State<OdourDashboard> {
   Widget _buildMonitoringSections() {
     final s1 = _filteredRecords.where((r) => r.section == 'Section 1').toList();
     final s2 = _filteredRecords.where((r) => r.section == 'Section 2').toList();
-    final hasS1 = s1.isNotEmpty;
-    final hasS2 = s2.isNotEmpty;
 
-    if (!hasS1 && !hasS2) {
-      return Container(
-        height: 200,
-        alignment: Alignment.center,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.sensors_off, size: 48, color: Colors.grey[400]),
-            const SizedBox(height: 12),
-            Text('No coaches found matching filters', style: GoogleFonts.poppins(fontSize: 14, color: const Color(0xFF6B7280))),
-          ],
-        ),
-      );
+    final showS1 = selectedCompany == 'All' || selectedCompany == 'Section 1';
+    final showS2 = selectedCompany == 'All' || selectedCompany == 'Section 2';
+
+    if (!showS1 && !showS2) {
+      return _buildNoCoachesState();
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (hasS1) _buildExpandableSection('Section 1', s1.length, 'odour_s1',
-            OdourCoachesView(coaches: s1, grouped: CoachToiletGroup.groupByCoach(s1))),
-        if (hasS1 && hasS2) const SizedBox(height: 8),
-        if (hasS2) _buildExpandableSection('Section 2', s2.length, 'odour_s2',
-            OdourCoachesView(coaches: s2, grouped: CoachToiletGroup.groupByCoach(s2))),
+        if (showS1)
+          _buildExpandableSection(
+              'Section 1', s1.length, 'odour_s1',
+              s1.isEmpty ? _buildEmptySectionState() : OdourCoachesView(coaches: s1, grouped: CoachToiletGroup.groupByCoach(s1))),
+        if (showS1 && showS2) const SizedBox(height: 8),
+        if (showS2)
+          _buildExpandableSection(
+              'Section 2', s2.length, 'odour_s2',
+              s2.isEmpty ? _buildEmptySectionState() : OdourCoachesView(coaches: s2, grouped: CoachToiletGroup.groupByCoach(s2))),
       ],
+    );
+  }
+
+  Widget _buildNoCoachesState() {
+    return Container(
+      height: 200,
+      alignment: Alignment.center,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.sensors_off, size: 48, color: Colors.grey[400]),
+          const SizedBox(height: 12),
+          Text('No coaches found matching filters', style: GoogleFonts.poppins(fontSize: 14, color: const Color(0xFF6B7280))),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptySectionState() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 24),
+      alignment: Alignment.center,
+      child: Column(
+        children: [
+          Icon(Icons.sensors_off, size: 32, color: Colors.grey[400]),
+          const SizedBox(height: 8),
+          Text('No live devices in this section yet',
+              style: GoogleFonts.poppins(fontSize: 13, color: const Color(0xFF6B7280))),
+        ],
+      ),
     );
   }
 

@@ -5,8 +5,8 @@ class ImageUtils {
   //ICONS
 
   //IMAGE
-  static const String pisolve = '${images}vasp_logo.jpeg';
-  static const String pisolveName = '${images}vasp_logo.jpeg';
+  static const String pisolve = '${images}vasp.png';
+  static const String pisolveName = '${images}vasp.png';
 
   //SVG
   static const String icTrain = '${svgs}ic_train.svg';
