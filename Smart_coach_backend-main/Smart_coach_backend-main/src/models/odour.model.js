@@ -25,6 +25,87 @@ class OdourModel {
         }
     }
 
+    _demoFallbackEnabled() {
+        const flag = process.env.SECTION1_DEMO_FALLBACK;
+        return flag == null ? true : flag.toLowerCase() !== 'false';
+    }
+
+    _section1DemoData() {
+        const now = new Date().toISOString();
+        return [
+            {
+                device_id: 'OMD-S1-WS-01',
+                sensor_id: 'SENS-S1-001',
+                coach_number: 'B1',
+                coach_type: '3AC',
+                toilet_position: 'Toilet-1-Front-Left',
+                status: 'Active',
+                voc_index: 950,
+                h2s_ppm: 0.08,
+                nh3_ppm: 0.8,
+                smoke: 6.5,
+                temperature: 32.5,
+                humidity: 65.0,
+                timestamp: now,
+                train_number: '12952',
+                train_name: 'Rajdhani Express',
+                route: 'NDLS-BCT',
+                address: 'Demo',
+                door_status: 'Closed',
+                door_open_events_today: 142,
+                u_count: 0,
+                f_count: 0,
+                last_opened_time: 'N/A',
+                last_closed_time: 'N/A',
+                total_door_cycles_today: 142,
+                average_open_duration: 'N/A',
+                longest_open_duration: 'N/A',
+                hygiene_score: null,
+                voc_status: 'Good',
+                nh3_status: null,
+                h2s_status: null,
+                smoke_status: null,
+                temp_status: null,
+                hum_status: null,
+            },
+            {
+                device_id: 'OMD-S1-WS-02',
+                sensor_id: 'SENS-S1-002',
+                coach_number: 'S1',
+                coach_type: 'Sleeper',
+                toilet_position: 'Toilet-4-Rear-Right',
+                status: 'Active',
+                voc_index: 380,
+                h2s_ppm: 0.03,
+                nh3_ppm: 0.15,
+                smoke: 2.0,
+                temperature: 29.5,
+                humidity: 55.0,
+                timestamp: now,
+                train_number: '12627',
+                train_name: 'Karnataka Express',
+                route: 'SBC-NDLS',
+                address: 'Demo',
+                door_status: 'Closed',
+                door_open_events_today: 54,
+                u_count: 0,
+                f_count: 0,
+                last_opened_time: 'N/A',
+                last_closed_time: 'N/A',
+                total_door_cycles_today: 54,
+                average_open_duration: 'N/A',
+                longest_open_duration: 'N/A',
+                hygiene_score: null,
+                voc_status: 'Good',
+                nh3_status: null,
+                h2s_status: null,
+                smoke_status: null,
+                temp_status: null,
+                hum_status: null,
+            },
+        ];
+    }
+
     async getLatestStatusForAllCoaches(location = null) {
         try {
             let query = acpSupabase
@@ -46,9 +127,18 @@ class OdourModel {
 
             // Section 1 shows all live devices to every authorized user (same bypass
             // pattern as Section 2), so both sections are always visible.
-            return Object.values(grouped).map((r) => this._mapBadOdourRow(r));
+            const real = Object.values(grouped).map((r) => this._mapBadOdourRow(r));
+            if (real.length === 0 && this._demoFallbackEnabled()) {
+                console.warn('Odour Dashboard: Section 1 DB empty, serving demo fallback.');
+                return this._section1DemoData();
+            }
+            return real;
         } catch (err) {
             console.error("Odour Dashboard Error:", err.message);
+            if (this._demoFallbackEnabled()) {
+                console.warn('Odour Dashboard: Section 1 DB unreachable, serving demo fallback.');
+                return this._section1DemoData();
+            }
             return [];
         }
     }
