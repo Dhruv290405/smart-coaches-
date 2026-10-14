@@ -1,6 +1,10 @@
 const _acpSupabase = require('../config/supabaseAcp');
 const acpSupabase = _acpSupabase || { from: () => ({ select: () => ({ order: () => ({ in: () => ({ then: (r) => r({ data: [], error: null }), catch: () => {} }) }) }), insert: () => ({ select: () => ({ then: (r) => r({ data: [], error: null }), catch: () => {} }) }) }) };
 
+// Simple in‑memory cache for getLatestStatusForAllCoaches (TTL 10s)
+let _dashboardCache = { timestamp: 0, data: null };
+const DASHBOARD_CACHE_TTL = 10_000; // 10 seconds
+
 const _odour2Supabase = require('../config/supabaseOdour2');
 const odour2Supabase = _odour2Supabase || null;
 
@@ -107,6 +111,13 @@ class OdourModel {
     }
 
     async getLatestStatusForAllCoaches(location = null) {
+        // Return cached result if still fresh (helps keep dashboard load < 1s)
+        const now = Date.now();
+        if (now - _dashboardCache.timestamp < DASHBOARD_CACHE_TTL && _dashboardCache.data) {
+            console.debug('Odour Dashboard: using cached data');
+            return _dashboardCache.data;
+        }
+
         try {
             let query = acpSupabase
                 .from(SECTION1_TABLE)
@@ -125,19 +136,20 @@ class OdourModel {
                 }
             }
 
-            // Section 1 shows all live devices to every authorized user (same bypass
-            // pattern as Section 2), so both sections are always visible.
             const real = Object.values(grouped).map((r) => this._mapBadOdourRow(r));
             if (real.length === 0 && this._demoFallbackEnabled()) {
                 console.warn('Odour Dashboard: Section 1 DB empty, serving demo fallback.');
-                return this._section1DemoData();
+                _dashboardCache = { timestamp: now, data: this._section1DemoData() };
+                return _dashboardCache.data;
             }
+            _dashboardCache = { timestamp: now, data: real };
             return real;
         } catch (err) {
             console.error("Odour Dashboard Error:", err.message);
             if (this._demoFallbackEnabled()) {
                 console.warn('Odour Dashboard: Section 1 DB unreachable, serving demo fallback.');
-                return this._section1DemoData();
+                _dashboardCache = { timestamp: now, data: this._section1DemoData() };
+                return _dashboardCache.data;
             }
             return [];
         }
