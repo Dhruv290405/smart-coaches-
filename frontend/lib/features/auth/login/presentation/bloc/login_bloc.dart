@@ -44,16 +44,12 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
         roleName: null, // You can add roleName from user data if available
       ));
 
-      final userId = loginData.user.userId;
-
       try {
         final fcmToken = await _messaging.getToken();
         await http.post(
           Uri.parse("${ApiConstants.devUrl}/fcm/fcm-token"),
-          body: {
-            'user_id': userId.toString(),
-            'fcm_token': fcmToken ?? '',
-          },
+          headers: {'Authorization': 'Bearer ${loginData.token}'},
+          body: {'fcm_token': fcmToken ?? ''},
         );
       } catch (_) {}
 

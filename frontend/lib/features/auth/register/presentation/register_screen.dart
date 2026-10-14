@@ -368,31 +368,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
             'An OTP call is being made to ${_mobileController.text}. Enter the code you hear below.',
             style: const TextStyle(fontSize: 14, color: Colors.black54),
           ),
-          if (registerBloc.state.otpCode != null) ...[
-            const SizedBox(height: 16),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.blue.shade50,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.blue.shade200),
-              ),
-              child: Column(children: [
-                const Text('Your OTP', style: TextStyle(fontSize: 12, color: Colors.black54)),
-                const SizedBox(height: 4),
-                Text(
-                  registerBloc.state.otpCode!,
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blue.shade800,
-                    letterSpacing: 4,
-                  ),
-                ),
-              ]),
-            ),
-          ],
           const SizedBox(height: 24),
           const Text('Enter OTP', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
@@ -594,6 +569,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   void _doSubmitRegistration() {
+    if (!registerBloc.state.isOtpVerified) { ToastMessageUtils.showMessage(context, 'Please verify the OTP first'); return; }
     registerBloc.add(SubmitRegister());
   }
 }

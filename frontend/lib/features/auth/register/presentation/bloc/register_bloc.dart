@@ -215,6 +215,7 @@ class RegisterBloc extends Bloc<RegisterEvent, RegisterState> {
 
   void _onSubmitRegister(
       SubmitRegister event, Emitter<RegisterState> emit) async {
+    if (!state.isOtpVerified) { emit(state.copyWith(errorMessage: 'Please verify the OTP before registering')); return; }
     emit(state.copyWith(
       isSubmitting: true,
       isLoading: false,

@@ -8,6 +8,7 @@ const twilioClient =
   accountSid && authToken ? twilio(accountSid, authToken) : null;
 
 const otpStore = new Map();
+const verifiedMobiles = new Set();
 
 const OTP_EXPIRY_MS = 5 * 60 * 1000;
 
@@ -34,11 +35,7 @@ async function placeVoiceOtpCall(mobileNumber, otp) {
     );
   }
   if (!twilioPhoneNumber) {
-    // Twilio phone number missing – in non‑production keep OTP usable for testing
-    // by skipping the call and letting the caller return success with the stored OTP.
-    // In production this would throw, but the caller checks isProduction before re‑throwing.
-    console.warn('[OTP] TWILIO_PHONE_NUMBER missing; OTP stored locally for testing only.');
-    return; // signal: do not throw, just return undefined
+    throw new Error('OTP service is not configured (TWILIO_PHONE_NUMBER missing). Please contact the administrator.');
   }
   await twilioClient.calls.create({
     to: mobileNumber,
@@ -65,16 +62,18 @@ const smsService = {
       await placeVoiceOtpCall(mobileNumber, otp);
     } catch (error) {
       console.error(`[OTP] Twilio voice call failed for ${mobileNumber}: ${error.message}`);
-      // Keep OTP usable for testing regardless of environment – the stored OTP
-      // can be verified locally without a real call.
+      otpStore.delete(mobileNumber);
+      throw error;
     }
 
     return {
       success: true,
       message: 'OTP sent successfully',
-      otp: otp,
     };
   },
+
+  isVerified(mobileNumber) { return verifiedMobiles.has(mobileNumber); },
+  consumeVerification(mobileNumber) { verifiedMobiles.delete(mobileNumber); },
 
   verifyOtp(mobileNumber, otp) {
     const entry = otpStore.get(mobileNumber);
@@ -86,6 +85,7 @@ const smsService = {
     if (entry.otp !== otp) return { success: false, message: 'Invalid OTP' };
 
     otpStore.delete(mobileNumber);
+    verifiedMobiles.add(mobileNumber);
     return { success: true, message: 'OTP verified successfully' };
   },
 };

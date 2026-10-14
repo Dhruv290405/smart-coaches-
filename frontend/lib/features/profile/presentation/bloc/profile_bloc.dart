@@ -4,6 +4,9 @@ import 'package:smart_coach_new/core/permissions/bloc/permission_bloc.dart';
 import 'package:smart_coach_new/core/permissions/bloc/permission_event.dart';
 import 'package:smart_coach_new/core/utils/prefs.dart';
 import 'package:smart_coach_new/features/profile/domain/usecases/profile_usecase.dart';
+import 'package:smart_coach_new/services/fcm_service.dart';
+import 'package:http/http.dart' as http;
+import 'package:smart_coach_new/core/network/api_constants.dart';
 import 'package:smart_coach_new/features/profile/presentation/bloc/profile_event.dart';
 import 'package:smart_coach_new/features/profile/presentation/bloc/profile_state.dart';
 
@@ -42,6 +45,11 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
   void _onLogoutRequested(
       LogoutRequested event, Emitter<ProfileState> emit) async {
     try {
+      final token = prefs.token;
+      final fcmToken = await FCMService.getToken();
+      if (token != null && fcmToken != null) {
+        await http.delete(Uri.parse('${ApiConstants.devUrl}/fcm/fcm-token'), headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'}, body: '{"fcm_token":"$fcmToken"}');
+      }
       await prefs.clear();
 
       // Clear permissions on logout

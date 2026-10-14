@@ -134,7 +134,7 @@ class _ServiceRequestReportScreenState extends State<ServiceRequestReportScreen>
         ),
         centerTitle: true,
         actions: [
-          if (_report != null && (!_report!['underTesting'] == true) && (_report!['requests'] as List).isNotEmpty)
+          if (_report != null && (_report!['requests'] as List).isNotEmpty)
             IconButton(
               icon: Icon(Icons.file_download, color: ColorConstants.primary, size: 6.w),
               onPressed: () {
@@ -148,22 +148,7 @@ class _ServiceRequestReportScreenState extends State<ServiceRequestReportScreen>
           ? const Center(child: CircularProgressIndicator(color: ColorConstants.primary))
           : _report == null
               ? const Center(child: Text('No data'))
-              : _report!['underTesting'] == true
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _buildUnderTestingBanner(),
-                          SizedBox(height: 2.h),
-                          Text(
-                            'Data currently under testing — report will be available soon.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 12.sp, color: Colors.grey[600]),
-                          ),
-                        ],
-                      ),
-                    )
-                  : RefreshIndicator(
+              : RefreshIndicator(
                       onRefresh: _fetchReport,
                       child: SingleChildScrollView(
                         physics: const AlwaysScrollableScrollPhysics(),

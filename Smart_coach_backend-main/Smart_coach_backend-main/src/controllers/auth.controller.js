@@ -13,7 +13,9 @@ const authController = {
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { email, region_id, train_ids, role_id } = req.body;
+    const { email, region_id, train_ids, role_id, mobile_number } = req.body;
+
+    if (!smsService.isVerified(mobile_number)) return errorResponse(res, 'Mobile number must be verified by OTP before registration', 400);
 
     if (role_id === 1) {
       return errorResponse(res, 'Super Admin role cannot be assigned via registration', 403);
@@ -31,6 +33,7 @@ const authController = {
     };
 
     const newUser = await userModel.create(registrationData);
+    smsService.consumeVerification(mobile_number);
 
     return successResponse(
       res,
@@ -227,7 +230,7 @@ const authController = {
       if (!mobile_number) return errorResponse(res, 'Mobile number is required', 400);
       try {
         const result = await smsService.sendOtp(mobile_number);
-        return successResponse(res, result.message, { otp: result.otp });
+        return successResponse(res, result.message);
       } catch (smsError) {
         console.error('Send OTP failed:', smsError.message);
         return errorResponse(res, smsError.message || 'Unable to send OTP', 503);

@@ -37,7 +37,6 @@ class FCMService {
 
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
-    await _messaging.subscribeToTopic('brake_alerts');
   }
 
   static Future<void> _showLocalNotification(RemoteMessage message) async {

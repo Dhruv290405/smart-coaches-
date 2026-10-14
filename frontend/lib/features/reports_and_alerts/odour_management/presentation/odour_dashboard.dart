@@ -53,28 +53,42 @@ class _OdourDashboardState extends State<OdourDashboard> {
   @override
   void initState() {
     super.initState();
-    _loadSampleDataInstantly();
     _subscribeToOdourData();
   }
 
   void _subscribeToOdourData() {
     _odourSubscription?.cancel();
     final repository = OdourRepository();
-    _odourSubscription = repository.watchOdourData().listen((records) {
-      if (mounted) {
-        setState(() {
-          _allRecords = _mergeLastGood(records);
-          trainNumbers = ['All Trains', ..._allRecords.map((e) => e.trainNumber).toSet()];
-          coachTypes = ['All Types', ..._allRecords.map((e) => e.coachType).toSet()];
-          coachNumbers = ['All Unique IDs', ..._allRecords.map((e) => e.coachNumber).toSet()];
-          companies = ['All', ..._allRecords.map((e) => e.section).toSet().toList()..sort()];
-          _applyFilters();
-          lastUpdated = DateFormat('HH:mm:ss').format(DateTime.now());
-        });
-      }
-    }, onError: (error) {
-      log('Error streaming odour data: $error');
-    });
+    _odourSubscription = repository.watchOdourData().listen(
+      (records) {
+        if (mounted) {
+          setState(() {
+            _allRecords = _mergeLastGood(records);
+            trainNumbers = [
+              'All Trains',
+              ..._allRecords.map((e) => e.trainNumber).toSet(),
+            ];
+            coachTypes = [
+              'All Types',
+              ..._allRecords.map((e) => e.coachType).toSet(),
+            ];
+            coachNumbers = [
+              'All Unique IDs',
+              ..._allRecords.map((e) => e.coachNumber).toSet(),
+            ];
+            companies = [
+              'All',
+              ..._allRecords.map((e) => e.section).toSet().toList()..sort(),
+            ];
+            _applyFilters();
+            lastUpdated = DateFormat('HH:mm:ss').format(DateTime.now());
+          });
+        }
+      },
+      onError: (error) {
+        log('Error streaming odour data: $error');
+      },
+    );
   }
 
   List<OdourCoachModel> _mergeLastGood(List<OdourCoachModel> incoming) {
@@ -100,10 +114,19 @@ class _OdourDashboardState extends State<OdourDashboard> {
     final records = repository.getSampleData();
     setState(() {
       _allRecords = records;
-      trainNumbers = ['All Trains', ...records.map((e) => e.trainNumber).toSet()];
+      trainNumbers = [
+        'All Trains',
+        ...records.map((e) => e.trainNumber).toSet(),
+      ];
       coachTypes = ['All Types', ...records.map((e) => e.coachType).toSet()];
-      coachNumbers = ['All Unique IDs', ...records.map((e) => e.coachNumber).toSet()];
-      companies = ['All', ...records.map((e) => e.section).toSet().toList()..sort()];
+      coachNumbers = [
+        'All Unique IDs',
+        ...records.map((e) => e.coachNumber).toSet(),
+      ];
+      companies = [
+        'All',
+        ...records.map((e) => e.section).toSet().toList()..sort(),
+      ];
       _applyFilters();
     });
   }
@@ -128,14 +151,26 @@ class _OdourDashboardState extends State<OdourDashboard> {
   void _applyFilters() {
     setState(() {
       _filteredRecords = _allRecords.where((r) {
-        final matchesTrain = selectedTrainNumber == 'All Trains' || r.trainNumber == selectedTrainNumber;
-        final matchesType = selectedCoachType == 'All Types' || r.coachType == selectedCoachType;
-        final matchesCoach = selectedCoachNumber == 'All Unique IDs' || r.coachNumber == selectedCoachNumber;
-        final matchesStatus = selectedStatus == 'All' ||
+        final matchesTrain =
+            selectedTrainNumber == 'All Trains' ||
+            r.trainNumber == selectedTrainNumber;
+        final matchesType =
+            selectedCoachType == 'All Types' ||
+            r.coachType == selectedCoachType;
+        final matchesCoach =
+            selectedCoachNumber == 'All Unique IDs' ||
+            r.coachNumber == selectedCoachNumber;
+        final matchesStatus =
+            selectedStatus == 'All' ||
             (selectedStatus == 'ON' && r.isActive) ||
             (selectedStatus == 'OFF' && !r.isActive);
-        final matchesCompany = selectedCompany == 'All' || r.section == selectedCompany;
-        return matchesTrain && matchesType && matchesCoach && matchesStatus && matchesCompany;
+        final matchesCompany =
+            selectedCompany == 'All' || r.section == selectedCompany;
+        return matchesTrain &&
+            matchesType &&
+            matchesCoach &&
+            matchesStatus &&
+            matchesCompany;
       }).toList();
       _groupedCoaches = CoachToiletGroup.groupByCoach(_filteredRecords);
     });
@@ -158,13 +193,18 @@ class _OdourDashboardState extends State<OdourDashboard> {
       for (int c = 1; c <= coachCount; c++) {
         final coachLabel = tNo == '12952' ? (c == 1 ? 'B1' : 'A1') : 'C1';
         final coachType = tNo == '12952' ? (c == 1 ? '3AC' : '2AC') : 'CC';
-        final positions = ['L-Side-Front', 'R-Side-Front', 'L-Side-Rear', 'R-Side-Rear'];
+        final positions = [
+          'L-Side-Front',
+          'R-Side-Front',
+          'L-Side-Rear',
+          'R-Side-Rear',
+        ];
         for (int p = 0; p < positions.length; p++) {
           final readings = tNo == '12952' && coachLabel == 'B1'
               ? [85, 15, 72, 10]
               : tNo == '12952' && coachLabel == 'A1'
-                  ? [12, 88, 0, 45]
-                  : [70, 55, 5, 30];
+              ? [12, 88, 0, 45]
+              : [70, 55, 5, 30];
           final isActive = readings[p] > 20;
           data.add({
             'coach_number': coachLabel,
@@ -182,7 +222,9 @@ class _OdourDashboardState extends State<OdourDashboard> {
             'refill_level': [42, 75, 10, 60][p],
             'usage_count': [18, 4, 25, 2][p],
             'cleanliness': ['Needs Cleaning', 'Clean', 'Unknown', 'Clean'][p],
-            'malfunction_alerts': p == 2 ? ['Power Failure', 'Refill Low'] : <String>[],
+            'malfunction_alerts': p == 2
+                ? ['Power Failure', 'Refill Low']
+                : <String>[],
           });
         }
       }
@@ -216,35 +258,46 @@ class _OdourDashboardState extends State<OdourDashboard> {
               padding: const EdgeInsets.only(right: 16),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(color: ColorConstants.white, borderRadius: BorderRadius.circular(8)),
-                child: Text('Last Updated: $lastUpdated', style: AppTextStyles.bodySmall),
+                decoration: BoxDecoration(
+                  color: ColorConstants.white,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Last Updated: $lastUpdated',
+                  style: AppTextStyles.bodySmall,
+                ),
               ),
             ),
           ),
         ],
       ),
       body: RefreshIndicator(
-              onRefresh: _refreshData,
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(AppDimensions.paddingLarge),
-                child: Column(
-                  children: [
-                    _buildSectionCard(child: _buildFiltersSection()),
-                    const SizedBox(height: 8),
-                    _buildSectionCard(child: _buildQuickActionsSection()),
-                    const SizedBox(height: 8),
-                    _buildSectionCard(child: _buildViewTypeSection()),
-                    const SizedBox(height: 8),
-                    if (selectedViewType == 'Monitoring')
-                      _buildSectionCard(child: _buildMonitoringSections())
-                    else if (selectedViewType == 'Analytics')
-                      _buildSectionCard(child: OdourChartView(records: _allRecords, groups: _groupedCoaches))
-                    else if (selectedViewType == 'Alerts')
-                      _buildSectionCard(child: OdourAlertsView(records: _allRecords)),
-                  ],
-                ),
-              ),
-            ),
+        onRefresh: _refreshData,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(AppDimensions.paddingLarge),
+          child: Column(
+            children: [
+              _buildSectionCard(child: _buildFiltersSection()),
+              const SizedBox(height: 8),
+              _buildSectionCard(child: _buildQuickActionsSection()),
+              const SizedBox(height: 8),
+              _buildSectionCard(child: _buildViewTypeSection()),
+              const SizedBox(height: 8),
+              if (selectedViewType == 'Monitoring')
+                _buildSectionCard(child: _buildMonitoringSections())
+              else if (selectedViewType == 'Analytics')
+                _buildSectionCard(
+                  child: OdourChartView(
+                    records: _allRecords,
+                    groups: _groupedCoaches,
+                  ),
+                )
+              else if (selectedViewType == 'Alerts')
+                _buildSectionCard(child: OdourAlertsView(records: _allRecords)),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -252,7 +305,10 @@ class _OdourDashboardState extends State<OdourDashboard> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(AppDimensions.paddingLarge),
-      decoration: BoxDecoration(color: ColorConstants.white, borderRadius: BorderRadius.circular(AppDimensions.radiusLarge)),
+      decoration: BoxDecoration(
+        color: ColorConstants.white,
+        borderRadius: BorderRadius.circular(AppDimensions.radiusLarge),
+      ),
       child: child,
     );
   }
@@ -273,13 +329,29 @@ class _OdourDashboardState extends State<OdourDashboard> {
       children: [
         if (showS1)
           _buildExpandableSection(
-              'Section 1', s1.length, 'odour_s1',
-              s1.isEmpty ? _buildEmptySectionState() : OdourCoachesView(coaches: s1, grouped: CoachToiletGroup.groupByCoach(s1))),
+            'Section 1',
+            s1.length,
+            'odour_s1',
+            s1.isEmpty
+                ? _buildEmptySectionState()
+                : OdourCoachesView(
+                    coaches: s1,
+                    grouped: CoachToiletGroup.groupByCoach(s1),
+                  ),
+          ),
         if (showS1 && showS2) const SizedBox(height: 8),
         if (showS2)
           _buildExpandableSection(
-              'Section 2', s2.length, 'odour_s2',
-              s2.isEmpty ? _buildEmptySectionState() : OdourCoachesView(coaches: s2, grouped: CoachToiletGroup.groupByCoach(s2))),
+            'Section 2',
+            s2.length,
+            'odour_s2',
+            s2.isEmpty
+                ? _buildEmptySectionState()
+                : OdourCoachesView(
+                    coaches: s2,
+                    grouped: CoachToiletGroup.groupByCoach(s2),
+                  ),
+          ),
       ],
     );
   }
@@ -293,7 +365,13 @@ class _OdourDashboardState extends State<OdourDashboard> {
         children: [
           Icon(Icons.sensors_off, size: 48, color: Colors.grey[400]),
           const SizedBox(height: 12),
-          Text('No coaches found matching filters', style: GoogleFonts.poppins(fontSize: 14, color: const Color(0xFF6B7280))),
+          Text(
+            'No coaches found matching filters',
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              color: const Color(0xFF6B7280),
+            ),
+          ),
         ],
       ),
     );
@@ -308,14 +386,24 @@ class _OdourDashboardState extends State<OdourDashboard> {
         children: [
           Icon(Icons.sensors_off, size: 32, color: Colors.grey[400]),
           const SizedBox(height: 8),
-          Text('No live devices in this section yet',
-              style: GoogleFonts.poppins(fontSize: 13, color: const Color(0xFF6B7280))),
+          Text(
+            'No live devices in this section yet',
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              color: const Color(0xFF6B7280),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildExpandableSection(String title, int count, String key, Widget content) {
+  Widget _buildExpandableSection(
+    String title,
+    int count,
+    String key,
+    Widget content,
+  ) {
     final expanded = _expandedSections.contains(key);
     return Container(
       width: double.infinity,
@@ -342,16 +430,30 @@ class _OdourDashboardState extends State<OdourDashboard> {
               child: Row(
                 children: [
                   Container(
-                    width: 3, height: 18,
-                    decoration: BoxDecoration(color: ColorConstants.primary, borderRadius: BorderRadius.circular(2)),
+                    width: 3,
+                    height: 18,
+                    decoration: BoxDecoration(
+                      color: ColorConstants.primary,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
                   const SizedBox(width: 10),
-                  Text('$title  ·  $count', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: const Color(0xFF1A1D21))),
+                  Text(
+                    '$title  ·  $count',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF1A1D21),
+                    ),
+                  ),
                   const Spacer(),
                   AnimatedRotation(
                     turns: expanded ? 0.5 : 0,
                     duration: const Duration(milliseconds: 200),
-                    child: const Icon(Icons.keyboard_arrow_down, color: ColorConstants.iconGrey),
+                    child: const Icon(
+                      Icons.keyboard_arrow_down,
+                      color: ColorConstants.iconGrey,
+                    ),
                   ),
                 ],
               ),
@@ -359,10 +461,7 @@ class _OdourDashboardState extends State<OdourDashboard> {
           ),
           if (expanded) ...[
             const Divider(height: 1, color: Color(0xFFE8ECF0)),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: content,
-            ),
+            Padding(padding: const EdgeInsets.all(12), child: content),
           ],
         ],
       ),
@@ -376,17 +475,38 @@ class _OdourDashboardState extends State<OdourDashboard> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(AppStrings.filters, style: AppTextStyles.header2.copyWith(color: ColorConstants.primary)),
+            Text(
+              AppStrings.filters,
+              style: AppTextStyles.header2.copyWith(
+                color: ColorConstants.primary,
+              ),
+            ),
             GestureDetector(
               onTap: _clearFilters,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(color: ColorConstants.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
-                child: Row(children: [
-                  const Icon(Icons.clear_all, size: 14, color: ColorConstants.primary),
-                  const SizedBox(width: 4),
-                  Text('Clear Filters', style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: ColorConstants.primary)),
-                ]),
+                decoration: BoxDecoration(
+                  color: ColorConstants.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.clear_all,
+                      size: 14,
+                      color: ColorConstants.primary,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Clear Filters',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: ColorConstants.primary,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -394,17 +514,57 @@ class _OdourDashboardState extends State<OdourDashboard> {
         const SizedBox(height: 8),
         Row(
           children: [
-            Expanded(child: FilterDropdown(label: 'Section', value: selectedCompany, items: companies, onChanged: (v) { setState(() => selectedCompany = v!); _applyFilters(); })),
+            Expanded(
+              child: FilterDropdown(
+                label: 'Section',
+                value: selectedCompany,
+                items: companies,
+                onChanged: (v) {
+                  setState(() => selectedCompany = v!);
+                  _applyFilters();
+                },
+              ),
+            ),
             const SizedBox(width: 8),
-            Expanded(child: FilterDropdown(label: AppStrings.trainNumber, value: selectedTrainNumber, items: trainNumbers, onChanged: (v) { setState(() => selectedTrainNumber = v!); _applyFilters(); })),
+            Expanded(
+              child: FilterDropdown(
+                label: AppStrings.trainNumber,
+                value: selectedTrainNumber,
+                items: trainNumbers,
+                onChanged: (v) {
+                  setState(() => selectedTrainNumber = v!);
+                  _applyFilters();
+                },
+              ),
+            ),
             const SizedBox(width: 8),
-            Expanded(child: FilterDropdown(label: 'Coach Type', value: selectedCoachType, items: coachTypes, onChanged: (v) { setState(() => selectedCoachType = v!); _applyFilters(); })),
+            Expanded(
+              child: FilterDropdown(
+                label: 'Coach Type',
+                value: selectedCoachType,
+                items: coachTypes,
+                onChanged: (v) {
+                  setState(() => selectedCoachType = v!);
+                  _applyFilters();
+                },
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 8),
         Row(
           children: [
-            Expanded(child: FilterDropdown(label: 'Unique ID', value: selectedCoachNumber, items: coachNumbers, onChanged: (v) { setState(() => selectedCoachNumber = v!); _applyFilters(); })),
+            Expanded(
+              child: FilterDropdown(
+                label: 'Unique ID',
+                value: selectedCoachNumber,
+                items: coachNumbers,
+                onChanged: (v) {
+                  setState(() => selectedCoachNumber = v!);
+                  _applyFilters();
+                },
+              ),
+            ),
             const SizedBox(width: 8),
             const Spacer(flex: 2),
           ],
@@ -414,11 +574,38 @@ class _OdourDashboardState extends State<OdourDashboard> {
         const SizedBox(height: 4),
         Row(
           children: [
-            Expanded(child: StatusChip(label: AppStrings.all, isSelected: selectedStatus == 'All', onTap: () { setState(() => selectedStatus = 'All'); _applyFilters(); })),
+            Expanded(
+              child: StatusChip(
+                label: AppStrings.all,
+                isSelected: selectedStatus == 'All',
+                onTap: () {
+                  setState(() => selectedStatus = 'All');
+                  _applyFilters();
+                },
+              ),
+            ),
             const SizedBox(width: 8),
-            Expanded(child: StatusChip(label: 'Active', isSelected: selectedStatus == 'ON', onTap: () { setState(() => selectedStatus = 'ON'); _applyFilters(); })),
+            Expanded(
+              child: StatusChip(
+                label: 'Active',
+                isSelected: selectedStatus == 'ON',
+                onTap: () {
+                  setState(() => selectedStatus = 'ON');
+                  _applyFilters();
+                },
+              ),
+            ),
             const SizedBox(width: 8),
-            Expanded(child: StatusChip(label: 'Inactive', isSelected: selectedStatus == 'OFF', onTap: () { setState(() => selectedStatus = 'OFF'); _applyFilters(); })),
+            Expanded(
+              child: StatusChip(
+                label: 'Inactive',
+                isSelected: selectedStatus == 'OFF',
+                onTap: () {
+                  setState(() => selectedStatus = 'OFF');
+                  _applyFilters();
+                },
+              ),
+            ),
           ],
         ),
       ],
@@ -433,14 +620,27 @@ class _OdourDashboardState extends State<OdourDashboard> {
         const SizedBox(height: 8),
         Row(
           children: [
-            Expanded(child: ActionButton(label: AppStrings.sendAlerts, svgIcon: AppIcons.alert, onTap: _sendAlerts, isPrimary: true, isFullWidth: true)),
-            const SizedBox(width: 8),
-            Expanded(child: ActionButton(label: AppStrings.generateReport, svgIcon: AppIcons.report, onTap: () => OdourReportGenerator.generate(context, _allRecords), isFullWidth: true)),
-            const SizedBox(width: 8),
-            AnimatedSyncButton(
-              isSyncing: isRefreshing,
-              onTap: _refreshData,
+            Expanded(
+              child: ActionButton(
+                label: AppStrings.sendAlerts,
+                svgIcon: AppIcons.alert,
+                onTap: _sendAlerts,
+                isPrimary: true,
+                isFullWidth: true,
+              ),
             ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: ActionButton(
+                label: AppStrings.generateReport,
+                svgIcon: AppIcons.report,
+                onTap: () =>
+                    OdourReportGenerator.generate(context, _allRecords),
+                isFullWidth: true,
+              ),
+            ),
+            const SizedBox(width: 8),
+            AnimatedSyncButton(isSyncing: isRefreshing, onTap: _refreshData),
           ],
         ),
       ],
@@ -448,22 +648,54 @@ class _OdourDashboardState extends State<OdourDashboard> {
   }
 
   void _sendAlerts() {
-    final alertCoaches = _allRecords.where((r) => r.hasAlert).map((r) => '${r.coachNumber} (${r.toiletPosition})').toSet().join(', ');
+    final alertCoaches = _allRecords
+        .where((r) => r.hasAlert)
+        .map((r) => '${r.coachNumber} (${r.toiletPosition})')
+        .toSet()
+        .join(', ');
     if (alertCoaches.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No active odour alerts.')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('No active odour alerts.')));
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Alert sent for: $alertCoaches'), backgroundColor: ColorConstants.statusCritical));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Alert sent for: $alertCoaches'),
+        backgroundColor: ColorConstants.statusCritical,
+      ),
+    );
   }
 
   Widget _buildViewTypeSection() {
     return Row(
       children: [
-        Expanded(child: ViewTypeSelector(label: "Monitoring", svgIcon: AppIcons.coaches, isSelected: selectedViewType == 'Monitoring', onTap: () => setState(() => selectedViewType = 'Monitoring'))),
+        Expanded(
+          child: ViewTypeSelector(
+            label: "Monitoring",
+            svgIcon: AppIcons.coaches,
+            isSelected: selectedViewType == 'Monitoring',
+            onTap: () => setState(() => selectedViewType = 'Monitoring'),
+          ),
+        ),
         const SizedBox(width: 8),
-        Expanded(child: ViewTypeSelector(label: "Analytics", svgIcon: AppIcons.graph, isSelected: selectedViewType == 'Analytics', onTap: () => setState(() => selectedViewType = 'Analytics'))),
+        Expanded(
+          child: ViewTypeSelector(
+            label: "Analytics",
+            svgIcon: AppIcons.graph,
+            isSelected: selectedViewType == 'Analytics',
+            onTap: () => setState(() => selectedViewType = 'Analytics'),
+          ),
+        ),
         const SizedBox(width: 8),
-        Expanded(child: ViewTypeSelector(label: "Alerts", svgIcon: AppIcons.alert, isSelected: selectedViewType == 'Alerts', onTap: () => setState(() => selectedViewType = 'Alerts'))),
+        Expanded(
+          child: ViewTypeSelector(
+            label: "Alerts",
+            svgIcon: AppIcons.alert,
+            isSelected: selectedViewType == 'Alerts',
+            onTap: () => setState(() => selectedViewType = 'Alerts'),
+          ),
+        ),
       ],
     );
   }
@@ -473,19 +705,27 @@ class AnimatedSyncButton extends StatefulWidget {
   final VoidCallback onTap;
   final bool isSyncing;
 
-  const AnimatedSyncButton({super.key, required this.onTap, required this.isSyncing});
+  const AnimatedSyncButton({
+    super.key,
+    required this.onTap,
+    required this.isSyncing,
+  });
 
   @override
   State<AnimatedSyncButton> createState() => _AnimatedSyncButtonState();
 }
 
-class _AnimatedSyncButtonState extends State<AnimatedSyncButton> with SingleTickerProviderStateMixin {
+class _AnimatedSyncButtonState extends State<AnimatedSyncButton>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(seconds: 1));
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 1),
+    );
     if (widget.isSyncing) _controller.repeat();
   }
 
@@ -514,9 +754,15 @@ class _AnimatedSyncButtonState extends State<AnimatedSyncButton> with SingleTick
         duration: const Duration(milliseconds: 300),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: widget.isSyncing ? ColorConstants.primary.withValues(alpha: 0.1) : ColorConstants.cardBackground,
+          color: widget.isSyncing
+              ? ColorConstants.primary.withValues(alpha: 0.1)
+              : ColorConstants.cardBackground,
           borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
-          border: Border.all(color: widget.isSyncing ? ColorConstants.primary.withValues(alpha: 0.3) : ColorConstants.divider)
+          border: Border.all(
+            color: widget.isSyncing
+                ? ColorConstants.primary.withValues(alpha: 0.3)
+                : ColorConstants.divider,
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -528,13 +774,24 @@ class _AnimatedSyncButtonState extends State<AnimatedSyncButton> with SingleTick
                 width: 18,
                 height: 18,
                 colorFilter: ColorFilter.mode(
-                  widget.isSyncing ? ColorConstants.primary : ColorConstants.iconGrey,
-                  BlendMode.srcIn
+                  widget.isSyncing
+                      ? ColorConstants.primary
+                      : ColorConstants.iconGrey,
+                  BlendMode.srcIn,
                 ),
               ),
             ),
             const SizedBox(width: 6),
-            Text('Sync', style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: widget.isSyncing ? ColorConstants.primary : ColorConstants.textSecondary)),
+            Text(
+              'Sync',
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: widget.isSyncing
+                    ? ColorConstants.primary
+                    : ColorConstants.textSecondary,
+              ),
+            ),
           ],
         ),
       ),
