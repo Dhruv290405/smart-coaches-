@@ -32,39 +32,51 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
     emit(LoginLoading());
 
     try {
-      final (loginData, message) =
-      await loginUseCase(event.emailOrPhoneNumber, event.password);
+      final (loginData, message) = await loginUseCase(
+        event.emailOrPhoneNumber,
+        event.password,
+      );
 
       await prefs.saveToken(loginData.token);
       await prefs.saveUser(loginData.user);
 
       // Initialize permissions based on user role
-      permissionBloc.add(InitializePermissions(
-        roleId: loginData.user.roleId ?? 0,
-        roleName: null, // You can add roleName from user data if available
-      ));
+      permissionBloc.add(
+        InitializePermissions(
+          roleId: loginData.user.roleId ?? 0,
+          roleName: null, // You can add roleName from user data if available
+        ),
+      );
 
       try {
         final fcmToken = await _messaging.getToken();
+        final authToken = prefs.token;
+        if (authToken == null || authToken.isEmpty) {
+          throw StateError('Authentication token was not saved after login');
+        }
         await http.post(
           Uri.parse("${ApiConstants.devUrl}/fcm/fcm-token"),
-          headers: {'Authorization': 'Bearer ${loginData.token}'},
+          headers: {'Authorization': 'Bearer $authToken'},
           body: {'fcm_token': fcmToken ?? ''},
         );
         await http.delete(
           Uri.parse("${ApiConstants.devUrl}/notifications"),
-          headers: {'Authorization': 'Bearer ${loginData.token}'},
+          headers: {'Authorization': 'Bearer $authToken'},
         );
-      } catch (_) {}
+      } catch (_) {
+        // Notification registration must not block a successful login.
+      }
 
       emit(LoginSuccess(message));
-    } catch (e, stackTrace) {
+    } catch (e) {
       emit(LoginFailure(message: e.toString()));
     }
   }
 
   void _onLoginWithEmailOrNumberToggled(
-      LoginWithEmailOrNumberToggled event, Emitter<LoginState> emit) {
+    LoginWithEmailOrNumberToggled event,
+    Emitter<LoginState> emit,
+  ) {
     isLoginWithEmail = event.isLoginWithEmail;
     emit(LoginWithFormState(isLoginWithEmail: isLoginWithEmail));
   }

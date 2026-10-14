@@ -16,9 +16,7 @@ class ApiClient {
   static const String baseUrl = ApiConstants.devUrl;
 
   Future<Map<String, String>> _getHeaders({bool includeAuth = true}) async {
-    final headers = <String, String>{
-      'Content-Type': 'application/json',
-    };
+    final headers = <String, String>{'Content-Type': 'application/json'};
 
     if (includeAuth) {
       final token = prefs.token;
@@ -29,49 +27,72 @@ class ApiClient {
     return headers;
   }
 
-  Uri _buildUri(String endpoint, [Map<String, dynamic>? queryParams, String? baseOverride]) {
+  Uri _buildUri(
+    String endpoint, [
+    Map<String, dynamic>? queryParams,
+    String? baseOverride,
+  ]) {
     final base = baseOverride ?? baseUrl;
     return Uri.parse('$base$endpoint').replace(
       queryParameters: queryParams?.map((k, v) => MapEntry(k, v.toString())),
     );
   }
 
-  Future<dynamic> get(String endpoint,
-      {Map<String, dynamic>? queryParams,
-      bool includeAuthHeaders = true,
-      String? baseUrlOverride}) async {
+  Future<dynamic> get(
+    String endpoint, {
+    Map<String, dynamic>? queryParams,
+    bool includeAuthHeaders = true,
+    String? baseUrlOverride,
+  }) async {
     final uri = _buildUri(endpoint, queryParams, baseUrlOverride);
-    final response = await http.get(uri,
-        headers: await _getHeaders(includeAuth: includeAuthHeaders));
+    final response = await http.get(
+      uri,
+      headers: await _getHeaders(includeAuth: includeAuthHeaders),
+    );
     return _processResponse(response);
   }
 
-  Future<dynamic> post(String endpoint, Map<String, dynamic> data,
-      {bool includeAuthHeaders = true, String? baseUrlOverride}) async {
+  Future<dynamic> post(
+    String endpoint,
+    Map<String, dynamic> data, {
+    bool includeAuthHeaders = true,
+    String? baseUrlOverride,
+  }) async {
     final base = baseUrlOverride ?? baseUrl;
     final uri = Uri.parse('$base$endpoint');
-    final response = await http.post(uri,
-        headers: await _getHeaders(includeAuth: includeAuthHeaders),
-        body: jsonEncode(data));
+    final response = await http.post(
+      uri,
+      headers: await _getHeaders(includeAuth: includeAuthHeaders),
+      body: jsonEncode(data),
+    );
     return _processResponse(response);
   }
 
-  Future<dynamic> put(String endpoint, Map<String, dynamic> data,
-      {Map<String, dynamic>? queryParams,
-      bool includeAuthHeaders = true}) async {
+  Future<dynamic> put(
+    String endpoint,
+    Map<String, dynamic> data, {
+    Map<String, dynamic>? queryParams,
+    bool includeAuthHeaders = true,
+  }) async {
     final uri = _buildUri(endpoint, queryParams);
-    final response = await http.put(uri,
-        headers: await _getHeaders(includeAuth: includeAuthHeaders),
-        body: jsonEncode(data));
+    final response = await http.put(
+      uri,
+      headers: await _getHeaders(includeAuth: includeAuthHeaders),
+      body: jsonEncode(data),
+    );
     return _processResponse(response);
   }
 
-  Future<dynamic> delete(String endpoint,
-      {Map<String, dynamic>? queryParams,
-      bool includeAuthHeaders = true}) async {
+  Future<dynamic> delete(
+    String endpoint, {
+    Map<String, dynamic>? queryParams,
+    bool includeAuthHeaders = true,
+  }) async {
     final uri = _buildUri(endpoint, queryParams);
-    final response = await http.delete(uri,
-        headers: await _getHeaders(includeAuth: includeAuthHeaders));
+    final response = await http.delete(
+      uri,
+      headers: await _getHeaders(includeAuth: includeAuthHeaders),
+    );
     return _processResponse(response);
   }
 
