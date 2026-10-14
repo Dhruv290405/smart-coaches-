@@ -117,13 +117,13 @@ class _ServiceRequestReportScreenState extends State<ServiceRequestReportScreen>
     }
   }
 
-  @override
+@override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: ColorConstants.screenBgColor,
       appBar: AppBar(
         backgroundColor: Colors.white,
-        elevation: 0,
+        elevation: 0.5,
         leading: IconButton(
           icon: Icon(Icons.arrow_back_ios, color: Colors.black87, size: 5.w),
           onPressed: () => Navigator.of(context).pop(),
@@ -134,7 +134,7 @@ class _ServiceRequestReportScreenState extends State<ServiceRequestReportScreen>
         ),
         centerTitle: true,
         actions: [
-          if (_report != null && (_report!['requests'] as List).isNotEmpty)
+          if (_report != null && (!_report!['underTesting'] == true) && (_report!['requests'] as List).isNotEmpty)
             IconButton(
               icon: Icon(Icons.file_download, color: ColorConstants.primary, size: 6.w),
               onPressed: () {
@@ -148,33 +148,44 @@ class _ServiceRequestReportScreenState extends State<ServiceRequestReportScreen>
           ? const Center(child: CircularProgressIndicator(color: ColorConstants.primary))
           : _report == null
               ? const Center(child: Text('No data'))
-              : RefreshIndicator(
-                  onRefresh: _fetchReport,
-                  child: SingleChildScrollView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: EdgeInsets.symmetric(horizontal: 5.w, vertical: 2.h),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (_report!['underTesting'] == true) ...[
+              : _report!['underTesting'] == true
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
                           _buildUnderTestingBanner(),
                           SizedBox(height: 2.h),
+                          Text(
+                            'Data currently under testing — report will be available soon.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 12.sp, color: Colors.grey[600]),
+                          ),
                         ],
-                        _buildDateFilter(),
-                        SizedBox(height: 2.h),
-                        _buildSummaryCards(),
-                        SizedBox(height: 2.h),
-                        _buildServiceTypeBreakdown(),
-                        SizedBox(height: 2.h),
-                        _buildDayWiseChart(),
-                        SizedBox(height: 2.h),
-                        _buildResolutionTime(),
-                        SizedBox(height: 2.h),
-                        _buildRecentRequests(),
-                      ],
+                      ),
+                    )
+                  : RefreshIndicator(
+                      onRefresh: _fetchReport,
+                      child: SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: EdgeInsets.symmetric(horizontal: 5.w, vertical: 2.h),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildDateFilter(),
+                            SizedBox(height: 2.h),
+                            _buildSummaryCards(),
+                            SizedBox(height: 2.h),
+                            _buildServiceTypeBreakdown(),
+                            SizedBox(height: 2.h),
+                            _buildDayWiseChart(),
+                            SizedBox(height: 2.h),
+                            _buildResolutionTime(),
+                            SizedBox(height: 2.h),
+                            _buildRecentRequests(),
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
-                ),
     );
   }
 
