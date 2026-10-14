@@ -110,9 +110,12 @@ class OdourModel {
         try {
             let query = acpSupabase
                 .from(SECTION1_TABLE)
-                .select('*');
+                .select('device_ID,Coach_ID,Coach_no,voc_index,h2s_ppm,nh3_ppm,temperature,location,Door_Status,Door_Count,long_lock_count,Door_Open_Duration_Seconds,Door_Closed_Duration_Seconds,Status_VOC,Train_No,timestamp')
+                .order('timestamp', { ascending: false })
+                .limit(500);
 
-            const { data, error } = await query.order('timestamp', { ascending: false });
+            if (location) query = query.ilike('location', location);
+            const { data, error } = await query;
 
             if (error) throw error;
 

@@ -44,9 +44,7 @@ function resolveModuleKey(type, data = {}) {
 function userMatchesScope(user, moduleKey, location) {
   if (rbac.isAdmin(user)) return true;
 
-  // Users with no mapped location cannot be scoped reliably — keep the legacy
-  // behaviour of receiving everything rather than silently dropping alerts.
-  if (!rbac.getUserLocation(user)) return true;
+  if (!rbac.getUserLocation(user)) return false;
 
   const moduleAllowed = (key) => {
     if (!key) return true;
@@ -111,9 +109,9 @@ async function resolveRecipients(moduleKey, location = null) {
   for (const u of (users || [])) {
     const pseudo = {
       role_id: u.role_id,
-      zone_name: u.zone_master?.name || null,
-      division_name: u.division_master?.name || null,
-      region_name: u.region_master?.name || null,
+      zone_name: Array.isArray(u.zone_master) ? u.zone_master[0]?.name : u.zone_master?.name || null,
+      division_name: Array.isArray(u.division_master) ? u.division_master[0]?.name : u.division_master?.name || null,
+      region_name: Array.isArray(u.region_master) ? u.region_master[0]?.name : u.region_master?.name || null,
     };
     if (userMatchesScope(pseudo, moduleKey, location)) allowedUserIds.add(u.user_id);
   }

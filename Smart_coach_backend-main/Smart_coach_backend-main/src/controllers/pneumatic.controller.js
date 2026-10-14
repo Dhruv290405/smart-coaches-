@@ -340,7 +340,8 @@ exports.getBreakBindingData = async (req, res) => {
                     click_action: 'OPEN_BRAKE_DASHBOARD'
                 };
 
-                const location = finalCoachInfo.location
+                const location = finalCoachInfo.Location
+                    || finalCoachInfo.location
                     || finalCoachInfo.division
                     || finalCoachInfo.division_name
                     || null;
@@ -362,7 +363,8 @@ exports.getBreakBindingData = async (req, res) => {
                     coach_no: String(finalCoachInfo.coach_no),
                     train_no: String(finalCoachInfo.Train_no)
                 };
-                const location = finalCoachInfo.location
+                const location = finalCoachInfo.Location
+                    || finalCoachInfo.location
                     || finalCoachInfo.division
                     || finalCoachInfo.division_name
                     || null;

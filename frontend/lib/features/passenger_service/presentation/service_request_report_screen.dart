@@ -15,10 +15,12 @@ class ServiceRequestReportScreen extends StatefulWidget {
   const ServiceRequestReportScreen({super.key});
 
   @override
-  State<ServiceRequestReportScreen> createState() => _ServiceRequestReportScreenState();
+  State<ServiceRequestReportScreen> createState() =>
+      _ServiceRequestReportScreenState();
 }
 
-class _ServiceRequestReportScreenState extends State<ServiceRequestReportScreen> {
+class _ServiceRequestReportScreenState
+    extends State<ServiceRequestReportScreen> {
   DateTime? _dateFrom;
   DateTime? _dateTo;
   Map<String, dynamic>? _report;
@@ -27,7 +29,12 @@ class _ServiceRequestReportScreenState extends State<ServiceRequestReportScreen>
   @override
   void initState() {
     super.initState();
-    _fetchReport();
+    final email = GetIt.I<Prefs>().getUser()?.email?.toLowerCase();
+    if (email == 'tester@example.com') {
+      _fetchReport();
+    } else {
+      _report = {'underTesting': true, 'requests': <dynamic>[]};
+    }
   }
 
   Future<void> _fetchReport() async {
@@ -41,17 +48,23 @@ class _ServiceRequestReportScreenState extends State<ServiceRequestReportScreen>
         params['dateFrom'] = _dateFrom!.toUtc().toIso8601String();
       }
       if (_dateTo != null) {
-        params['dateTo'] = _dateTo!.toUtc().add(const Duration(days: 1)).toIso8601String();
+        params['dateTo'] = _dateTo!
+            .toUtc()
+            .add(const Duration(days: 1))
+            .toIso8601String();
       }
       if (params.isNotEmpty) {
         url += '?${Uri(queryParameters: params).query}';
       }
 
-      final response = await http.get(Uri.parse(url), headers: {
-        'Content-Type': 'application/json',
-        if (GetIt.I<Prefs>().token != null)
-          'Authorization': 'Bearer ${GetIt.I<Prefs>().token}',
-      });
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          if (GetIt.I<Prefs>().token != null)
+            'Authorization': 'Bearer ${GetIt.I<Prefs>().token}',
+        },
+      );
 
       Loader.dismiss();
       setState(() => _isLoading = false);
@@ -117,7 +130,7 @@ class _ServiceRequestReportScreenState extends State<ServiceRequestReportScreen>
     }
   }
 
-@override
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: ColorConstants.screenBgColor,
@@ -130,7 +143,11 @@ class _ServiceRequestReportScreenState extends State<ServiceRequestReportScreen>
         ),
         title: Text(
           "Service Request Report",
-          style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.w600, color: Colors.black87),
+          style: TextStyle(
+            fontSize: 14.sp,
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
+          ),
         ),
         centerTitle: true,
         actions: [
@@ -138,59 +155,64 @@ class _ServiceRequestReportScreenState extends State<ServiceRequestReportScreen>
               _report!['underTesting'] != true &&
               (_report!['requests'] as List).isNotEmpty)
             IconButton(
-              icon: Icon(Icons.file_download, color: ColorConstants.primary, size: 6.w),
+              icon: Icon(
+                Icons.file_download,
+                color: ColorConstants.primary,
+                size: 6.w,
+              ),
               onPressed: () {
-                final requests = List<Map<String, dynamic>>.from(_report!['requests']);
+                final requests = List<Map<String, dynamic>>.from(
+                  _report!['requests'],
+                );
                 ServiceRequestReportGenerator.generate(context, requests);
               },
             ),
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: ColorConstants.primary))
+          ? const Center(
+              child: CircularProgressIndicator(color: ColorConstants.primary),
+            )
           : _report == null
-              ? const Center(child: Text('No data'))
-              : _report!['underTesting'] == true
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _buildUnderTestingBanner(),
-                          SizedBox(height: 2.h),
-                          Text(
-                            'Data currently under testing — report will be available soon.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 12.sp,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  : RefreshIndicator(
-                      onRefresh: _fetchReport,
-                      child: SingleChildScrollView(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        padding: EdgeInsets.symmetric(horizontal: 5.w, vertical: 2.h),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildDateFilter(),
-                            SizedBox(height: 2.h),
-                            _buildSummaryCards(),
-                            SizedBox(height: 2.h),
-                            _buildServiceTypeBreakdown(),
-                            SizedBox(height: 2.h),
-                            _buildDayWiseChart(),
-                            SizedBox(height: 2.h),
-                            _buildResolutionTime(),
-                            SizedBox(height: 2.h),
-                            _buildRecentRequests(),
-                          ],
-                        ),
-                      ),
-                    ),
+          ? const Center(child: Text('No data'))
+          : _report!['underTesting'] == true
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _buildUnderTestingBanner(),
+                  SizedBox(height: 2.h),
+                  Text(
+                    'Data currently under testing — report will be available soon.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 12.sp, color: Colors.grey[600]),
+                  ),
+                ],
+              ),
+            )
+          : RefreshIndicator(
+              onRefresh: _fetchReport,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: EdgeInsets.symmetric(horizontal: 5.w, vertical: 2.h),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildDateFilter(),
+                    SizedBox(height: 2.h),
+                    _buildSummaryCards(),
+                    SizedBox(height: 2.h),
+                    _buildServiceTypeBreakdown(),
+                    SizedBox(height: 2.h),
+                    _buildDayWiseChart(),
+                    SizedBox(height: 2.h),
+                    _buildResolutionTime(),
+                    SizedBox(height: 2.h),
+                    _buildRecentRequests(),
+                  ],
+                ),
+              ),
+            ),
     );
   }
 
@@ -201,11 +223,17 @@ class _ServiceRequestReportScreenState extends State<ServiceRequestReportScreen>
       decoration: BoxDecoration(
         color: ColorConstants.statusWarning.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(3.w),
-        border: Border.all(color: ColorConstants.statusWarning.withValues(alpha: 0.5)),
+        border: Border.all(
+          color: ColorConstants.statusWarning.withValues(alpha: 0.5),
+        ),
       ),
       child: Row(
         children: [
-          Icon(Icons.science_outlined, color: ColorConstants.statusWarning, size: 5.w),
+          Icon(
+            Icons.science_outlined,
+            color: ColorConstants.statusWarning,
+            size: 5.w,
+          ),
           SizedBox(width: 3.w),
           Expanded(
             child: Text(
@@ -230,7 +258,9 @@ class _ServiceRequestReportScreenState extends State<ServiceRequestReportScreen>
         children: [
           Expanded(
             child: _dateButton(
-              label: _dateFrom != null ? DateFormat('dd MMM yyyy').format(_dateFrom!) : 'From Date',
+              label: _dateFrom != null
+                  ? DateFormat('dd MMM yyyy').format(_dateFrom!)
+                  : 'From Date',
               onTap: () => _pickDate(isFrom: true),
             ),
           ),
@@ -239,7 +269,9 @@ class _ServiceRequestReportScreenState extends State<ServiceRequestReportScreen>
           SizedBox(width: 3.w),
           Expanded(
             child: _dateButton(
-              label: _dateTo != null ? DateFormat('dd MMM yyyy').format(_dateTo!) : 'To Date',
+              label: _dateTo != null
+                  ? DateFormat('dd MMM yyyy').format(_dateTo!)
+                  : 'To Date',
               onTap: () => _pickDate(isFrom: false),
             ),
           ),
@@ -276,7 +308,10 @@ class _ServiceRequestReportScreenState extends State<ServiceRequestReportScreen>
           borderRadius: BorderRadius.circular(2.w),
         ),
         child: Center(
-          child: Text(label, style: TextStyle(fontSize: 11.sp, color: Colors.black54)),
+          child: Text(
+            label,
+            style: TextStyle(fontSize: 11.sp, color: Colors.black54),
+          ),
         ),
       ),
     );
@@ -308,10 +343,22 @@ class _ServiceRequestReportScreenState extends State<ServiceRequestReportScreen>
         decoration: _cardDecoration(),
         child: Column(
           children: [
-            Text(value,
-                style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.w800, color: color)),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 18.sp,
+                fontWeight: FontWeight.w800,
+                color: color,
+              ),
+            ),
             SizedBox(height: 0.5.h),
-            Text(label, style: TextStyle(fontSize: 9.sp, color: ColorConstants.textSecondary)),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 9.sp,
+                color: ColorConstants.textSecondary,
+              ),
+            ),
           ],
         ),
       ),
@@ -329,8 +376,10 @@ class _ServiceRequestReportScreenState extends State<ServiceRequestReportScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("Service Type Breakdown",
-              style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.w700)),
+          Text(
+            "Service Type Breakdown",
+            style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.w700),
+          ),
           SizedBox(height: 2.h),
           ...byType.entries.map((e) {
             final total = _report!['totalCount'] ?? 1;
@@ -343,16 +392,26 @@ class _ServiceRequestReportScreenState extends State<ServiceRequestReportScreen>
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(_formatType(e.key), style: TextStyle(fontSize: 12.sp)),
-                      Text("${e.value} ($pct%)",
-                          style: TextStyle(fontSize: 12.sp, fontWeight: FontWeight.w600)),
+                      Text(
+                        _formatType(e.key),
+                        style: TextStyle(fontSize: 12.sp),
+                      ),
+                      Text(
+                        "${e.value} ($pct%)",
+                        style: TextStyle(
+                          fontSize: 12.sp,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ],
                   ),
                   SizedBox(height: 0.5.h),
                   LinearProgressIndicator(
                     value: (e.value as int) / total,
                     backgroundColor: Colors.grey.shade200,
-                    valueColor: AlwaysStoppedAnimation<Color>(ColorConstants.primary),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      ColorConstants.primary,
+                    ),
                     minHeight: 6,
                     borderRadius: BorderRadius.circular(3),
                   ),
@@ -370,7 +429,9 @@ class _ServiceRequestReportScreenState extends State<ServiceRequestReportScreen>
     if (byDay.isEmpty) return const SizedBox.shrink();
 
     final sortedDays = byDay.keys.toList()..sort();
-    final last7 = sortedDays.length > 7 ? sortedDays.sublist(sortedDays.length - 7) : sortedDays;
+    final last7 = sortedDays.length > 7
+        ? sortedDays.sublist(sortedDays.length - 7)
+        : sortedDays;
 
     return Container(
       width: double.infinity,
@@ -379,8 +440,10 @@ class _ServiceRequestReportScreenState extends State<ServiceRequestReportScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("Day-wise Trend",
-              style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.w700)),
+          Text(
+            "Day-wise Trend",
+            style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.w700),
+          ),
           SizedBox(height: 2.h),
           SizedBox(
             height: 12.h,
@@ -401,7 +464,13 @@ class _ServiceRequestReportScreenState extends State<ServiceRequestReportScreen>
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        Text('$total', style: TextStyle(fontSize: 9.sp, fontWeight: FontWeight.w600)),
+                        Text(
+                          '$total',
+                          style: TextStyle(
+                            fontSize: 9.sp,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                         SizedBox(height: 0.5.h),
                         Container(
                           height: height < 0.5.h ? 0.5.h : height,
@@ -411,7 +480,10 @@ class _ServiceRequestReportScreenState extends State<ServiceRequestReportScreen>
                           ),
                         ),
                         SizedBox(height: 0.5.h),
-                        Text(day.length > 5 ? day.substring(5) : day, style: TextStyle(fontSize: 7.sp, color: Colors.grey)),
+                        Text(
+                          day.length > 5 ? day.substring(5) : day,
+                          style: TextStyle(fontSize: 7.sp, color: Colors.grey),
+                        ),
                       ],
                     ),
                   ),
@@ -439,10 +511,21 @@ class _ServiceRequestReportScreenState extends State<ServiceRequestReportScreen>
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text("Avg. Resolution Time",
-                  style: TextStyle(fontSize: 11.sp, color: ColorConstants.textSecondary)),
-              Text("${avgHours.toStringAsFixed(1)} hours",
-                  style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w700, color: ColorConstants.primary)),
+              Text(
+                "Avg. Resolution Time",
+                style: TextStyle(
+                  fontSize: 11.sp,
+                  color: ColorConstants.textSecondary,
+                ),
+              ),
+              Text(
+                "${avgHours.toStringAsFixed(1)} hours",
+                style: TextStyle(
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.w700,
+                  color: ColorConstants.primary,
+                ),
+              ),
             ],
           ),
         ],
@@ -451,7 +534,9 @@ class _ServiceRequestReportScreenState extends State<ServiceRequestReportScreen>
   }
 
   Widget _buildRecentRequests() {
-    final requests = List<Map<String, dynamic>>.from(_report!['requests'] ?? []);
+    final requests = List<Map<String, dynamic>>.from(
+      _report!['requests'] ?? [],
+    );
     if (requests.isEmpty) return const SizedBox.shrink();
 
     final recent = requests.take(10).toList();
@@ -462,8 +547,14 @@ class _ServiceRequestReportScreenState extends State<ServiceRequestReportScreen>
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text("Recent Requests", style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.w700)),
-            Text("${requests.length} total", style: TextStyle(fontSize: 11.sp, color: Colors.grey)),
+            Text(
+              "Recent Requests",
+              style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.w700),
+            ),
+            Text(
+              "${requests.length} total",
+              style: TextStyle(fontSize: 11.sp, color: Colors.grey),
+            ),
           ],
         ),
         SizedBox(height: 1.h),
@@ -477,8 +568,8 @@ class _ServiceRequestReportScreenState extends State<ServiceRequestReportScreen>
     final statusColor = status == 'resolved'
         ? const Color(0xFF2E7D32)
         : status == 'in_progress'
-            ? const Color(0xFF1A9DF8)
-            : ColorConstants.statusWarning;
+        ? const Color(0xFF1A9DF8)
+        : ColorConstants.statusWarning;
 
     return Container(
       margin: EdgeInsets.only(bottom: 1.5.h),
@@ -502,7 +593,11 @@ class _ServiceRequestReportScreenState extends State<ServiceRequestReportScreen>
                 ),
                 child: Text(
                   _formatStatus(status),
-                  style: TextStyle(fontSize: 9.sp, fontWeight: FontWeight.w600, color: statusColor),
+                  style: TextStyle(
+                    fontSize: 9.sp,
+                    fontWeight: FontWeight.w600,
+                    color: statusColor,
+                  ),
                 ),
               ),
             ],
@@ -510,18 +605,32 @@ class _ServiceRequestReportScreenState extends State<ServiceRequestReportScreen>
           SizedBox(height: 0.5.h),
           Row(
             children: [
-              Text("Seat: ${request['seat_berth'] ?? ''}",
-                  style: TextStyle(fontSize: 10.sp, color: ColorConstants.textSecondary)),
+              Text(
+                "Seat: ${request['seat_berth'] ?? ''}",
+                style: TextStyle(
+                  fontSize: 10.sp,
+                  color: ColorConstants.textSecondary,
+                ),
+              ),
               SizedBox(width: 3.w),
-              Text(_formatType('${request['service_type'] ?? ''}'),
-                  style: TextStyle(fontSize: 10.sp, color: ColorConstants.textSecondary)),
+              Text(
+                _formatType('${request['service_type'] ?? ''}'),
+                style: TextStyle(
+                  fontSize: 10.sp,
+                  color: ColorConstants.textSecondary,
+                ),
+              ),
             ],
           ),
           if (request['description'] != null &&
               (request['description'] as String).isNotEmpty) ...[
             SizedBox(height: 0.5.h),
-            Text(request['description'],
-                style: TextStyle(fontSize: 10.sp, color: Colors.grey), maxLines: 2, overflow: TextOverflow.ellipsis),
+            Text(
+              request['description'],
+              style: TextStyle(fontSize: 10.sp, color: Colors.grey),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
           ],
           SizedBox(height: 0.5.h),
           Text(
@@ -536,36 +645,52 @@ class _ServiceRequestReportScreenState extends State<ServiceRequestReportScreen>
                 if (status == 'pending') ...[
                   GestureDetector(
                     onTap: () => _updateRequestStatus(
-                        int.tryParse('${request['id']}') ?? 0, 'in_progress'),
+                      int.tryParse('${request['id']}') ?? 0,
+                      'in_progress',
+                    ),
                     child: Container(
-                      padding: EdgeInsets.symmetric(horizontal: 3.w, vertical: 1.h),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 3.w,
+                        vertical: 1.h,
+                      ),
                       decoration: BoxDecoration(
                         border: Border.all(color: ColorConstants.primary),
                         borderRadius: BorderRadius.circular(2.w),
                       ),
-                      child: Text('Accept',
-                          style: TextStyle(
-                              fontSize: 10.sp,
-                              color: ColorConstants.primary,
-                              fontWeight: FontWeight.w600)),
+                      child: Text(
+                        'Accept',
+                        style: TextStyle(
+                          fontSize: 10.sp,
+                          color: ColorConstants.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ),
                   SizedBox(width: 2.w),
                 ],
                 GestureDetector(
                   onTap: () => _updateRequestStatus(
-                      int.tryParse('${request['id']}') ?? 0, 'resolved'),
+                    int.tryParse('${request['id']}') ?? 0,
+                    'resolved',
+                  ),
                   child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: 3.w, vertical: 1.h),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 3.w,
+                      vertical: 1.h,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFF2E7D32),
                       borderRadius: BorderRadius.circular(2.w),
                     ),
-                    child: Text('Mark Resolved',
-                        style: TextStyle(
-                            fontSize: 10.sp,
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600)),
+                    child: Text(
+                      'Mark Resolved',
+                      style: TextStyle(
+                        fontSize: 10.sp,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -580,25 +705,37 @@ class _ServiceRequestReportScreenState extends State<ServiceRequestReportScreen>
     color: Colors.white,
     borderRadius: BorderRadius.circular(3.w),
     boxShadow: [
-      BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4)),
+      BoxShadow(
+        color: Colors.black.withValues(alpha: 0.05),
+        blurRadius: 10,
+        offset: const Offset(0, 4),
+      ),
     ],
   );
 
   String _formatType(String type) {
     switch (type) {
-      case 'toilet_cleaning': return 'Toilet Cleaning';
-      case 'linen_issue': return 'Linen Issue';
-      case 'others': return 'Others';
-      default: return type;
+      case 'toilet_cleaning':
+        return 'Toilet Cleaning';
+      case 'linen_issue':
+        return 'Linen Issue';
+      case 'others':
+        return 'Others';
+      default:
+        return type;
     }
   }
 
   String _formatStatus(String status) {
     switch (status) {
-      case 'pending': return 'Pending';
-      case 'in_progress': return 'In Progress';
-      case 'resolved': return 'Resolved';
-      default: return status;
+      case 'pending':
+        return 'Pending';
+      case 'in_progress':
+        return 'In Progress';
+      case 'resolved':
+        return 'Resolved';
+      default:
+        return status;
     }
   }
 
