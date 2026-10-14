@@ -193,7 +193,8 @@ class OdourModel {
             const { data, error } = await odour2Supabase
                 .from(SECTION2_TABLE)
                 .select('*')
-                .order('timestamp', { ascending: false });
+                .order('timestamp', { ascending: false })
+                .limit(500);
 
             if (error) throw error;
 

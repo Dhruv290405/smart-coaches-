@@ -42,7 +42,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool isAgreedToTerms = false;
   bool _isOtpSent = false;
   bool _isOtpVerified = false;
-  bool _isSendingOtp = false;
   late RegisterBloc registerBloc;
   @override
   void initState() {
@@ -72,7 +71,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           child: Center(
             child: Container(
               padding: EdgeInsets.symmetric(horizontal: 6.w),
-              child:               BlocConsumer<RegisterBloc, RegisterState>(
+              child: BlocConsumer<RegisterBloc, RegisterState>(
                 listener: (context, state) {
                   if (state.isSubmitting || state.isLoading) {
                     Loader.show();
@@ -111,7 +110,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     Utils.showSimpleMessageDialog(
                       context,
                       'Registration Status',
-                      state.successMessage ?? 'Your registration has been processed. You will receive a confirmation email shortly.',
+                      state.successMessage ??
+                          'Your registration has been processed. You will receive a confirmation email shortly.',
                       onTapButton: () {
                         if (registerBloc.prefs.token != null) {
                           context.go(AppRouter.dashboardRoute);
@@ -266,24 +266,40 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   ),
                             SizedBox(
                               child: CustomButton(
-                                text: state.isSubmitting ? "Registering..." : (_step < 3 ? "Next" : (_step == 3 ? "Send OTP" : (_isOtpVerified ? "Register" : "Verify OTP"))),
+                                text: state.isSubmitting
+                                    ? "Registering..."
+                                    : (_step < 3
+                                          ? "Next"
+                                          : (_step == 3
+                                                ? "Send OTP"
+                                                : (!_isOtpSent
+                                                      ? "Send OTP"
+                                                      : (_isOtpVerified
+                                                            ? "Register"
+                                                            : "Verify OTP")))),
                                 suffixIcon: _step < 3
                                     ? Icons.arrow_forward_ios_sharp
                                     : null,
                                 isDisabled: state.isSubmitting,
-                                onPressed: state.isSubmitting ? null : () {
-                                  if (_step == 1) {
-                                    _doProcessForStep1(state);
-                                  } else if (_step == 2) {
-                                    _doProcessForStep2(state);
-                                  } else if (_step == 3) {
-                                    _doProcessForStep3(state);
-                                  } else if (_step == 4 && _isOtpVerified) {
-                                    _doSubmitRegistration();
-                                  } else if (_step == 4 && !_isOtpVerified) {
-                                    _doVerifyOtp();
-                                  }
-                                },
+                                onPressed: state.isSubmitting
+                                    ? null
+                                    : () {
+                                        if (_step == 1) {
+                                          _doProcessForStep1(state);
+                                        } else if (_step == 2) {
+                                          _doProcessForStep2(state);
+                                        } else if (_step == 3) {
+                                          _doProcessForStep3(state);
+                                        } else if (_step == 4 && !_isOtpSent) {
+                                          _sendOtp();
+                                        } else if (_step == 4 &&
+                                            _isOtpVerified) {
+                                          _doSubmitRegistration();
+                                        } else if (_step == 4 &&
+                                            !_isOtpVerified) {
+                                          _doVerifyOtp();
+                                        }
+                                      },
                               ),
                             ),
                           ],
@@ -369,7 +385,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
             style: const TextStyle(fontSize: 14, color: Colors.black54),
           ),
           const SizedBox(height: 24),
-          const Text('Enter OTP', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+          const Text(
+            'Enter OTP',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          ),
           const SizedBox(height: 8),
           CustomTextField(
             controller: _otpController,
@@ -379,19 +398,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
           const SizedBox(height: 16),
           if (_isOtpVerified)
-            const Row(children: [
-              Icon(Icons.check_circle, color: Colors.green, size: 20),
-              SizedBox(width: 8),
-              Text('OTP Verified', style: TextStyle(color: Colors.green, fontWeight: FontWeight.w600)),
-            ])
+            const Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.green, size: 20),
+                SizedBox(width: 8),
+                Text(
+                  'OTP Verified',
+                  style: TextStyle(
+                    color: Colors.green,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            )
           else if (!_isOtpSent)
             const SizedBox()
           else
-            Row(children: [
-              const Icon(Icons.info_outline, color: Colors.orange, size: 20),
-              const SizedBox(width: 8),
-              const Text('Enter the OTP and tap Verify', style: TextStyle(color: Colors.orange)),
-            ]),
+            Row(
+              children: [
+                const Icon(Icons.info_outline, color: Colors.orange, size: 20),
+                const SizedBox(width: 8),
+                const Text(
+                  'Enter the OTP and tap Verify',
+                  style: TextStyle(color: Colors.orange),
+                ),
+              ],
+            ),
         ],
       ),
     );
@@ -548,7 +580,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
           state.registerRequest.panCardNo = '';
         }
       }
-      setState(() { _step = 4; _isOtpSent = false; _isOtpVerified = false; _otpController.clear(); });
+      setState(() {
+        _step = 4;
+        _isOtpSent = false;
+        _isOtpVerified = false;
+        _otpController.clear();
+      });
       _sendOtp();
     }
   }
@@ -561,7 +598,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
   void _doVerifyOtp() async {
     final otp = _otpController.text.trim();
     if (otp.length != 6) {
-      ToastMessageUtils.showMessage(context, 'Please enter a valid 6-digit OTP');
+      ToastMessageUtils.showMessage(
+        context,
+        'Please enter a valid 6-digit OTP',
+      );
       return;
     }
     final mobile = _mobileController.text.trim();
@@ -569,7 +609,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   void _doSubmitRegistration() {
-    if (!registerBloc.state.isOtpVerified) { ToastMessageUtils.showMessage(context, 'Please verify the OTP first'); return; }
+    if (!registerBloc.state.isOtpVerified) {
+      ToastMessageUtils.showMessage(context, 'Please verify the OTP first');
+      return;
+    }
     registerBloc.add(SubmitRegister());
   }
 }

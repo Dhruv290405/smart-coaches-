@@ -68,6 +68,11 @@ class _HardwareIssueReportScreenState extends State<HardwareIssueReportScreen> {
   @override
   void initState() {
     super.initState();
+    final email = GetIt.I<Prefs>().getUser()?.email?.trim().toLowerCase();
+    if (email != 'tester@example.com') {
+      _report = {'underTesting': true, 'requests': <dynamic>[]};
+      return;
+    }
     _loadMapping();
     _fetchReport();
   }
@@ -513,6 +518,13 @@ class _HardwareIssueReportScreenState extends State<HardwareIssueReportScreen> {
           ? const Center(child: CircularProgressIndicator(color: ColorConstants.primary))
           : _report == null
               ? const Center(child: Text('No data'))
+              : _report!['underTesting'] == true
+                  ? const Center(
+                      child: Text(
+                        'Service Request Report is under testing.',
+                        textAlign: TextAlign.center,
+                      ),
+                    )
               : RefreshIndicator(
                   onRefresh: _fetchReport,
                   child: SingleChildScrollView(

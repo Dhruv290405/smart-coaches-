@@ -116,6 +116,7 @@ class RegisterState extends Equatable {
     isLoading,
     isSubmitting,
     submissionSuccess,
+    successMessage,
     isIdTypeIsPan,
     isOtpSent,
     isOtpVerified,
