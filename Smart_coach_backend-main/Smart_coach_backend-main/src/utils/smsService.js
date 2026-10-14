@@ -63,6 +63,11 @@ const smsService = {
     } catch (error) {
       console.error(`[OTP] Twilio voice call failed for ${mobileNumber}: ${error.message}`);
       otpStore.delete(mobileNumber);
+      if (error.code === 20003 || /account .*not active|authentication failed/i.test(error.message)) {
+        throw new Error(
+          'OTP service is unavailable because the Twilio account is inactive or its credentials are invalid. Please contact the administrator.'
+        );
+      }
       throw error;
     }
 

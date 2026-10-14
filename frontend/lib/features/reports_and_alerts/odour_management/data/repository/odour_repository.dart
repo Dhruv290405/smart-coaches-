@@ -65,8 +65,28 @@ class OdourRepository {
 
     while (true) {
       try {
-        final data = await getOdourData();
-        yield data;
+        final combined = <OdourCoachModel>[];
+        final section1 = _fetchFromEndpoint(
+          ApiConstants.odourCoachesApiEndpoint,
+          'Section 1',
+        );
+        final section2 = _fetchFromEndpoint(
+          ApiConstants.odourSection2ApiEndpoint,
+          'Section 2',
+        );
+
+        final first = await section1;
+        combined.addAll(first);
+        if (combined.isNotEmpty) yield List.unmodifiable(combined);
+
+        final second = await section2;
+        combined.addAll(second);
+        if (combined.isNotEmpty) yield List.unmodifiable(combined);
+
+        final userId = GetIt.I<Prefs>().userId;
+        if (userId != null && combined.isNotEmpty) {
+          _cacheByUser[userId] = List<OdourCoachModel>.unmodifiable(combined);
+        }
       } catch (e) {
         _log.warn('Poll error: $e');
       }

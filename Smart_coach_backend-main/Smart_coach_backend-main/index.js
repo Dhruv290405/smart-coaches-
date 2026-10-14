@@ -82,7 +82,7 @@ app.get('/smart_coach_api/api', (req, res) => {
   res.json({
     success: true,
     application: 'Smart Coaches API',
-    build: '38da262d',
+    build: 'otp-odour-fix-20261014',
     status: 'Running',
     message: 'Try /health for the health endpoint',
     timestamp: new Date().toISOString(),
