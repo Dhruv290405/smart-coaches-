@@ -81,7 +81,7 @@ class OdourRepository {
 
         final second = await section2;
         combined.addAll(second);
-        if (combined.isNotEmpty) yield List.unmodifiable(combined);
+        yield List.unmodifiable(combined);
 
         final userId = GetIt.I<Prefs>().userId;
         if (userId != null && combined.isNotEmpty) {

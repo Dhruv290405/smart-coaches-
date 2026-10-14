@@ -38,6 +38,7 @@ class _OdourDashboardState extends State<OdourDashboard> {
   String selectedViewType = 'Monitoring';
   String lastUpdated = 'Never';
   bool isRefreshing = false;
+  bool _initialLoadComplete = false;
   StreamSubscription<List<OdourCoachModel>>? _odourSubscription;
 
   List<String> trainNumbers = ['All Trains'];
@@ -63,6 +64,7 @@ class _OdourDashboardState extends State<OdourDashboard> {
       (records) {
         if (mounted) {
           setState(() {
+            _initialLoadComplete = true;
             _allRecords = _mergeLastGood(records);
             trainNumbers = [
               'All Trains',
@@ -314,6 +316,10 @@ class _OdourDashboardState extends State<OdourDashboard> {
   }
 
   Widget _buildMonitoringSections() {
+    if (!_initialLoadComplete) {
+      return _buildLoadingSectionState();
+    }
+
     final s1 = _filteredRecords.where((r) => r.section == 'Section 1').toList();
     final s2 = _filteredRecords.where((r) => r.section == 'Section 2').toList();
 
@@ -388,6 +394,31 @@ class _OdourDashboardState extends State<OdourDashboard> {
           const SizedBox(height: 8),
           Text(
             'No live devices in this section yet',
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              color: const Color(0xFF6B7280),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoadingSectionState() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 32),
+      alignment: Alignment.center,
+      child: Column(
+        children: [
+          const SizedBox(
+            width: 28,
+            height: 28,
+            child: CircularProgressIndicator(strokeWidth: 3),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Loading live devices...',
             style: GoogleFonts.poppins(
               fontSize: 13,
               color: const Color(0xFF6B7280),
