@@ -102,17 +102,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       context,
                       'OTP verified successfully',
                     );
-                  } else if (!state.isSubmitting &&
-                      (_step == 3 || _step == 4) &&
-                      state.submissionSuccess) {
+                  } else if (state.submissionSuccess) {
+                    // Always show registration result regardless of step
                     ToastMessageUtils.showMessage(
                       context,
-                      state.successMessage,
+                      state.successMessage ?? 'Registration completed',
                     );
                     Utils.showSimpleMessageDialog(
                       context,
-                      'Registration Successful',
-                      'Your registration has been submitted successfully. You will receive a confirmation email shortly.',
+                      'Registration Status',
+                      state.successMessage ?? 'Your registration has been processed. You will receive a confirmation email shortly.',
                       onTapButton: () {
                         if (registerBloc.prefs.token != null) {
                           context.go(AppRouter.dashboardRoute);
@@ -121,6 +120,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         }
                       },
                     );
+                  } else if (!state.isSubmitting && state.isLoading) {
+                    // Generic loading completion message
+                    ToastMessageUtils.showMessage(context, 'Process completed');
                   }
                 },
                 builder: (context, state) {
