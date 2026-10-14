@@ -96,7 +96,9 @@ const odourController = {
                 return res.status(200).json({ success: true, data: [] });
             }
             const deviceId = req.query.deviceId;
-            const section = req.query.section === '2' ? '2' : '1';
+            // Accept '2', 'Section 2', 'section2', etc. — anything mentioning 2.
+            const rawSection = (req.query.section ?? '').toString().toLowerCase();
+            const section = rawSection.includes('2') ? '2' : '1';
             if (!deviceId) {
                 return res.status(400).json({ success: false, error: 'deviceId is required' });
             }

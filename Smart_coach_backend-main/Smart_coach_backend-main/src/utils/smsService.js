@@ -29,10 +29,14 @@ function buildVoiceTwiML(otp) {
 
 async function placeVoiceOtpCall(mobileNumber, otp) {
   if (!twilioClient) {
-    const msg =
-      'Twilio is not configured (TWILIO_ACCOUNT_SID/AUTH_TOKEN missing). Set these env vars on Railway.';
-    console.error(`[OTP] ${msg}`);
-    throw new Error(msg);
+    throw new Error(
+      'OTP service is not configured (TWILIO_ACCOUNT_SID/TWILIO_AUTH_TOKEN missing). Please contact the administrator.'
+    );
+  }
+  if (!twilioPhoneNumber) {
+    throw new Error(
+      'OTP service is not configured (TWILIO_PHONE_NUMBER missing). Please contact the administrator.'
+    );
   }
   await twilioClient.calls.create({
     to: mobileNumber,
@@ -42,21 +46,28 @@ async function placeVoiceOtpCall(mobileNumber, otp) {
   console.log(`[OTP] Twilio voice call placed to ${mobileNumber}`);
 }
 
+function isConfigured() {
+  return !!(twilioClient && twilioPhoneNumber);
+}
+
 const smsService = {
+  isConfigured,
+
   async sendOtp(mobileNumber) {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     otpStore.set(mobileNumber, { otp, createdAt: Date.now() });
 
     console.log(`[OTP] OTP for ${mobileNumber}: ${otp}`);
 
+    const isProduction = process.env.NODE_ENV === 'production';
     try {
       await placeVoiceOtpCall(mobileNumber, otp);
     } catch (error) {
       console.error(`[OTP] Twilio voice call failed for ${mobileNumber}: ${error.message}`);
-      throw error;
+      // In non-production, keep the OTP usable so testing isn't blocked.
+      if (isProduction) throw error;
     }
 
-    const isProduction = process.env.NODE_ENV === 'production';
     return {
       success: true,
       message: 'OTP sent successfully',

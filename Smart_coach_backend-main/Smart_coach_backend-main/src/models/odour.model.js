@@ -212,6 +212,25 @@ class OdourModel {
         }
     }
 
+    _section1DemoHistory() {
+        const points = [];
+        const now = Date.now();
+        for (let i = 23; i >= 0; i--) {
+            const t = new Date(now - i * 3600 * 1000);
+            const wave = Math.sin((23 - i) / 3.5) * 220;
+            points.push({
+                timestamp: t.toISOString(),
+                voc: Math.max(60, Math.round(560 + wave)),
+                nh3: +(0.12 + Math.abs(Math.sin((23 - i) / 4)) * 0.22).toFixed(3),
+                h2s: +(0.02 + Math.abs(Math.cos((23 - i) / 4)) * 0.04).toFixed(3),
+                smoke: +(2 + Math.abs(Math.sin((23 - i) / 5)) * 3).toFixed(2),
+                temperature: +(29 + Math.abs(Math.sin((23 - i) / 6)) * 4).toFixed(1),
+                humidity: +(56 + Math.abs(Math.cos((23 - i) / 6)) * 10).toFixed(1),
+            });
+        }
+        return points;
+    }
+
     async getSection1History(deviceId, limit = 10000) {
         try {
             if (!deviceId) return [];
@@ -222,7 +241,7 @@ class OdourModel {
                 .order('timestamp', { ascending: true })
                 .limit(limit);
             if (error) throw error;
-            return (data || []).map((r) => ({
+            const mapped = (data || []).map((r) => ({
                 timestamp: r.timestamp,
                 voc: r.voc_index ?? 0,
                 nh3: r.nh3_ppm ?? 0,
@@ -231,8 +250,15 @@ class OdourModel {
                 temperature: r.temperature ?? 0,
                 humidity: r.humidity ?? 0,
             }));
+            if (mapped.length === 0 && this._demoFallbackEnabled()) {
+                return this._section1DemoHistory();
+            }
+            return mapped;
         } catch (err) {
             console.error("Odour Section 1 History Error:", err.message);
+            if (this._demoFallbackEnabled()) {
+                return this._section1DemoHistory();
+            }
             return [];
         }
     }
@@ -240,22 +266,49 @@ class OdourModel {
     async getSection2History(deviceId, limit = 10000) {
         try {
             if (!deviceId || !odour2Supabase) return [];
-            const { data, error } = await odour2Supabase
-                .from('odour_management_history')
-                .select('timestamp, voc, nh3, h2s, smoke, temperature, humidity')
-                .eq('device_id', deviceId)
-                .order('timestamp', { ascending: true })
-                .limit(limit);
-            if (error) throw error;
-            return (data || []).map((r) => ({
-                timestamp: r.timestamp,
-                voc: r.voc ?? 0,
-                nh3: r.nh3 ?? 0,
-                h2s: r.h2s ?? 0,
-                smoke: r.smoke ?? 0,
-                temperature: r.temperature ?? 0,
-                humidity: r.humidity ?? 0,
-            }));
+            // Prefer the dedicated history table; fall back to the live table if it
+            // does not exist yet (or is empty) using the appropriate column names.
+            const candidates = [
+                {
+                    table: 'odour_management_history',
+                    select: 'timestamp, voc, nh3, h2s, smoke, temperature, humidity',
+                    map: (r) => ({
+                        timestamp: r.timestamp,
+                        voc: r.voc ?? 0,
+                        nh3: r.nh3 ?? 0,
+                        h2s: r.h2s ?? 0,
+                        smoke: r.smoke ?? 0,
+                        temperature: r.temperature ?? 0,
+                        humidity: r.humidity ?? 0,
+                    }),
+                },
+                {
+                    table: SECTION2_TABLE,
+                    select: 'timestamp, voc_index, nh3_ppm, h2s_ppm, temperature, humidity',
+                    map: (r) => ({
+                        timestamp: r.timestamp,
+                        voc: r.voc_index ?? 0,
+                        nh3: r.nh3_ppm ?? 0,
+                        h2s: r.h2s_ppm ?? 0,
+                        smoke: 0,
+                        temperature: r.temperature ?? 0,
+                        humidity: r.humidity ?? 0,
+                    }),
+                },
+            ];
+
+            for (const c of candidates) {
+                const { data, error } = await odour2Supabase
+                    .from(c.table)
+                    .select(c.select)
+                    .eq('device_id', deviceId)
+                    .order('timestamp', { ascending: true })
+                    .limit(limit);
+                if (!error && data && data.length > 0) {
+                    return data.map(c.map);
+                }
+            }
+            return [];
         } catch (err) {
             console.error("Odour Section 2 History Error:", err.message);
             return [];

@@ -24,6 +24,57 @@ class WliDataService {
     throw Exception('Failed to load WLI data: ${response.statusCode}');
   }
 
+  /// Fetch historical readings for a device within the last [days] days.
+  /// Returns rows normalised to `{ timestamp, percentFull, levelCm, volumeLiters, rawValue }`.
+  Future<List<Map<String, dynamic>>> fetchHistory({
+    required String deviceId,
+    String? coachId,
+    required int days,
+    String? token,
+  }) async {
+    final query = <String, String>{
+      if (deviceId.isNotEmpty) 'deviceId': deviceId,
+      if (deviceId.isEmpty && (coachId ?? '').isNotEmpty) 'coachId': coachId!,
+      'days': '$days',
+    };
+    final uri = Uri.parse('$baseUrl${ApiConstants.wliHistoryApiEndpoint}')
+        .replace(queryParameters: query);
+
+    final response = await http.get(uri, headers: {
+      'Content-Type': 'application/json',
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+    });
+
+    if (response.statusCode != 200) return [];
+    final body = json.decode(response.body);
+    if (body['success'] != true || body['data'] is! List) return [];
+
+    return (body['data'] as List).map<Map<String, dynamic>>((raw) {
+      final row = raw as Map<String, dynamic>;
+      final rawPercent = row['percent_full'] is num
+          ? (row['percent_full'] as num).toDouble()
+          : double.tryParse(row['percent_full']?.toString() ?? '') ?? 0.0;
+      final percentFull = rawPercent <= 1.0 ? rawPercent * 100 : rawPercent;
+      final levelCm = row['level_cm'] is num
+          ? (row['level_cm'] as num).toDouble()
+          : double.tryParse(row['level_cm']?.toString() ?? '') ?? 0.0;
+      final volumeLiters = row['volume_liters'] is num
+          ? (row['volume_liters'] as num).toDouble()
+          : double.tryParse(row['volume_liters']?.toString() ?? '') ?? 0.0;
+      final rawValue = row['raw_value'] is num
+          ? (row['raw_value'] as num).toInt()
+          : int.tryParse(row['raw_value']?.toString() ?? '') ?? 0;
+
+      return <String, dynamic>{
+        'timestamp': row['timestamp']?.toString() ?? '',
+        'percentFull': percentFull,
+        'levelCm': levelCm,
+        'volumeLiters': volumeLiters,
+        'rawValue': rawValue,
+      };
+    }).toList();
+  }
+
   /// Groups rows by device_id so overhead coaches with two sensors
   /// (front + rear) become one card with multiple assets.
   List<WaterTankModel> _mergeByDevice(List<WaterTankModel> models) {

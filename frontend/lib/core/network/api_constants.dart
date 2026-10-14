@@ -1,6 +1,7 @@
 class ApiConstants {
   static const String loginApiEndpoint = '/auth/login';
   static const String registerApiEndpoint = '/auth/register';
+  static const String profileApiEndpoint = '/auth/profile';
   static const String getZonesApiEndpoint = '/masters/zones';
   static const String getGetDivisionsApiEndpoint = '/masters/divisions';
   static const String getGetRegionsApiEndpoint = '/masters/regions';
@@ -43,6 +44,7 @@ class ApiConstants {
   static const String pressureReceiveDataApiEndpoint = '/pressure/receive-data';
   static const String wliReceiveDataApiEndpoint = '/wli/receive-data';
   static const String wliCoachesApiEndpoint = '/wli/coaches';
+  static const String wliHistoryApiEndpoint = '/wli/history';
   static const String dieselReadingsApiEndpoint = '/diesel/readings';
   static const String dieselHistoryApiEndpoint = '/diesel/history';
   static const String serviceRequestApiEndpoint = '/service-requests';

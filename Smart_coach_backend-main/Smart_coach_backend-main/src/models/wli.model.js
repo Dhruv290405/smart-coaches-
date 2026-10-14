@@ -13,6 +13,24 @@ class WliModel {
         }
     }
 
+    async getHistoryForDevice({ deviceId, coachId, since, limit = 5000 } = {}) {
+        try {
+            let query = supabaseAdmin.from('wli_logs').select('*');
+            if (deviceId) query = query.eq('device_id', deviceId);
+            else if (coachId) query = query.eq('coach_id', coachId);
+            if (since) query = query.gte('timestamp', since);
+
+            const { data, error } = await query
+                .order('timestamp', { ascending: true })
+                .limit(limit);
+            if (error) throw error;
+            return data || [];
+        } catch (err) {
+            console.error("WLI History Error:", err.message);
+            throw err;
+        }
+    }
+
     async getLatestStatusForAllCoaches(authorizedCoaches = null) {
         try {
             const { data, error } = await supabaseAdmin

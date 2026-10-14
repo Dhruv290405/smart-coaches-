@@ -225,8 +225,13 @@ const authController = {
     try {
       const { mobile_number } = req.body;
       if (!mobile_number) return errorResponse(res, 'Mobile number is required', 400);
-      const result = await smsService.sendOtp(mobile_number);
-      return successResponse(res, result.message, { otp: result.otp });
+      try {
+        const result = await smsService.sendOtp(mobile_number);
+        return successResponse(res, result.message, { otp: result.otp });
+      } catch (smsError) {
+        console.error('Send OTP failed:', smsError.message);
+        return errorResponse(res, smsError.message || 'Unable to send OTP', 503);
+      }
     } catch (error) {
       next(error);
     }

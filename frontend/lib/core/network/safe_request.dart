@@ -68,7 +68,9 @@ Future<T> safeRequest<T>(
     throw ApiException('No internet connection. Check your network and try again.\n(${e.message})');
   } on HttpException catch (e) {
     throw ApiException('HTTP error: ${e.message}');
-  } catch (e, stack) {
+  } on ApiException {
+    rethrow;
+  } catch (e) {
     throw ApiException('Unexpected error: $e');
   }
 }

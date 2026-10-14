@@ -86,7 +86,13 @@ const serviceRequestController = {
         try {
             const { dateFrom, dateTo } = req.query;
             const report = await ServiceRequestModel.getReportSummary({ dateFrom, dateTo });
-            return res.json({ success: true, data: report });
+
+            // Feature is still being validated with the customer: every account
+            // except the tester should see an "Under Testing" notice in the report.
+            const email = (req.user?.email || '').toLowerCase();
+            const underTesting = email !== 'tester@example.com';
+
+            return res.json({ success: true, data: { ...report, underTesting } });
         } catch (error) {
             console.error("ServiceRequest getReport error:", error.message);
             res.status(500).json({ success: false, error: error.message });

@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:sizer/sizer.dart';
 import 'package:smart_coach_new/core/network/api_constants.dart';
@@ -9,7 +8,6 @@ import 'package:smart_coach_new/core/utils/color_constants.dart';
 import 'package:smart_coach_new/core/utils/loader.dart';
 import 'package:smart_coach_new/core/utils/prefs.dart';
 import 'package:smart_coach_new/core/utils/toast_message_utils.dart';
-import 'package:smart_coach_new/core/widgets/custom_button.dart';
 import 'package:smart_coach_new/features/passenger_service/presentation/widgets/service_request_report_generator.dart';
 import 'package:intl/intl.dart';
 
@@ -158,6 +156,10 @@ class _ServiceRequestReportScreenState extends State<ServiceRequestReportScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        if (_report!['underTesting'] == true) ...[
+                          _buildUnderTestingBanner(),
+                          SizedBox(height: 2.h),
+                        ],
                         _buildDateFilter(),
                         SizedBox(height: 2.h),
                         _buildSummaryCards(),
@@ -173,6 +175,34 @@ class _ServiceRequestReportScreenState extends State<ServiceRequestReportScreen>
                     ),
                   ),
                 ),
+    );
+  }
+
+  Widget _buildUnderTestingBanner() {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 2.h),
+      decoration: BoxDecoration(
+        color: ColorConstants.statusWarning.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(3.w),
+        border: Border.all(color: ColorConstants.statusWarning.withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.science_outlined, color: ColorConstants.statusWarning, size: 5.w),
+          SizedBox(width: 3.w),
+          Expanded(
+            child: Text(
+              'Under Testing',
+              style: TextStyle(
+                fontSize: 12.sp,
+                fontWeight: FontWeight.w700,
+                color: ColorConstants.statusWarning,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

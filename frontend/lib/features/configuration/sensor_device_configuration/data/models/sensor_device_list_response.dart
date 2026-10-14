@@ -2,6 +2,25 @@ import 'package:json_annotation/json_annotation.dart';
 
 part 'sensor_device_list_response.g.dart';
 
+// PostgREST returns bigint/int8 columns as JSON strings, so numeric fields must
+// tolerate both numbers and numeric strings.
+int? _asInt(dynamic v) => v == null
+    ? null
+    : (v is int ? v : (v is num ? v.toInt() : int.tryParse(v.toString())));
+
+double? _asDouble(dynamic v) => v == null
+    ? null
+    : (v is double ? v : (v is num ? v.toDouble() : double.tryParse(v.toString())));
+
+bool? _asBool(dynamic v) {
+  if (v == null) return null;
+  if (v is bool) return v;
+  final s = v.toString().toLowerCase();
+  if (s == 'true' || s == '1' || s == 't' || s == 'yes') return true;
+  if (s == 'false' || s == '0' || s == 'f' || s == 'no') return false;
+  return null;
+}
+
 @JsonSerializable(explicitToJson: true)
 class SensorDeviceListResponse {
   final bool success;

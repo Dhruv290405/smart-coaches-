@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:get_it/get_it.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:smart_coach_new/core/network/api_constants.dart';
 import 'package:smart_coach_new/core/utils/app_dimensions.dart';
 import 'package:smart_coach_new/core/utils/app_text_styles.dart';
 import 'package:smart_coach_new/core/utils/color_constants.dart';
+import 'package:smart_coach_new/core/utils/prefs.dart';
+import '../data/datasources/wli_data_service.dart';
 import '../data/models/water_tank_model.dart';
 
 class FullTankHistory extends StatefulWidget {
@@ -19,9 +23,56 @@ class _FullTankHistoryState extends State<FullTankHistory> {
   int _selectedSensorIndex = 0;
   String selectedPeriod = 'Live';
 
+  final WliDataService _dataService = WliDataService(baseUrl: ApiConstants.devUrl);
+  List<Map<String, dynamic>> _history = [];
+  bool _loadingHistory = false;
+
   bool get _isOverhead => widget.coach.placement.type == 'OVERHEAD';
 
   WliAsset get _currentAsset => widget.coach.assets[_selectedSensorIndex];
+
+  int get _periodDays {
+    switch (selectedPeriod) {
+      case '7 Days':
+        return 7;
+      case '30 Days':
+        return 30;
+      case '1 Day':
+      case 'Live':
+      default:
+        return 1;
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHistory();
+  }
+
+  Future<void> _loadHistory() async {
+    setState(() => _loadingHistory = true);
+    try {
+      final token = GetIt.I<Prefs>().token;
+      final data = await _dataService.fetchHistory(
+        deviceId: widget.coach.source.deviceId,
+        coachId: widget.coach.location.coachId,
+        days: _periodDays,
+        token: token,
+      );
+      if (!mounted) return;
+      setState(() {
+        _history = data;
+        _loadingHistory = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _history = [];
+        _loadingHistory = false;
+      });
+    }
+  }
 
   Color _getStatusColor(double percent) {
     if (percent < 20) return ColorConstants.statusCritical;
@@ -197,7 +248,10 @@ class _FullTankHistoryState extends State<FullTankHistory> {
         return Padding(
           padding: const EdgeInsets.only(right: 8),
           child: GestureDetector(
-            onTap: () => setState(() => selectedPeriod = period),
+            onTap: () {
+              setState(() => selectedPeriod = period);
+              _loadHistory();
+            },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
@@ -224,7 +278,7 @@ class _FullTankHistoryState extends State<FullTankHistory> {
 
   Widget _buildDarkChartCard() {
     final percent = _currentAsset.percentFull;
-    final demoSpots = _generateDemoSpots(percent);
+    final spots = _chartSpots(percent);
 
     return Container(
       width: double.infinity,
@@ -262,7 +316,9 @@ class _FullTankHistoryState extends State<FullTankHistory> {
                       ),
                     ),
                     Text(
-                      'Y-AXIS: FILL % | X-AXIS: TIME',
+                      _loadingHistory
+                          ? 'LOADING $selectedPeriod HISTORY...'
+                          : 'Y-AXIS: FILL % | X-AXIS: TIME (${_history.length} pts)',
                       style: GoogleFonts.poppins(
                         color: const Color(0xFF94A3B8),
                         fontSize: 9,
@@ -296,7 +352,7 @@ class _FullTankHistoryState extends State<FullTankHistory> {
                 ),
               ),
               const SizedBox(width: 12),
-              Expanded(child: _buildWaterLineChart(demoSpots)),
+              Expanded(child: _buildWaterLineChart(spots)),
             ],
           ),
           const SizedBox(height: 12),
@@ -309,6 +365,41 @@ class _FullTankHistoryState extends State<FullTankHistory> {
         ],
       ),
     );
+  }
+
+  /// Build the chart points from real history when available; otherwise fall
+  /// back to a synthetic ramp so the chart is never empty.
+  List<FlSpot> _chartSpots(double currentPercent) {
+    if (_history.isNotEmpty) {
+      final points = _history.length > 60
+          ? List.generate(60, (i) => _history[((_history.length - 1) * i / 59).round()])
+          : _history;
+      return List.generate(
+        points.length,
+        (i) => FlSpot(i.toDouble(), (points[i]['percentFull'] as double).clamp(0, 100)),
+      );
+    }
+    return _generateDemoSpots(currentPercent);
+  }
+
+  /// Up to 7 evenly spaced time labels derived from the loaded history.
+  List<String> _chartTimeLabels() {
+    const fallback = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00'];
+    if (_history.isEmpty) return fallback;
+    final n = _history.length;
+    return List.generate(7, (i) {
+      final idx = ((n - 1) * i / 6).round().clamp(0, n - 1);
+      return _fmtClock(_history[idx]['timestamp']?.toString() ?? '');
+    });
+  }
+
+  String _fmtClock(String raw) {
+    try {
+      final dt = raw.contains('T') ? DateTime.parse(raw) : DateTime.parse(raw.replaceFirst(' ', 'T'));
+      return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    } catch (_) {
+      return raw.length >= 16 ? raw.substring(11, 16) : raw;
+    }
   }
 
   List<FlSpot> _generateDemoSpots(double currentPercent) {
@@ -325,6 +416,10 @@ class _FullTankHistoryState extends State<FullTankHistory> {
   }
 
   Widget _buildWaterLineChart(List<FlSpot> spots) {
+    final labels = _chartTimeLabels();
+    final tickInterval = spots.length > 1 ? (spots.length - 1) / 6 : 1.0;
+    final bottomInterval = tickInterval <= 1 ? 1.0 : tickInterval;
+
     return SizedBox(
       height: 200,
       child: LineChart(
@@ -335,7 +430,7 @@ class _FullTankHistoryState extends State<FullTankHistory> {
             show: true,
             drawVerticalLine: true,
             horizontalInterval: 20,
-            verticalInterval: 1,
+            verticalInterval: bottomInterval,
             getDrawingHorizontalLine: (value) => FlLine(
               color: const Color(0xFF334155),
               strokeWidth: 1,
@@ -364,15 +459,16 @@ class _FullTankHistoryState extends State<FullTankHistory> {
             bottomTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
-                interval: 1,
+                interval: bottomInterval,
+                reservedSize: 22,
                 getTitlesWidget: (value, meta) {
-                  const labels = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00'];
-                  final i = value.toInt();
-                  if (i < 0 || i >= labels.length) return const SizedBox.shrink();
+                  final i = value.round();
+                  if (i < 0 || i >= spots.length) return const SizedBox.shrink();
+                  final labelIndex = labels.length == 1 ? 0 : ((labels.length - 1) * i / (spots.length - 1)).round().clamp(0, labels.length - 1).toInt();
                   return Padding(
                     padding: const EdgeInsets.only(top: 6),
                     child: Text(
-                      labels[i],
+                      labels[labelIndex],
                       style: GoogleFonts.poppins(color: const Color(0xFF94A3B8), fontSize: 8),
                     ),
                   );
@@ -475,14 +571,7 @@ class _FullTankHistoryState extends State<FullTankHistory> {
   }
 
   Widget _buildHistoryTable() {
-    final historyData = [
-      {'date': 'Yesterday, 10:45 AM', 'level': '${(_currentAsset.percentFull * 0.85).toStringAsFixed(0)}%'},
-      {'date': '08/02/2026, 12:45 PM', 'level': '${(_currentAsset.percentFull * 0.6).toStringAsFixed(0)}%'},
-      {'date': '07/02/2026, 09:45 AM', 'level': '${(_currentAsset.percentFull * 0.4).toStringAsFixed(0)}%'},
-      {'date': '06/02/2026, 06:45 PM', 'level': '${(_currentAsset.percentFull * 0.7).toStringAsFixed(0)}%'},
-      {'date': '05/02/2026, 04:45 PM', 'level': '${(_currentAsset.percentFull * 0.5).toStringAsFixed(0)}%'},
-      {'date': '04/02/2026, 03:45 PM', 'level': '${(_currentAsset.percentFull * 0.3).toStringAsFixed(0)}%'},
-    ];
+    final historyData = _historyTableRows();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -506,6 +595,11 @@ class _FullTankHistoryState extends State<FullTankHistory> {
                   ],
                 ),
               ),
+              if (historyData.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Text('No history for the selected period'),
+                ),
               ...historyData.map((entry) => Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     decoration: const BoxDecoration(
@@ -534,5 +628,29 @@ class _FullTankHistoryState extends State<FullTankHistory> {
         ),
       ],
     );
+  }
+
+  List<Map<String, String>> _historyTableRows() {
+    if (_history.isEmpty) return [];
+    final recent = _history.length > 10
+        ? _history.sublist(_history.length - 10).reversed.toList()
+        : _history.reversed.toList();
+    return recent
+        .map((e) => {
+              'date': _fmtDateTime(e['timestamp']?.toString() ?? ''),
+              'level': '${(e['percentFull'] as double).toStringAsFixed(0)}%',
+            })
+        .toList();
+  }
+
+  String _fmtDateTime(String raw) {
+    try {
+      final dt = raw.contains('T') ? DateTime.parse(raw) : DateTime.parse(raw.replaceFirst(' ', 'T'));
+      final local = dt.toLocal();
+      return '${local.day.toString().padLeft(2, '0')}/${local.month.toString().padLeft(2, '0')}/${local.year}, '
+          '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+    } catch (_) {
+      return raw;
+    }
   }
 }

@@ -75,6 +75,24 @@ const wliController = {
             console.error("WLI Dashboard Controller Error:", error.message);
             res.status(200).json({ success: true, totalCoaches: 0, data: [] });
         }
+    },
+
+    getHistory: async (req, res) => {
+        try {
+            const { deviceId, coachId } = req.query;
+            const days = Math.max(1, parseInt(req.query.days) || 1);
+            if (!deviceId && !coachId) {
+                return res.status(400).json({ success: false, message: 'deviceId or coachId is required' });
+            }
+            const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
+                .toISOString().slice(0, 19).replace('T', ' ');
+
+            const data = await WliModel.getHistoryForDevice({ deviceId, coachId, since });
+            return res.status(200).json({ success: true, count: data.length, data });
+        } catch (error) {
+            console.error("WLI History Controller Error:", error.message);
+            res.status(200).json({ success: true, count: 0, data: [] });
+        }
     }
 };
 
