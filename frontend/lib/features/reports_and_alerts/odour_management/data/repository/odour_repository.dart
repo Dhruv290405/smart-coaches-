@@ -9,6 +9,8 @@ import '../models/odour_model.dart';
 final Logger _log = Logger('OdourRepo');
 
 class OdourRepository {
+  static final Map<int, List<OdourCoachModel>> _cacheByUser = {};
+
   Future<List<OdourCoachModel>> getOdourData() async {
     final results = await Future.wait([
       _fetchFromEndpoint(ApiConstants.odourCoachesApiEndpoint, 'Section 1'),
@@ -16,6 +18,12 @@ class OdourRepository {
     ]);
 
     final parsed = <OdourCoachModel>[...results[0], ...results[1]];
+    try {
+      final userId = GetIt.I<Prefs>().userId;
+      if (userId != null && parsed.isNotEmpty) {
+        _cacheByUser[userId] = List<OdourCoachModel>.unmodifiable(parsed);
+      }
+    } catch (_) {}
     if (parsed.isNotEmpty) return parsed;
 
     try {
@@ -25,14 +33,22 @@ class OdourRepository {
     return [];
   }
 
-  Future<List<OdourCoachModel>> _fetchFromEndpoint(String endpoint, String section) async {
+  Future<List<OdourCoachModel>> _fetchFromEndpoint(
+    String endpoint,
+    String section,
+  ) async {
     try {
       final apiClient = GetIt.I<ApiClient>();
       final response = await apiClient.get(endpoint);
 
-      if (response is Map && response['success'] == true && response['data'] is List) {
+      if (response is Map &&
+          response['success'] == true &&
+          response['data'] is List) {
         return (response['data'] as List)
-            .map((map) => _buildModelFromBackend(map as Map<String, dynamic>, section))
+            .map(
+              (map) =>
+                  _buildModelFromBackend(map as Map<String, dynamic>, section),
+            )
             .toList();
       }
     } catch (e) {
@@ -42,11 +58,10 @@ class OdourRepository {
   }
 
   Stream<List<OdourCoachModel>> watchOdourData() async* {
-    bool isTester = false;
     try {
-      isTester = GetIt.I<Prefs>().getUser()?.email == 'tester@example.com';
+      final cached = _cacheByUser[GetIt.I<Prefs>().userId];
+      if (cached != null && cached.isNotEmpty) yield cached;
     } catch (_) {}
-    if (isTester) yield getSampleData();
 
     while (true) {
       try {
@@ -59,13 +74,17 @@ class OdourRepository {
     }
   }
 
-  OdourCoachModel _buildModelFromBackend(Map<String, dynamic> data, [String section = 'Section 1']) {
-    double _d(dynamic v, [double def = 0.0]) =>
-        v == null ? def : (v is num ? v.toDouble() : (double.tryParse(v.toString()) ?? def));
-    int _i(dynamic v, [int def = 0]) =>
-        v == null ? def : (v is num ? v.toInt() : (int.tryParse(v.toString()) ?? def));
-    String _s(dynamic v, [String def = 'N/A']) =>
-        v?.toString() ?? def;
+  OdourCoachModel _buildModelFromBackend(
+    Map<String, dynamic> data, [
+    String section = 'Section 1',
+  ]) {
+    double _d(dynamic v, [double def = 0.0]) => v == null
+        ? def
+        : (v is num ? v.toDouble() : (double.tryParse(v.toString()) ?? def));
+    int _i(dynamic v, [int def = 0]) => v == null
+        ? def
+        : (v is num ? v.toInt() : (int.tryParse(v.toString()) ?? def));
+    String _s(dynamic v, [String def = 'N/A']) => v?.toString() ?? def;
 
     final vocVal = _d(data['voc_index'] ?? data['voc']);
     final h2sVal = _d(data['h2s_ppm'] ?? data['h2s']);
@@ -78,7 +97,13 @@ class OdourRepository {
       toiletPosition: _s(data['toilet_position']),
       status: _s(data['status'], 'Active'),
       reading: vocVal,
-      timestamp: _s(data['timestamp_device'] ?? data['created_at'] ?? data['last_updated'] ?? data['timestamp'], DateTime.now().toIso8601String()),
+      timestamp: _s(
+        data['timestamp_device'] ??
+            data['created_at'] ??
+            data['last_updated'] ??
+            data['timestamp'],
+        DateTime.now().toIso8601String(),
+      ),
       sensorId: _s(data['sensor_id'], 'SENS-??'),
       deviceId: _s(data['device_id'], 'OMD-??'),
       trainNumber: _s(data['train_number'], '--'),
@@ -93,7 +118,9 @@ class OdourRepository {
       humidity: _d(data['humidity']),
       address: _s(data['address'], 'Unknown'),
       doorStatus: _s(data['door_status'], 'Closed'),
-      doorOpenEventsToday: _i(data['door_open_events_today'] ?? data['long_lock_count']),
+      doorOpenEventsToday: _i(
+        data['door_open_events_today'] ?? data['long_lock_count'],
+      ),
       uCount: _i(data['u_count']),
       fCount: _i(data['f_count']),
       lastOpenedTime: _s(data['last_opened_time'], 'N/A'),
@@ -101,7 +128,9 @@ class OdourRepository {
       totalDoorCyclesToday: _i(data['total_door_cycles_today']),
       averageOpenDuration: _s(data['average_open_duration'], 'N/A'),
       longestOpenDuration: _s(data['longest_open_duration'], 'N/A'),
-      serverHygieneScore: data['hygiene_score'] != null ? _d(data['hygiene_score']) : null,
+      serverHygieneScore: data['hygiene_score'] != null
+          ? _d(data['hygiene_score'])
+          : null,
       serverVocStatus: data['voc_status']?.toString(),
       serverNh3Status: data['nh3_status']?.toString(),
       serverH2sStatus: data['h2s_status']?.toString(),
@@ -324,14 +353,19 @@ class OdourRepository {
     ];
   }
 
-  Future<List<OdourHistoryPoint>> getOdourHistory(String deviceId, String section) async {
+  Future<List<OdourHistoryPoint>> getOdourHistory(
+    String deviceId,
+    String section,
+  ) async {
     try {
       final apiClient = GetIt.I<ApiClient>();
       final response = await apiClient.get(
         ApiConstants.odourHistoryApiEndpoint,
         queryParams: {'deviceId': deviceId, 'section': section},
       );
-      if (response is Map && response['success'] == true && response['data'] is List) {
+      if (response is Map &&
+          response['success'] == true &&
+          response['data'] is List) {
         return (response['data'] as List)
             .map((e) => OdourHistoryPoint.fromJson(e as Map<String, dynamic>))
             .toList();
@@ -345,7 +379,9 @@ class OdourRepository {
   Future<void> sendOdourData(Map<String, dynamic> payload) async {
     final dbPayload = {
       "device_id": payload['source']?['deviceId'] ?? 'Unknown',
-      "timestamp_device": payload['coach_data']?['timestamp'] ?? DateTime.now().toIso8601String(),
+      "timestamp_device":
+          payload['coach_data']?['timestamp'] ??
+          DateTime.now().toIso8601String(),
       "temperature": payload['coach_data']?['temperature'] ?? 0.0,
       "humidity": payload['coach_data']?['humidity'] ?? 0.0,
       "voc_index": (payload['coach_data']?['voc'] ?? 0.0).toInt(),

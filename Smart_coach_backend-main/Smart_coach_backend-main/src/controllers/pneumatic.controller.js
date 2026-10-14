@@ -2,7 +2,6 @@ const Pneumatic = require('../models/pneumatic.model');
 const supabase = require('../config/supabaseOld');
 const supabaseAdmin = require('../config/supabaseAdmin');
 const { dualInsert } = require('../config/dualWrite');
-const NotificationService = require('../services/notificationService');
 const { saveInAppNotificationForAllUsers } = require('../utils/notificationService');
 
 // Tracks last CR-overcharge state per device to only notify on a green->red change.
@@ -341,9 +340,14 @@ exports.getBreakBindingData = async (req, res) => {
                     click_action: 'OPEN_BRAKE_DASHBOARD'
                 };
 
-                NotificationService.sendTopicNotification('brake_alerts', title, body, extraData)
-                    .catch(err => console.error("Background Push Notification Error:", err.message));
-                saveInAppNotificationForAllUsers(title, body, 'BRAKE_BINDING');
+                const location = finalCoachInfo.location
+                    || finalCoachInfo.division
+                    || finalCoachInfo.division_name
+                    || null;
+                saveInAppNotificationForAllUsers(title, body, 'BRAKE_BINDING', {
+                    module: 'brake_binding',
+                    location,
+                });
             }
         }
 
@@ -358,9 +362,14 @@ exports.getBreakBindingData = async (req, res) => {
                     coach_no: String(finalCoachInfo.coach_no),
                     train_no: String(finalCoachInfo.Train_no)
                 };
-                NotificationService.sendTopicNotification('brake_alerts', crTitle, crBody, crData)
-                    .catch(err => console.error("CR Overcharge Push Error:", err.message));
-                saveInAppNotificationForAllUsers(crTitle, crBody, 'CR_OVERCHARGE');
+                const location = finalCoachInfo.location
+                    || finalCoachInfo.division
+                    || finalCoachInfo.division_name
+                    || null;
+                saveInAppNotificationForAllUsers(crTitle, crBody, 'CR_OVERCHARGE', {
+                    module: 'brake_binding',
+                    location,
+                });
             }
             _crOverchargeState[crKey] = 'red';
         } else {

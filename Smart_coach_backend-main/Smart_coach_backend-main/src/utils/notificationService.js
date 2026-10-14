@@ -104,9 +104,7 @@ async function resolveRecipients(moduleKey, location = null) {
 
   if (userErr) {
     console.error("❌ Failed to fetch users for notification scoping:", userErr.message);
-    const tokens = [];
-    for (const row of (rows || [])) if (row.fcm_token) tokens.push(row.fcm_token);
-    return { tokens, userIds };
+    return { tokens: [], userIds: [] };
   }
 
   const allowedUserIds = new Set();
@@ -198,7 +196,22 @@ async function saveInAppNotifications(title, body, type, userIds) {
     }
     if (!ids || ids.length === 0) return;
 
-    const inserts = ids.map((uid) => ({
+    const cutoff = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+    const { data: recent, error: recentError } = await supabaseAdmin
+      .from('user_notifications')
+      .select('user_id')
+      .in('user_id', ids)
+      .eq('title', title)
+      .eq('message', body)
+      .eq('type', type)
+      .gte('created_at', cutoff);
+    if (recentError) throw recentError;
+
+    const recentIds = new Set((recent || []).map((row) => row.user_id));
+    const freshIds = ids.filter((uid) => !recentIds.has(uid));
+    if (freshIds.length === 0) return;
+
+    const inserts = freshIds.map((uid) => ({
       user_id: uid,
       title,
       message: body,
