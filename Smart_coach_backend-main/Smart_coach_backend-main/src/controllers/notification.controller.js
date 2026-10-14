@@ -55,3 +55,18 @@ exports.deleteNotification = async (req, res) => {
         res.status(500).json({ success: false, error: error.message });
     }
 };
+
+exports.clearNotifications = async (req, res) => {
+    try {
+        const userId = req.user.user_id || req.user.id;
+        const supabaseAdmin = require('../config/supabaseAdmin');
+        const { error } = await supabaseAdmin
+            .from('user_notifications')
+            .delete()
+            .eq('user_id', userId);
+        if (error) throw error;
+        res.status(200).json({ success: true });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+};

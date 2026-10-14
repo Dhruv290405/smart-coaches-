@@ -51,6 +51,10 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
           headers: {'Authorization': 'Bearer ${loginData.token}'},
           body: {'fcm_token': fcmToken ?? ''},
         );
+        await http.delete(
+          Uri.parse("${ApiConstants.devUrl}/notifications"),
+          headers: {'Authorization': 'Bearer ${loginData.token}'},
+        );
       } catch (_) {}
 
       emit(LoginSuccess(message));
