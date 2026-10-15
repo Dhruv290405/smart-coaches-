@@ -1,6 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
 import 'package:smart_coach_new/features/reports_and_alerts/acp_screen/data/models/acp_log_response.dart';
+import 'package:smart_coach_new/features/reports_and_alerts/break_binding/data/models/coach_by_location_response.dart';
 import 'package:smart_coach_new/features/reports_and_alerts/break_binding/data/models/pneumatic_status_model.dart';
 import 'package:smart_coach_new/features/dashboard/presentation/bloc/dashboard_event.dart';
 import 'package:smart_coach_new/features/dashboard/presentation/bloc/dashboard_state.dart';
@@ -53,10 +54,11 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         }
       }
 
+      // Trains / coaches / devices are derived from the coaches registered to the
+      // logged-in user's location (server-side location scoping). The dashboard
+      // therefore reflects only that location's live registered fleet.
       final results = await Future.wait([
-        safeFetch(() => trainRepository.fetchTrainList()),
-        safeFetch(() => coachRepository.fetchCoachList()),
-        safeFetch(() => deviceRepository.fetchDevice()),
+        safeFetch(() => breakBindingRepository.getCoachesByLocation()),
         safeFetch(() => sensorRepository.fetchSensor()),
         safeFetch(() => acpRepository.getAcpSummaryResponse()),
         safeFetch(() => breakBindingRepository.getPneumaticStatus()),
@@ -76,15 +78,27 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         return;
       }
 
-      final trains = (results[0] as List?) ?? (prevState is DashboardDataLoaded ? List.filled(prevState.totalTrains, null) : []);
-      final coaches = (results[1] as List?) ?? (prevState is DashboardDataLoaded ? List.filled(prevState.smartCoaches, null) : []);
-      final devices = (results[2] as List?) ?? (prevState is DashboardDataLoaded ? List.filled(prevState.activeDevices, null) : []);
-      final sensors = (results[3] as List?) ?? (prevState is DashboardDataLoaded ? List.filled(prevState.activeSensors, null) : []);
-      final acpResponse = results[4] as AcpLogResponse?;
+      final locationCoaches = (results[0] as List<CoachByLocationItem>?) ?? [];
+      final sensors = (results[1] as List?) ?? (prevState is DashboardDataLoaded ? List.filled(prevState.activeSensors, null) : []);
+      final acpResponse = results[2] as AcpLogResponse?;
       final acpLogs = acpResponse?.data ?? (prevState is DashboardDataLoaded ? prevState.recentAlerts : []);
       final acpDeployed = acpResponse?.totalRegisteredDevices ?? (prevState is DashboardDataLoaded ? prevState.acpDeployed : 0);
-      final pneumaticResponse = results[5] as PneumaticStatusResponse?;
+      final pneumaticResponse = results[3] as PneumaticStatusResponse?;
       final pneumaticLogs = pneumaticResponse?.history?.data ?? (prevState is DashboardDataLoaded ? prevState.recentPneumaticAlerts : []);
+
+      // Distinct trains / coaches / devices for this location.
+      final trains = locationCoaches
+          .map((c) => c.trainNo?.toString())
+          .where((v) => v != null && v.isNotEmpty)
+          .toSet();
+      final coaches = locationCoaches
+          .map((c) => c.coachNo?.toString())
+          .where((v) => v != null && v.isNotEmpty)
+          .toSet();
+      final devices = locationCoaches
+          .map((c) => c.deviceId?.toString())
+          .where((v) => v != null && v.isNotEmpty)
+          .toSet();
 
       // Simple alert categorization logic
       int critical = 0;
