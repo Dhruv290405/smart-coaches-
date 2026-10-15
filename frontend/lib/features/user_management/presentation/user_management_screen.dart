@@ -263,7 +263,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     });
   }
 
-  void _showJobRoleBottomSheet(BuildContext context, UserEntity user) {
+void _showJobRoleBottomSheet(BuildContext context, UserEntity user) {
     String regionIds = user.regionIds ?? '';
     List<int> regionIdsList = [];
     if (regionIds.isNotEmpty) {
@@ -281,15 +281,19 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(2.h)),
       ),
       builder: (context) {
+        // Safely extract roleId - UserEntity has roleId as int?, but ensure type compatibility
+        final int? userRoleId = user.roleId;
         return EditView(
           user: user,
           userManagementBloc: _userManagementBloc,
           isEditable: (user.regionIds ?? '') == '-1' ? false : true,
           onTapSave: (int? selectedJobRoleId, List<int> selectedTrainIdList) {
+            // Use selected roleId or fallback to user's current roleId for type safety
+            final int? finalRoleId = selectedJobRoleId ?? userRoleId;
             _userManagementBloc.add(UpdateTrainAndRole(
-                targetUserId: user.userId,
-                roleId: selectedJobRoleId,
-                trainIds: selectedTrainIdList));
+              targetUserId: user.userId,
+              roleId: finalRoleId,
+              trainIds: selectedTrainIdList));
           },
         );
       },
