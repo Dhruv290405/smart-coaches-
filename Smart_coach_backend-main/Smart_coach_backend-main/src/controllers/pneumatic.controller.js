@@ -489,40 +489,53 @@ exports.getCoachesByLocation = async (req, res) => {
 
         const { role_id } = req.user;
 
-        // Try Project 2 (supabaseOld) first
-        let coaches = [];
-        let query = supabase
-            .from('coaches_railway')
-            .select('id, technical_id, coach_no, device_id, Train_no, Location, Actual_id');
-
-        if (role_id !== 1) {
-            const userLocation = rbac.getUserLocation(req.user);
-            if (!userLocation) {
-                return res.status(403).json({
-                    success: false,
-                    message: "Access denied: No region or division mapped to this user account"
-                });
-            }
-            query = query.ilike('Location', userLocation);
+        const userLocation = role_id !== 1 ? rbac.getUserLocation(req.user) : null;
+        if (role_id !== 1 && !userLocation) {
+            return res.status(403).json({
+                success: false,
+                message: "Access denied: No region or division mapped to this user account"
+            });
         }
 
-        const { data: coachesOld, error } = await query;
+        // Case-insensitive location match that also accepts suffixed locations,
+        // e.g. a "Jaipur" user matches rows stored as "Jaipur_N1" / "Jaipur_N2".
+        const matchesLocation = (location) => {
+            if (!location || !userLocation) return false;
+            const rowLoc = String(location).trim().toLowerCase();
+            const userLoc = String(userLocation).trim().toLowerCase();
+            return (
+                rowLoc === userLoc ||
+                rowLoc.startsWith(`${userLoc}_`) ||
+                rowLoc.startsWith(`${userLoc} `)
+            );
+        };
+
+        const COACH_COLUMNS =
+            'id, technical_id, coach_no, device_id, Train_no, Location, Actual_id';
+
+        // Try Project 2 (supabaseOld) first
+        let coaches = [];
+        const { data: coachesOld, error } = await supabase
+            .from('coaches_railway')
+            .select(COACH_COLUMNS);
 
         if (error) throw error;
 
-        if (coachesOld && coachesOld.length > 0) {
-            coaches = coachesOld;
+        const coachesOldFiltered = (coachesOld || []).filter(
+            (c) => role_id === 1 || matchesLocation(c.Location)
+        );
+        if (coachesOldFiltered.length > 0) {
+            coaches = coachesOldFiltered;
         } else if (supabaseAdmin) {
             // Fallback: try Project 1 (supabaseAdmin)
-            let q2 = supabaseAdmin
+            const { data: coachesAdmin } = await supabaseAdmin
                 .from('coaches_railway')
-                .select('id, technical_id, coach_no, device_id, Train_no, Location, Actual_id');
-            if (role_id !== 1) {
-                q2 = q2.ilike('Location', rbac.getUserLocation(req.user));
-            }
-            const { data: coachesAdmin } = await q2;
-            if (coachesAdmin && coachesAdmin.length > 0) {
-                coaches = coachesAdmin;
+                .select(COACH_COLUMNS);
+            const coachesAdminFiltered = (coachesAdmin || []).filter(
+                (c) => role_id === 1 || matchesLocation(c.Location)
+            );
+            if (coachesAdminFiltered.length > 0) {
+                coaches = coachesAdminFiltered;
             }
         }
 
@@ -538,9 +551,8 @@ exports.getCoachesByLocation = async (req, res) => {
                 'Raspberry4_3': { technical_id: '211245', coach_no: 'S2', Train_no: '65214', Location: 'Jaipur' }
             };
             if (role_id !== 1) {
-                const userLoc = rbac.getUserLocation(req.user)?.toLowerCase();
                 const filtered = Object.entries(deviceMapping).filter(([_, info]) =>
-                    info.Location.toLowerCase() === userLoc
+                    matchesLocation(info.Location)
                 );
                 coaches = filtered.map(([deviceId, info], idx) => ({
                     id: idx + 1,
