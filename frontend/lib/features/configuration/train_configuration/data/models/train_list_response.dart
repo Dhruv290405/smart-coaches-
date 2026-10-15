@@ -28,9 +28,7 @@ class TrainListResponse {
 class TrainData {
   final List<TrainItem>? trains;
 
-  TrainData({
-    required this.trains,
-  });
+  TrainData({required this.trains});
 
   factory TrainData.fromJson(Map<String, dynamic> json) =>
       _$TrainDataFromJson(json);
@@ -55,10 +53,10 @@ class TrainItem {
   @JsonKey(name: 'region_id')
   final int? regionId;
 
-  @JsonKey(name: 'departure_station_id')
+  @JsonKey(name: 'departure_station_id', fromJson: _parseInt)
   final int? departureStationId;
 
-  @JsonKey(name: 'destination_station_id')
+  @JsonKey(name: 'destination_station_id', fromJson: _parseInt)
   final int? destinationStationId;
 
   @JsonKey(name: 'no_of_coaches')
@@ -80,7 +78,6 @@ class TrainItem {
 
   @JsonKey(name: 'created_at')
   final String? createdAt;
-
 
   @JsonKey(name: 'updated_at')
   final String? updatedAt;
