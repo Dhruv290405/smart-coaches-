@@ -128,10 +128,17 @@ class CoachModel extends BaseModel {
     return data || [];
   }
 
-  async getAllCoachesWithDetails() {
-    const { data: rows, error } = await supabaseAdmin
-      .from("coach_master")
-      .select("*");
+  async getAllCoachesWithDetails(trainIds = null) {
+    // When trainIds is provided (array), only coaches assigned to those trains
+    // are returned (location scoping). null means "no filter" (admin).
+    if (Array.isArray(trainIds) && trainIds.length === 0) return [];
+
+    let query = supabaseAdmin.from("coach_master").select("*");
+    if (Array.isArray(trainIds)) {
+      query = query.in("train_id", trainIds);
+    }
+
+    const { data: rows, error } = await query;
     if (error) throw new Error("Failed to fetch coaches: " + error.message);
     if (!rows || rows.length === 0) return [];
 

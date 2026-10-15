@@ -1,5 +1,6 @@
 const { successResponse, errorResponse } = require("../utils/response");
 const coachModel = require("../models/coach.model");
+const rbac = require("../utils/rbac");
 const { toMySQLDatetime } = require("../middleware/datetime");
 
 const coachController = {
@@ -123,7 +124,11 @@ const coachController = {
 
   async getAllCoaches(req, res, next) {
     try {
-      const coaches = await coachModel.getAllCoachesWithDetails();
+      // Scope coaches to the logged-in user's location (division/region/zone).
+      const scope = await rbac.getScopedTrains(req.user);
+      const coaches = await coachModel.getAllCoachesWithDetails(
+        scope ? scope.trainIds : null
+      );
 
       if (!coaches || coaches.length === 0) {
         return successResponse(res, "No coaches found.", []);

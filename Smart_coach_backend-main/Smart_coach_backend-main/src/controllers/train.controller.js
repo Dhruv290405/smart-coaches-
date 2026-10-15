@@ -4,6 +4,7 @@ const trainModel = require('../models/train.model');
 const coachModel = require('../models/coach.model');
 const supabaseAdmin = require('../config/supabaseAdmin');
 const userModel = require('../models/user.model');
+const rbac = require('../utils/rbac');
 const jwt = require('jsonwebtoken');
 
 const trainController = {
@@ -53,7 +54,15 @@ const trainController = {
 
   async getTrains(req, res, next) {
     try {
-      const rows = await trainModel.getAllTrains();
+      let rows = await trainModel.getAllTrains();
+
+      // Scope trains to the logged-in user's location (division/region/zone).
+      // Admins and users without any location mapping are not filtered.
+      const scope = await rbac.getScopedTrains(req.user);
+      if (scope) {
+        const allowedTrainIds = new Set(scope.trainIds.map(String));
+        rows = rows.filter((r) => allowedTrainIds.has(String(r.train_id)));
+      }
 
       const trainsMap = new Map();
 
