@@ -192,6 +192,59 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                             ),
                           ],
                         ),
+                        SizedBox(height: 1.2.h),
+                        Row(
+                          children: [
+                            Opacity(
+                              opacity: isActionEnabled ? 1 : 0.5,
+                              child: CustomButton(
+                                text: "Edit Selected",
+                                prefixIcon: Icons.edit,
+                                color: Colors.blue,
+                                textColor: Colors.white,
+                                iconSize: 5,
+                                padding: EdgeInsets.symmetric(
+                                    vertical: 1.4.h, horizontal: 4.w),
+                                textSize: 12,
+                                onPressed: isActionEnabled
+                                    ? () {
+                                        final selectedList =
+                                            state.selectedUsers;
+                                        if (selectedList.isNotEmpty) {
+                                          _showJobRoleBottomSheet(
+                                              context, selectedList.first);
+                                        }
+                                      }
+                                    : null,
+                              ),
+                            ),
+                            SizedBox(width: 2.w),
+                            Opacity(
+                              opacity: isActionEnabled ? 1 : 0.5,
+                              child: CustomButton(
+                                text: "View Selected",
+                                prefixIcon: Icons.visibility,
+                                color: Colors.grey,
+                                textColor: Colors.white,
+                                iconSize: 5,
+                                padding: EdgeInsets.symmetric(
+                                    vertical: 1.4.h, horizontal: 4.w),
+                                textSize: 12,
+                                onPressed: isActionEnabled
+                                    ? () {
+                                        final selectedList =
+                                            state.selectedUsers;
+                                        if (selectedList.isNotEmpty) {
+                                          _showJobRoleBottomSheet(
+                                              context, selectedList.first,
+                                              isEditable: false);
+                                        }
+                                      }
+                                    : null,
+                              ),
+                            ),
+                          ],
+                        ),
                         SizedBox(width: 2.w),
                         Align(
                           alignment: Alignment.centerRight,
@@ -263,7 +316,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     });
   }
 
-void _showJobRoleBottomSheet(BuildContext context, UserEntity user) {
+void _showJobRoleBottomSheet(BuildContext context, UserEntity user,
+    {bool isEditable = true}) {
     String regionIds = user.regionIds ?? '';
     List<int> regionIdsList = [];
     if (regionIds.isNotEmpty) {
@@ -286,7 +340,7 @@ void _showJobRoleBottomSheet(BuildContext context, UserEntity user) {
         return EditView(
           user: user,
           userManagementBloc: _userManagementBloc,
-          isEditable: (user.regionIds ?? '') == '-1' ? false : true,
+          isEditable: isEditable && (user.regionIds ?? '') != '-1',
           onTapSave: (int? selectedJobRoleId, List<int> selectedTrainIdList) {
             // Use selected roleId or fallback to user's current roleId for type safety
             final int? finalRoleId = selectedJobRoleId ?? userRoleId;
