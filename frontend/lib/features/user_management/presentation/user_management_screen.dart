@@ -230,6 +230,13 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                               );
                             },
                             onTapEdit: (UserEntity user) {
+                              if ((user.approvalStatus ?? '')
+                                      .toLowerCase() ==
+                                  'pending') {
+                                ToastMessageUtils.showMessage(
+                                    context, 'Not editable user');
+                                return;
+                              }
                               _showJobRoleBottomSheet(context, user);
                             },
                             onTapView: (UserEntity user) {
