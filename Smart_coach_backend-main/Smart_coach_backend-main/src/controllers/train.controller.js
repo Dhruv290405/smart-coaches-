@@ -122,22 +122,26 @@ const trainController = {
         console.log(`Error decoding token: ${err.message}`);
       }
 
-      let regionIds = [];
-      const onlyTrainIdMinusOne = region_id === '-1';
-
       const zoneId = parseInt(zone_id);
       const divisionId = parseInt(division_id);
 
-      if (onlyTrainIdMinusOne) {
+      // Parse the requested region ids. "-1" (and blanks) mean "all regions".
+      const requestedRegionIds = region_id
+        ? region_id
+            .split(',')
+            .map(rid => parseInt(rid.trim()))
+            .filter(id => !isNaN(id) && id !== -1)
+        : [];
+
+      let regionIds = null;
+
+      if (zoneId === -1) {
+        // Whole zone selected -> no region restriction.
         regionIds = null;
-      } else if (zoneId === -1 && region_id && region_id !== '-1') {
-        regionIds = region_id
-          .split(',')
-          .map(rid => parseInt(rid.trim()))
-          .filter(id => !isNaN(id));
-      } else if (zoneId === -1) {
-        regionIds = null;
-      } else if (zoneId !== -1 && divisionId === -1) {
+      } else if (requestedRegionIds.length > 0) {
+        regionIds = requestedRegionIds;
+      } else if (divisionId === -1) {
+        // Whole division selected -> restrict to every region in the zone.
         const { data: divisions, error: divErr } = await supabaseAdmin
           .from('division_master')
           .select('division_id')
@@ -151,20 +155,16 @@ const trainController = {
             .in('division_id', divisionIds);
           if (regErr) throw regErr;
           regionIds = (regions || []).map(r => r.region_id);
+          if (regionIds.length === 0) regionIds = null;
         }
-      } else if (zoneId !== -1 && divisionId !== -1) {
-        if (region_id) {
-          regionIds = region_id
-            .split(',')
-            .map(rid => parseInt(rid.trim()))
-            .filter(id => !isNaN(id));
-        }
+      } else {
+        // Specific region not supplied -> no restriction.
+        regionIds = null;
       }
 
       const filters = {
         region_ids: regionIds,
         search,
-        onlyTrainIdMinusOne,
       };
 
       const trains = await trainModel.getAll(filters);

@@ -240,26 +240,36 @@ class TrainModel extends BaseModel {
   }
 
   async getAll(filters = {}) {
-    let query = supabaseAdmin
-      .from('train_master')
-      .select('*');
+    const hasRegionFilter =
+      Array.isArray(filters.region_ids) && filters.region_ids.length > 0;
 
-    if (filters.onlyTrainIdMinusOne) {
-      query = query.eq('train_id', -1);
-    } else {
-      if (Array.isArray(filters.region_ids) && filters.region_ids.length > 0) {
+    const buildQuery = (withRegionFilter) => {
+      let q = supabaseAdmin.from('train_master').select('*');
+      if (withRegionFilter) {
         const regionIdList = filters.region_ids.join(',');
-        query = query.or(`region_id.in.(${regionIdList}),origination_region_id.in.(${regionIdList}),train_id.eq.-1`);
+        q = q.or(
+          `region_id.in.(${regionIdList}),origination_region_id.in.(${regionIdList})`
+        );
       }
-
       if (filters.search) {
         const term = `%${filters.search}%`;
-        query = query.or(`train_number.ilike.${term},train_name.ilike.${term}`);
+        q = q.or(`train_number.ilike.${term},train_name.ilike.${term}`);
       }
+      return q.order('train_id');
+    };
+
+    let { data: trains, error } = await buildQuery(hasRegionFilter);
+    if (error) throw error;
+
+    // Trains are not yet region-tagged for most rows, so a region filter can
+    // come back empty. Fall back to the full list so the dropdown is never
+    // empty (registration / user management stay usable).
+    if (hasRegionFilter && (!trains || trains.length === 0)) {
+      const fallback = await buildQuery(false);
+      if (fallback.error) throw fallback.error;
+      trains = fallback.data;
     }
 
-    const { data: trains, error } = await query.order('train_id');
-    if (error) throw error;
     if (!trains || trains.length === 0) return [];
 
     const regionIds = [...new Set(trains.flatMap(t => [t.origination_region_id, t.region_id, t.departure_station_id, t.destination_station_id].filter(Boolean)))];
