@@ -84,6 +84,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       message: state.errorMessage,
                       errorList: state.errorList,
                     );
+                  } else if (state.submissionSuccess) {
+                    ToastMessageUtils.showMessage(
+                      context,
+                      state.successMessage ?? 'Registration completed',
+                    );
+                    Utils.showSimpleMessageDialog(
+                      context,
+                      'Registration Status',
+                      state.successMessage ??
+                          'Registration successful. Please wait for admin approval before logging in.',
+                      onTapButton: () {
+                        context.go(AppRouter.loginRoute);
+                      },
+                    );
                   } else if (state.isOtpSent &&
                       !state.isOtpVerified &&
                       _step == 4) {
@@ -100,25 +114,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ToastMessageUtils.showMessage(
                       context,
                       'OTP verified successfully',
-                    );
-                  } else if (state.submissionSuccess) {
-                    // Always show registration result regardless of step
-                    ToastMessageUtils.showMessage(
-                      context,
-                      state.successMessage ?? 'Registration completed',
-                    );
-                    Utils.showSimpleMessageDialog(
-                      context,
-                      'Registration Status',
-                      state.successMessage ??
-                          'Your registration has been processed. You will receive a confirmation email shortly.',
-                      onTapButton: () {
-                        if (registerBloc.prefs.token != null) {
-                          context.go(AppRouter.dashboardRoute);
-                        } else {
-                          context.go(AppRouter.loginRoute);
-                        }
-                      },
                     );
                   } else if (!state.isSubmitting && state.isLoading) {
                     // Generic loading completion message
