@@ -192,59 +192,6 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                             ),
                           ],
                         ),
-                        SizedBox(height: 1.2.h),
-                        Row(
-                          children: [
-                            Opacity(
-                              opacity: isActionEnabled ? 1 : 0.5,
-                              child: CustomButton(
-                                text: "Edit Selected",
-                                prefixIcon: Icons.edit,
-                                color: Colors.blue,
-                                textColor: Colors.white,
-                                iconSize: 5,
-                                padding: EdgeInsets.symmetric(
-                                    vertical: 1.4.h, horizontal: 4.w),
-                                textSize: 12,
-                                onPressed: isActionEnabled
-                                    ? () {
-                                        final selectedList =
-                                            state.selectedUsers;
-                                        if (selectedList.isNotEmpty) {
-                                          _showJobRoleBottomSheet(
-                                              context, selectedList.first);
-                                        }
-                                      }
-                                    : null,
-                              ),
-                            ),
-                            SizedBox(width: 2.w),
-                            Opacity(
-                              opacity: isActionEnabled ? 1 : 0.5,
-                              child: CustomButton(
-                                text: "View Selected",
-                                prefixIcon: Icons.visibility,
-                                color: Colors.grey,
-                                textColor: Colors.white,
-                                iconSize: 5,
-                                padding: EdgeInsets.symmetric(
-                                    vertical: 1.4.h, horizontal: 4.w),
-                                textSize: 12,
-                                onPressed: isActionEnabled
-                                    ? () {
-                                        final selectedList =
-                                            state.selectedUsers;
-                                        if (selectedList.isNotEmpty) {
-                                          _showJobRoleBottomSheet(
-                                              context, selectedList.first,
-                                              isEditable: false);
-                                        }
-                                      }
-                                    : null,
-                              ),
-                            ),
-                          ],
-                        ),
                         SizedBox(width: 2.w),
                         Align(
                           alignment: Alignment.centerRight,
@@ -284,6 +231,13 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                             },
                             onTapEdit: (UserEntity user) {
                               _showJobRoleBottomSheet(context, user);
+                            },
+                            onTapView: (UserEntity user) {
+                              _showJobRoleBottomSheet(context, user,
+                                  isEditable: false);
+                            },
+                            onTapDelete: (UserEntity user) {
+                              _confirmDeleteUser(context, user);
                             },
                           ),
                         ),
@@ -340,7 +294,7 @@ void _showJobRoleBottomSheet(BuildContext context, UserEntity user,
         return EditView(
           user: user,
           userManagementBloc: _userManagementBloc,
-          isEditable: isEditable && (user.regionIds ?? '') != '-1',
+          isEditable: isEditable,
           onTapSave: (int? selectedJobRoleId, List<int> selectedTrainIdList) {
             // Use selected roleId or fallback to user's current roleId for type safety
             final int? finalRoleId = selectedJobRoleId ?? userRoleId;
@@ -351,6 +305,39 @@ void _showJobRoleBottomSheet(BuildContext context, UserEntity user,
           },
         );
       },
+    );
+  }
+
+  void _confirmDeleteUser(BuildContext context, UserEntity user) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete User'),
+        content: Text(
+            'Are you sure you want to delete ${user.firstName ?? 'this user'}? This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _userManagementBloc.add(
+                ApproveOrRejectUsers(
+                  [
+                    ApproveUserRequest(
+                        targetUserId: user.userId,
+                        approvalStatus: 'Deleted')
+                  ],
+                ),
+              );
+            },
+            child:
+                const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
     );
   }
 }

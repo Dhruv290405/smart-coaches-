@@ -331,8 +331,12 @@ class _EditViewState extends State<EditView> {
   }
 
   Widget _jobRoleDropdownField(String hintText, List<RoleItem> items) {
+    final validItems = items.where((e) => e.roleId != null).toList();
+    final bool hasCurrent =
+        validItems.any((e) => e.roleId == widget.user.roleId);
     return DropdownButtonFormField<int>(
-      initialValue: widget.user.roleId,
+      initialValue: hasCurrent ? widget.user.roleId : null,
+      isExpanded: true,
       hint: Text(
         hintText,
         style: TextStyle(
@@ -341,14 +345,13 @@ class _EditViewState extends State<EditView> {
           color: Colors.black,
         ),
       ),
-      validator: (v) => v == null ? 'Required' : null,
       decoration: InputDecoration(
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(1.h)),
         contentPadding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 1.5.h),
       ),
-      items: items
+      items: validItems
           .map(
-            (RoleItem item) => DropdownMenuItem(
+            (RoleItem item) => DropdownMenuItem<int>(
               value: item.roleId,
               child: _dropDownTextView(item.name),
             ),
@@ -359,6 +362,7 @@ class _EditViewState extends State<EditView> {
           ? (value) {
               if (value != null) {
                 selectedJobRoleId = value;
+                setState(() {});
               }
             }
           : null,

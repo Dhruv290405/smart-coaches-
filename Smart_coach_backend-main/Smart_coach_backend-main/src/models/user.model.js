@@ -128,6 +128,7 @@ class UserModel extends BaseModel {
       `);
 
     query = query.gt('role_id', currentUser.role_id);
+    query = query.neq('approval_status', 'Deleted');
 
     switch (currentUser.role_id) {
       case 1:

@@ -248,7 +248,8 @@ class TrainModel extends BaseModel {
       query = query.eq('train_id', -1);
     } else {
       if (Array.isArray(filters.region_ids) && filters.region_ids.length > 0) {
-        query = query.or(`origination_region_id.in.(${filters.region_ids.join(',')}),origination_region_id.is.null,train_id.eq.-1`);
+        const regionIdList = filters.region_ids.join(',');
+        query = query.or(`region_id.in.(${regionIdList}),origination_region_id.in.(${regionIdList}),train_id.eq.-1`);
       }
 
       if (filters.search) {
