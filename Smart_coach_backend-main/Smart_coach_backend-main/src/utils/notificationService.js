@@ -1,6 +1,7 @@
 const admin = require("../config/firebase");
 const supabaseAdmin = require("../config/supabaseAdmin");
 const rbac = require("./rbac");
+const emailService = require("./emailService");
 
 /**
  * Map an in-app notification `type` to an RBAC module key. Types that are not
@@ -170,6 +171,9 @@ async function broadcastPushNotification(title, body, type, data = {}, scope = {
     }
 
     await saveInAppNotifications(title, body, type, userIds);
+
+    // Email channel (Brevo) — only for allow-listed alert types, throttled.
+    await emailService.sendAlertEmails(userIds, title, body, type);
   } catch (err) {
     console.error("❌ broadcastPushNotification error:", err.message);
   }
@@ -235,6 +239,9 @@ async function saveInAppNotificationForAllUsers(title, body, type, scope = {}) {
     const location = scope.location || null;
     const { userIds } = await resolveRecipients(moduleKey, location);
     await saveInAppNotifications(title, body, type, userIds);
+
+    // Email channel (Brevo) — only for allow-listed alert types, throttled.
+    await emailService.sendAlertEmails(userIds, title, body, type);
   } catch (err) {
     console.error("❌ saveInAppNotificationForAllUsers error:", err.message);
   }
