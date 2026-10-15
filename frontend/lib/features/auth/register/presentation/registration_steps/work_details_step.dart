@@ -157,7 +157,8 @@ class WorkDetailsStep extends StatelessWidget {
     }
 
     final currentValue = bloc.state.registerRequest.organisationType;
-    final valueExists = currentValue != null && uniqueOrgTypes.containsKey(currentValue);
+    final valueExists =
+        currentValue != null && uniqueOrgTypes.containsKey(currentValue);
 
     return DropdownButtonFormField<String>(
       initialValue: valueExists ? currentValue : null,
@@ -206,7 +207,8 @@ class WorkDetailsStep extends StatelessWidget {
     }
 
     final currentValue = bloc.state.registerRequest.zoneId;
-    final valueExists = currentValue != null && uniqueZones.containsKey(currentValue);
+    final valueExists =
+        currentValue != null && uniqueZones.containsKey(currentValue);
 
     return DropdownButtonFormField<int>(
       initialValue: valueExists ? currentValue : null,
@@ -245,13 +247,15 @@ class WorkDetailsStep extends StatelessWidget {
   Widget _divisionDropdownField(RegisterBloc bloc, String hintText) {
     final uniqueDivisions = <int, dynamic>{};
     for (var item in bloc.state.divisions) {
-      if (item.divisionId != null && !uniqueDivisions.containsKey(item.divisionId)) {
+      if (item.divisionId != null &&
+          !uniqueDivisions.containsKey(item.divisionId)) {
         uniqueDivisions[item.divisionId!] = item;
       }
     }
 
     final currentValue = bloc.state.registerRequest.divisionId;
-    final valueExists = currentValue != null && uniqueDivisions.containsKey(currentValue);
+    final valueExists =
+        currentValue != null && uniqueDivisions.containsKey(currentValue);
 
     return DropdownButtonFormField<int>(
       initialValue: valueExists ? currentValue : null,
@@ -288,20 +292,22 @@ class WorkDetailsStep extends StatelessWidget {
   }
 
   void _showMultiRegionDialog(
-      BuildContext context,
-      String key,
-      RegisterBloc bloc,
-      String title,
-      ) {
+    BuildContext context,
+    String key,
+    RegisterBloc bloc,
+    String title,
+  ) {
     List<int> currentSelected = [];
     int itemCount = 0;
     int? allItemId;
 
     if (key == bloc.regionDropDownKey) {
-      currentSelected = List.from(bloc.state.registerRequest.regionIdList ?? []);
+      currentSelected = List.from(
+        bloc.state.registerRequest.regionIdList ?? [],
+      );
       itemCount = bloc.state.regions.length;
       int indexOfAllItem = bloc.state.regions.indexWhere(
-            (item) => (item.name ?? '').toLowerCase() == 'all',
+        (item) => (item.name ?? '').toLowerCase() == 'all',
       );
       if (indexOfAllItem != -1) {
         allItemId = bloc.state.regions[indexOfAllItem].regionId;
@@ -310,7 +316,7 @@ class WorkDetailsStep extends StatelessWidget {
       currentSelected = List.from(bloc.state.registerRequest.trainIdList ?? []);
       itemCount = bloc.state.trains.length;
       int indexOfAllItem = bloc.state.trains.indexWhere(
-            (item) => (item.trainName ?? '').toLowerCase() == 'all',
+        (item) => (item.trainName ?? '').toLowerCase() == 'all',
       );
       if (indexOfAllItem != -1) {
         allItemId = bloc.state.trains[indexOfAllItem].trainId;
@@ -320,23 +326,56 @@ class WorkDetailsStep extends StatelessWidget {
     if (itemCount == 1) {
       if (key == bloc.regionDropDownKey) {
         int regionId = bloc.state.regions.first.regionId!;
-        bloc.add(UpdateDropdownValue(key: bloc.regionDropDownKey, value: [regionId]));
+        bloc.add(
+          UpdateDropdownValue(key: bloc.regionDropDownKey, value: [regionId]),
+        );
         if (_isTrainOperatorSelected(bloc)) {
-          bloc.add(LoadTrainsDropdowns(
-            zoneId: bloc.state.registerRequest.zoneId,
-            divisionId: bloc.state.registerRequest.divisionId,
-            regionId: [regionId],
-          ));
+          bloc.add(
+            LoadTrainsDropdowns(
+              zoneId: bloc.state.registerRequest.zoneId,
+              divisionId: bloc.state.registerRequest.divisionId,
+              regionId: [regionId],
+            ),
+          );
         }
       } else {
         int trainId = bloc.state.trains.first.trainId!;
-        bloc.add(UpdateDropdownValue(key: bloc.trainDropDownKey, value: [trainId]));
+        bloc.add(
+          UpdateDropdownValue(key: bloc.trainDropDownKey, value: [trainId]),
+        );
       }
       return;
     }
 
-    if (itemCount == 0) return;
-
+    if (itemCount == 0) {
+      if (key == bloc.trainDropDownKey) {
+        final request = bloc.state.registerRequest;
+        final regionIds = request.regionIdList ?? [];
+        if (request.zoneId != null &&
+            request.divisionId != null &&
+            regionIds.isNotEmpty) {
+          bloc.add(
+            LoadTrainsDropdowns(
+              zoneId: request.zoneId,
+              divisionId: request.divisionId,
+              regionId: regionIds,
+            ),
+          );
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Loading trains. Please tap Select train again.'),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Please select zone, division, and region first.'),
+            ),
+          );
+        }
+      }
+      return;
+    }
 
     showModalBottomSheet(
       context: context,
@@ -478,7 +517,8 @@ class WorkDetailsStep extends StatelessWidget {
     }
 
     final currentValue = bloc.state.registerRequest.roleId;
-    final valueExists = currentValue != null && uniqueRoles.containsKey(currentValue);
+    final valueExists =
+        currentValue != null && uniqueRoles.containsKey(currentValue);
 
     return DropdownButtonFormField<int>(
       initialValue: valueExists ? currentValue : null,
