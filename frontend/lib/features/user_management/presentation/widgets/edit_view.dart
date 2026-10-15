@@ -142,7 +142,7 @@ class _EditViewState extends State<EditView> {
     if ((trains ?? []).isNotEmpty) {
       selectedNames = (trains ?? [])
           .where((item) => item.isMapped == true)
-          .map((r) => r.trainName ?? '')
+          .map((r) => '${r.trainNumber ?? ''} - ${r.trainName ?? ''}')
           .join(', ');
     }
 
