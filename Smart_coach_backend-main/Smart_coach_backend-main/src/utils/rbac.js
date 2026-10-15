@@ -171,78 +171,6 @@ async function getAuthorizedTrainNumbers(user) {
 }
 
 /**
- * Resolve the region_ids that belong to a user's location, using the
- * region > division > zone hierarchy. Used to scope master/config data
- * (trains, coaches, devices, sensors) that is tagged only with region_id.
- *
- * Returns:
- *   - null  -> no filtering should be applied (admin, or user has no
- *              region/division/zone at all — avoid blanking the dashboard)
- *   - array -> the region_ids to match against (may be empty)
- */
-async function getScopedRegionIds(user) {
-  if (!user) return null;
-  if (isAdmin(user)) return null;
-  if (!user.region_id && !user.division_id && !user.zone_id) return null;
-
-  const regionIds = new Set();
-
-  // Use the most specific level available: division > region > zone.
-  let divisionIds = [];
-  if (user.division_id) {
-    divisionIds = [user.division_id];
-  } else if (user.region_id) {
-    regionIds.add(String(user.region_id));
-  } else if (user.zone_id) {
-    const { data: divs } = await supabaseAdmin
-      .from('division_master')
-      .select('division_id')
-      .eq('zone_id', user.zone_id);
-    divisionIds = (divs || []).map((d) => d.division_id);
-  }
-
-  // A division user resolves to every region inside that division;
-  // a region user only sees their own region.
-  if (divisionIds.length > 0) {
-    const { data: regions } = await supabaseAdmin
-      .from('region_master')
-      .select('region_id')
-      .in('division_id', divisionIds);
-    for (const r of regions || []) regionIds.add(String(r.region_id));
-  }
-
-  return [...regionIds];
-}
-
-/**
- * Resolve the trains (by id and number) that belong to the user's location.
- *
- * Returns:
- *   - null  -> no filtering (admin / no location) — caller should not filter
- *   - { trainIds: [], trainNumbers: [] } -> filtered set (may be empty)
- */
-async function getScopedTrains(user) {
-  const regionIds = await getScopedRegionIds(user);
-  if (regionIds === null) return null;
-
-  const { data: trains } = await supabaseAdmin
-    .from('train_master')
-    .select('train_id, train_number, region_id, origination_region_id');
-
-  const regionSet = new Set(regionIds);
-  const scoped = (trains || []).filter(
-    (t) =>
-      (t.region_id && regionSet.has(String(t.region_id))) ||
-      (t.origination_region_id && regionSet.has(String(t.origination_region_id)))
-  );
-
-  return {
-    trainIds: scoped.map((t) => t.train_id),
-    trainNumbers: scoped.map((t) => t.train_number).filter(Boolean),
-  };
-}
-
-/**
  * Express middleware: attach location info to req.user if present in JWT.
  */
 function rbacMiddleware(req, res, next) {
@@ -276,7 +204,5 @@ module.exports = {
   getAuthorizedDeviceIds,
   getAuthorizedDeviceIdsForLocation,
   getAuthorizedTrainNumbers,
-  getScopedRegionIds,
-  getScopedTrains,
   rbacMiddleware
 };

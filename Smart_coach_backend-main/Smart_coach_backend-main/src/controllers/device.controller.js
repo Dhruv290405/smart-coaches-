@@ -4,7 +4,6 @@ const deviceModel = require('../models/device.model');
 const masterModuleModel = require('../models/master-module.model');
 const deviceTypeModel = require('../models/master.model').deviceTypeModel;
 const supabaseAdmin = require('../config/supabaseAdmin');
-const rbac = require('../utils/rbac');
 const { toMySQLDatetime } = require('../middleware/datetime');
 
 
@@ -18,18 +17,7 @@ const deviceController = {
         search
       } = req.query;
 
-      // Scope devices to the logged-in user's location (division/region/zone).
-      // Devices are matched to the location via their assigned train.
-      const scope = await rbac.getScopedTrains(req.user);
-      if (scope && scope.trainNumbers.length === 0) {
-        return successResponse(res, 'Devices retrieved successfully', []);
-      }
-
       let query = supabaseAdmin.from('device_master').select('*');
-
-      if (scope) {
-        query = query.in('train_no', scope.trainNumbers);
-      }
 
       if (master_module_id) {
         query = query.eq('master_module_id', master_module_id);

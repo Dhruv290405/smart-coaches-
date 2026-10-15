@@ -3,7 +3,6 @@ const { successResponse, errorResponse } = require('../utils/response');
 const sensorModel = require('../models/sensor.model');
 const deviceModel = require('../models/device.model');
 const supabaseAdmin = require('../config/supabaseAdmin');
-const rbac = require('../utils/rbac');
 const { toMySQLDatetime } = require('../middleware/datetime');
 
 const sensorController = {
@@ -17,32 +16,7 @@ const sensorController = {
       if (status) filters.status = status;
       if (search) filters.search = search;
 
-      let sensors = await sensorModel.getAll(filters);
-
-      // Scope sensors to the logged-in user's location (division/region/zone).
-      // Sensors are linked to devices via sensor_device_mapping; devices are
-      // matched to the location through their assigned train.
-      const scope = await rbac.getScopedTrains(req.user);
-      if (scope) {
-        let allowedSensorIds = [];
-        if (scope.trainNumbers.length > 0) {
-          const { data: devs } = await supabaseAdmin
-            .from('device_master')
-            .select('device_id')
-            .in('train_no', scope.trainNumbers);
-          const deviceIds = [...new Set((devs || []).map((d) => d.device_id).filter(Boolean))];
-          if (deviceIds.length > 0) {
-            const { data: maps } = await supabaseAdmin
-              .from('sensor_device_mapping')
-              .select('sensor_id')
-              .in('device_id', deviceIds);
-            allowedSensorIds = [...new Set((maps || []).map((m) => m.sensor_id))];
-          }
-        }
-        const allowed = new Set(allowedSensorIds.map(String));
-        sensors = sensors.filter((s) => allowed.has(String(s.sensor_type_id)));
-      }
-
+      const sensors = await sensorModel.getAll(filters);
       // Enrich each sensor with human‑readable status and device name (if a single device linked)
       const enriched = await Promise.all(sensors.map(async (s) => {
         const status = s.is_active ? 'Online' : 'Offline';
