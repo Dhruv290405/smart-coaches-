@@ -233,8 +233,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                               _showJobRoleBottomSheet(context, user);
                             },
                             onTapView: (UserEntity user) {
-                              _showJobRoleBottomSheet(context, user,
-                                  isEditable: false);
+                              _showUserDetails(context, user);
                             },
                             onTapDelete: (UserEntity user) {
                               _confirmDeleteUser(context, user);
@@ -303,6 +302,91 @@ void _showJobRoleBottomSheet(BuildContext context, UserEntity user,
               roleId: finalRoleId,
               trainIds: selectedTrainIdList));
           },
+        );
+      },
+    );
+  }
+
+  void _showUserDetails(BuildContext context, UserEntity user) {
+    Widget detailRow(String label, String? value) {
+      return Padding(
+        padding: EdgeInsets.symmetric(vertical: 0.8.h),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 34.w,
+              child: Text(
+                label,
+                style: TextStyle(
+                    fontSize: 12.sp,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black54),
+              ),
+            ),
+            Expanded(
+              child: Text(
+                (value != null && value.trim().isNotEmpty) ? value : '-',
+                style: TextStyle(fontSize: 12.sp, color: Colors.black),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(2.h)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.all(4.w),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Text(
+                    'USER DETAILS',
+                    style: TextStyle(
+                        fontSize: 13.5.sp, fontWeight: FontWeight.w600),
+                  ),
+                ),
+                SizedBox(height: 1.5.h),
+                detailRow('Name',
+                    '${user.firstName ?? ''} ${user.lastName ?? ''}'.trim()),
+                detailRow('Mobile', user.mobileNumber),
+                detailRow('Email', user.email),
+                detailRow('Employee ID', user.employeeId),
+                detailRow('Organization', user.organisationType),
+                detailRow('Job Role', user.role),
+                detailRow('Zone', user.zoneName),
+                detailRow('Division', user.divisionName),
+                detailRow('Region', user.regionNames),
+                detailRow('PAN', user.panCardNo),
+                detailRow('Aadhar', user.aadharNo),
+                detailRow('Status', user.approvalStatus),
+                SizedBox(height: 1.5.h),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: CustomButton(
+                    text: 'Close',
+                    color: const Color(0xFFF2F3F5),
+                    textColor: Colors.black,
+                    textSize: 12,
+                    padding: EdgeInsets.symmetric(
+                        vertical: 1.4.h, horizontal: 6.w),
+                    radius: 6,
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ),
+              ],
+            ),
+          ),
         );
       },
     );

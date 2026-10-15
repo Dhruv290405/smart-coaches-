@@ -163,23 +163,7 @@ class UserManagementBloc
             useToken: true,
           );
 
-      List<int> selectedTrainIds = trains
-          // .where((item) => item.isMapped == true)
-          .map((item) => item.trainId!)
-          .toList();
-
-      print('checkLength selectedTrainIds: $selectedTrainIds');
-
-      final RoleListData roleListData = await dropDownValueUseCase
-          .loadDefaultRolesDropdowns(
-            event.zoneId,
-            event.divisionId,
-            event.regionId,
-            selectedTrainIds,
-            useToken: true,
-          );
-      List<RoleItem>? roles = roleListData.items;
-      print('checkLength roles: ${roles?.length}');
+      List<RoleItem>? roles = await dropDownValueUseCase.loadAllRoles();
       emit(
         LoadTrainsSuccess(
           trains,
@@ -213,26 +197,7 @@ class UserManagementBloc
       ),
     );
     try {
-      List<int> selectedTrainIds = (event.selectedTrains ?? [])
-          .where((item) => item.isMapped == true)
-          .map((va) => va.trainId!)
-          .toList();
-
-      String regionIds = event.regionId ?? '';
-      List<int> regionIdsList = [];
-      if (regionIds.isNotEmpty) {
-        regionIdsList = regionIds.split(',').map((e) => int.parse(e)).toList();
-      }
-
-      final RoleListData roleListData = await dropDownValueUseCase
-          .loadDefaultRolesDropdowns(
-            event.zoneId,
-            event.divisionId,
-            regionIdsList,
-            selectedTrainIds,
-            useToken: true,
-          );
-      List<RoleItem>? roles = roleListData.items;
+      List<RoleItem>? roles = await dropDownValueUseCase.loadAllRoles();
 
       emit(
         LoadTrainsSuccess(

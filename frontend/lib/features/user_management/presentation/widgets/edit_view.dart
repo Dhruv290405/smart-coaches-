@@ -194,7 +194,33 @@ class _EditViewState extends State<EditView> {
       allItemId = (trains ?? [])[indexOfAllItem].trainId;
     }
 
-    if (itemCount <= 1) {
+    if (itemCount == 0) {
+      showModalBottomSheet(
+        context: context,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(2.h)),
+        ),
+        builder: (context) {
+          return Padding(
+            padding: EdgeInsets.all(4.w),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: 1.5.h),
+                Text(
+                  'No trains available for the selected region.',
+                  style: TextStyle(fontSize: 12.sp, color: Colors.black54),
+                ),
+                SizedBox(height: 1.5.h),
+              ],
+            ),
+          );
+        },
+      );
       return;
     }
 
