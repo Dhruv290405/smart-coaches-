@@ -61,8 +61,13 @@ function userMatchesScope(user, moduleKey, location) {
   if (!moduleAllowed(moduleKey)) return false;
 
   if (location) {
-    const locs = rbac.getUserLocations(user).map((l) => String(l).toLowerCase());
-    if (!locs.includes(String(location).toLowerCase())) return false;
+    // Suffix-aware match: a "Jaipur" user should match "Jaipur_N1"/"Jaipur_N2".
+    const target = String(location).trim().toLowerCase();
+    const locs = rbac.getUserLocations(user).map((l) => String(l).trim().toLowerCase());
+    const matches = locs.some(
+      (l) => target === l || target.startsWith(`${l}_`) || target.startsWith(`${l} `)
+    );
+    if (!matches) return false;
   }
   return true;
 }
