@@ -6,6 +6,7 @@ const odour2Supabase = _odour2Supabase || null;
 
 const TABLE = 'iot_bad_odour';
 const SECTION1_TABLE = 'bad_odour_data';
+const SECTION1_COACHES_TABLE = 'coaches_Bad_Odour';
 const SECTION2_TABLE = 'odour_management_live';
 
 class OdourModel {
@@ -108,6 +109,15 @@ class OdourModel {
 
     async getLatestStatusForAllCoaches(location = null) {
         try {
+            let coachesQuery = acpSupabase
+                .from(SECTION1_COACHES_TABLE)
+                .select('Coach_ID,device_ID,Coach_no,Train_No,location');
+
+            if (location) coachesQuery = coachesQuery.ilike('location', location);
+
+            const { data: coaches, error: coachesError } = await coachesQuery;
+            if (coachesError) throw coachesError;
+
             let query = acpSupabase
                 .from(SECTION1_TABLE)
                 .select('device_ID,Coach_ID,Coach_no,voc_index,h2s_ppm,nh3_ppm,temperature,location,Door_Status,Door_Count,long_lock_count,Door_Open_Duration_Seconds,Door_Closed_Duration_Seconds,Status_VOC,Train_No,timestamp')
@@ -123,12 +133,26 @@ class OdourModel {
             const grouped = {};
             for (const row of data || []) {
                 const key = row.device_ID || row.Coach_ID || row.Coach_no;
+                if (!key) continue;
                 if (!grouped[key] || new Date(row.timestamp) > new Date(grouped[key].timestamp)) {
                     grouped[key] = row;
                 }
             }
 
-            const real = Object.values(grouped).map((r) => this._mapBadOdourRow(r));
+            // The registration table is authoritative. Return every registered
+            // coach even when that coach has not produced a reading yet.
+            const real = (coaches || []).map((coach) => {
+                const reading = grouped[coach.device_ID] || grouped[coach.Coach_ID] || {};
+                return this._mapBadOdourRow({
+                    ...coach,
+                    ...reading,
+                    device_ID: reading.device_ID || coach.device_ID,
+                    Coach_ID: reading.Coach_ID || coach.Coach_ID,
+                    Coach_no: reading.Coach_no || coach.Coach_no,
+                    Train_No: reading.Train_No || coach.Train_No,
+                    location: reading.location || coach.location,
+                });
+            });
             if (real.length === 0 && this._demoFallbackEnabled()) {
                 console.warn('Odour Dashboard: Section 1 DB empty, serving demo fallback.');
                 return this._section1DemoData();

@@ -17,15 +17,15 @@ class RegisterRemoteDataSourceImpl {
     });
   }
 
-  Future<dynamic> sendOtp(String mobileNumber) async {
+  Future<dynamic> sendOtp(String email) async {
     return safeRequest(() async {
-      return await restClient.sendOtp({'mobile_number': mobileNumber});
+      return await restClient.sendOtp({'email': email});
     });
   }
 
-  Future<dynamic> verifyOtp(String mobileNumber, String otp) async {
+  Future<dynamic> verifyOtp(String email, String otp) async {
     return safeRequest(() async {
-      return await restClient.verifyOtp({'mobile_number': mobileNumber, 'otp': otp});
+      return await restClient.verifyOtp({'email': email, 'otp': otp});
     });
   }
 }

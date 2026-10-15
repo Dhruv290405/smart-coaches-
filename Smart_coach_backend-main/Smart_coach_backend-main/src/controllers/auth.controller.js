@@ -2,7 +2,7 @@ const { validationResult } = require('express-validator');
 const userModel = require('../models/user.model');
 const { successResponse, errorResponse } = require('../utils/response');
 const roleModel = require('../models/role.model.js');
-const smsService = require('../utils/smsService');
+const emailOtpService = require('../utils/emailOtpService');
 
 
 const authController = {
@@ -15,7 +15,7 @@ const authController = {
 
     const { email, region_id, train_ids, role_id, mobile_number } = req.body;
 
-    if (!smsService.isVerified(mobile_number)) return errorResponse(res, 'Mobile number must be verified by OTP before registration', 400);
+    if (!emailOtpService.isVerified(email)) return errorResponse(res, 'Email must be verified by OTP before registration', 400);
 
     if (role_id === 1) {
       return errorResponse(res, 'Super Admin role cannot be assigned via registration', 403);
@@ -33,7 +33,7 @@ const authController = {
     };
 
     const newUser = await userModel.create(registrationData);
-    smsService.consumeVerification(mobile_number);
+    emailOtpService.consumeVerification(email);
 
     return successResponse(
       res,
@@ -226,10 +226,13 @@ const authController = {
 
   async sendOtp(req, res, next) {
     try {
-      const { mobile_number } = req.body;
-      if (!mobile_number) return errorResponse(res, 'Mobile number is required', 400);
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+      const { email } = req.body;
+      if (!email) return errorResponse(res, 'Email is required', 400);
       try {
-        const result = await smsService.sendOtp(mobile_number);
+        const result = await emailOtpService.sendOtp(email);
         return successResponse(res, result.message);
       } catch (smsError) {
         console.error('Send OTP failed:', smsError.message);
@@ -242,9 +245,12 @@ const authController = {
 
   async verifyOtp(req, res, next) {
     try {
-      const { mobile_number, otp } = req.body;
-      if (!mobile_number || !otp) return errorResponse(res, 'Mobile number and OTP are required', 400);
-      const result = smsService.verifyOtp(mobile_number, otp);
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+      const { email, otp } = req.body;
+      if (!email || !otp) return errorResponse(res, 'Email and OTP are required', 400);
+      const result = emailOtpService.verifyOtp(email, otp);
       if (!result.success) return errorResponse(res, result.message, 400);
       return successResponse(res, result.message);
     } catch (error) {

@@ -91,7 +91,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       _isOtpSent = true;
                       ToastMessageUtils.showMessage(
                         context,
-                        'OTP sent to ${_mobileController.text}',
+                        'OTP sent to ${_emailController.text}',
                       );
                     }
                   } else if (state.isOtpVerified && _step == 4) {
@@ -381,7 +381,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'An OTP call is being made to ${_mobileController.text}. Enter the code you hear below.',
+            'An OTP email is being sent to ${_emailController.text}. Enter the 6-digit code below.',
             style: const TextStyle(fontSize: 14, color: Colors.black54),
           ),
           const SizedBox(height: 24),
@@ -591,8 +591,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   void _sendOtp() async {
-    final mobile = _mobileController.text.trim();
-    registerBloc.add(SendOtp(mobile));
+    final email = _emailController.text.trim();
+    registerBloc.add(SendOtp(email));
   }
 
   void _doVerifyOtp() async {
@@ -604,8 +604,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
       return;
     }
-    final mobile = _mobileController.text.trim();
-    registerBloc.add(VerifyOtp(mobile, otp));
+    final email = _emailController.text.trim();
+    registerBloc.add(VerifyOtp(email, otp));
   }
 
   void _doSubmitRegistration() {

@@ -65,8 +65,8 @@ const validateLogin = [
 
 router.post('/register', validateRegister, authController.register);
 router.post('/login', loginLimiter, validateLogin, authController.login);
-router.post('/send-otp', authController.sendOtp);
-router.post('/verify-otp', authController.verifyOtp);
+router.post('/send-otp', body('email').isEmail().withMessage('Please include a valid email'), authController.sendOtp);
+router.post('/verify-otp', body('email').isEmail().withMessage('Please include a valid email'), body('otp').isLength({ min: 6, max: 6 }).isNumeric(), authController.verifyOtp);
 
 // Updated Roles in Authorization as per RBAC hierarchy:
 // Master (1), Super Admin (2), Division Admin (3), Division Manager (4), Regional Master (5)

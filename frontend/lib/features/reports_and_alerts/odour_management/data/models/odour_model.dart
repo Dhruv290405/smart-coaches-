@@ -209,7 +209,11 @@ class CoachToiletGroup {
   static List<CoachToiletGroup> groupByCoach(List<OdourCoachModel> models) {
     final map = <String, List<OdourCoachModel>>{};
     for (final m in models) {
-      map.putIfAbsent(m.coachNumber, () => []).add(m);
+      // Coach_no is not guaranteed to be unique in the registration table.
+      // Keep readings from distinct devices in separate coach groups while
+      // still grouping multiple washrooms reported by the same device.
+      final groupKey = '${m.coachNumber}::${m.deviceId}';
+      map.putIfAbsent(groupKey, () => []).add(m);
     }
     return map.entries.map((e) {
       final first = e.value.first;

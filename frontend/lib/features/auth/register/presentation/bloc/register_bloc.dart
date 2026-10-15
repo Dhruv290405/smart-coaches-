@@ -265,7 +265,7 @@ class RegisterBloc extends Bloc<RegisterEvent, RegisterState> {
   void _onSendOtp(SendOtp event, Emitter<RegisterState> emit) async {
     emit(state.copyWith(isLoading: true, errorMessage: null, errorList: null));
     try {
-      final response = await registerUseCase.sendOtp(event.mobileNumber);
+      final response = await registerUseCase.sendOtp(event.email);
       final otp = (response is Map && response['data'] is Map) ? response['data']['otp']?.toString() : null;
       emit(state.copyWith(isLoading: false, isOtpSent: true, otpCode: otp));
     } catch (e) {
@@ -276,7 +276,7 @@ class RegisterBloc extends Bloc<RegisterEvent, RegisterState> {
   void _onVerifyOtp(VerifyOtp event, Emitter<RegisterState> emit) async {
     emit(state.copyWith(isLoading: true, errorMessage: null, errorList: null));
     try {
-      await registerUseCase.verifyOtp(event.mobileNumber, event.otp);
+      await registerUseCase.verifyOtp(event.email, event.otp);
       emit(state.copyWith(isLoading: false, isOtpVerified: true));
     } catch (e) {
       emit(state.copyWith(isLoading: false, errorMessage: e.toString()));
