@@ -288,15 +288,9 @@ class OdourModel {
                 temperature: r.temperature ?? 0,
                 humidity: r.humidity ?? 0,
             }));
-            if (mapped.length === 0 && this._demoFallbackEnabled()) {
-                return this._section1DemoHistory();
-            }
             return mapped;
         } catch (err) {
             console.error("Odour Section 1 History Error:", err.message);
-            if (this._demoFallbackEnabled()) {
-                return this._section1DemoHistory();
-            }
             return [];
         }
     }

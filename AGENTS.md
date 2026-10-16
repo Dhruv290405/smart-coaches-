@@ -26,11 +26,12 @@ Defined in `src/utils/rbac.js` constant `DIVISION_MODULE_MAP` and frontend `cust
 | Division | Allowed Modules |
 |---|---|
 | Danapur | `acp`, `hot_axle_section2`, `bc_pressure`, `sensor_config` |
-| Nagpur | `brake_binding`, `hot_axle_section1`, `sensor_config` |
+| Nagpur | `brake_binding`, `hot_axle_section1`, `sensor_config`, `odour` |
 | Howrah | `brake_binding` |
 | Kolkata | `brake_binding` |
 | South Eastern | `brake_binding` |
-| (unmapped) | ALL modules (default) |
+| Jaipur | `brake_binding` |
+| (unmapped) | ALL modules except `odour` (strictly Nagpur-only) |
 
 ## RBAC Rules (backend/src/utils/rbac.js)
 
