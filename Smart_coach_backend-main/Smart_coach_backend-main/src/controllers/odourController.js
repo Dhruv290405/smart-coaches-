@@ -75,7 +75,8 @@ const odourController = {
             if (!rbac.isModuleAuthorized(req.user, 'odour')) {
                 return res.status(200).json({ success: true, totalCoaches: 0, data: [] });
             }
-            const location = rbac.getUserLocation(req.user);
+            // Admins bypass location filtering to view all system devices; non-admins are scoped to their assigned division.
+            const location = rbac.isAdmin(req.user) ? (req.query.location || null) : rbac.getUserLocation(req.user);
             const statusData = await OdourModel.getLatestStatusForAllCoaches(location);
 
             return res.status(200).json({

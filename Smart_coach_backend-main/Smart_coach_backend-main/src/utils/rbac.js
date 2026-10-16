@@ -32,7 +32,15 @@ function getUserLocation(user) {
  * Check if user is MasterAdmin (role_id=1)
  */
 function isAdmin(user) {
-  return user && user.role_id === 1;
+  if (!user) return false;
+  return (
+    user.role_id === 1 ||
+    user.role_id === 2 ||
+    user.role === 'Master' ||
+    user.role === 'Super Admin' ||
+    user.role_name === 'Master' ||
+    user.role_name === 'Super Admin'
+  );
 }
 
 /**
