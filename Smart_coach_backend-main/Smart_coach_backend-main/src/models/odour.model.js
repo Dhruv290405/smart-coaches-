@@ -130,15 +130,22 @@ class OdourModel {
                 return [];
             }
 
-            let query = acpSupabase
-                .from(SECTION1_TABLE)
-                .select('*')
-                .in('device_ID', registeredDeviceIds)
-                .order('timestamp', { ascending: false })
-                .limit(500);
-
-            const { data, error } = await query;
-            if (error) throw error;
+            // Readings are best-effort: if this query fails we still return every
+            // registered coach (with zeroed readings) instead of dropping coaches
+            // until the next successful poll.
+            let data = [];
+            try {
+                const { data: readings, error } = await acpSupabase
+                    .from(SECTION1_TABLE)
+                    .select('*')
+                    .in('device_ID', registeredDeviceIds)
+                    .order('timestamp', { ascending: false })
+                    .limit(500);
+                if (error) throw error;
+                data = readings || [];
+            } catch (readingErr) {
+                console.warn('Odour Section 1 readings unavailable, returning registered coaches only:', readingErr.message);
+            }
 
             // Latest row per device
             const grouped = {};
