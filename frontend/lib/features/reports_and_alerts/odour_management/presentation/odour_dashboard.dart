@@ -335,7 +335,7 @@ class _OdourDashboardState extends State<OdourDashboard> {
       children: [
         if (showS1)
           _buildExpandableSection(
-            'Section 1',
+            'Installed Devices (Nagpur)',
             s1.length,
             'odour_s1',
             s1.isEmpty
@@ -345,19 +345,18 @@ class _OdourDashboardState extends State<OdourDashboard> {
                     grouped: CoachToiletGroup.groupByCoach(s1),
                   ),
           ),
-        if (showS1 && showS2) const SizedBox(height: 8),
-        if (showS2)
+        if (showS2 && s2.isNotEmpty) ...[
+          const SizedBox(height: 8),
           _buildExpandableSection(
             'Section 2',
             s2.length,
             'odour_s2',
-            s2.isEmpty
-                ? _buildEmptySectionState()
-                : OdourCoachesView(
-                    coaches: s2,
-                    grouped: CoachToiletGroup.groupByCoach(s2),
-                  ),
+            OdourCoachesView(
+              coaches: s2,
+              grouped: CoachToiletGroup.groupByCoach(s2),
+            ),
           ),
+        ],
       ],
     );
   }

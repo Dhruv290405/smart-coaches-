@@ -40,11 +40,11 @@ function isAdmin(user) {
  * Specifies which telemetry modules each division is allowed to view.
  */
 const DIVISION_MODULE_MAP = {
-  'Danapur': ['acp', 'hot_axle_section2', 'bc_pressure', 'sensor_config', 'odour'],
+  'Danapur': ['acp', 'hot_axle_section2', 'bc_pressure', 'sensor_config'],
   'Nagpur': ['brake_binding', 'hot_axle_section1', 'sensor_config', 'odour'],
-  'Howrah': ['brake_binding', 'odour'],
-  'Kolkata': ['brake_binding', 'odour'],
-  'South Eastern': ['brake_binding', 'odour'],
+  'Howrah': ['brake_binding'],
+  'Kolkata': ['brake_binding'],
+  'South Eastern': ['brake_binding'],
   'Jaipur': ['brake_binding']
 };
 
@@ -57,9 +57,12 @@ function isModuleAuthorized(user, moduleKey) {
   if (!loc) return false;
   
   const normalizedLoc = Object.keys(DIVISION_MODULE_MAP).find(
-    k => k.toLowerCase() === loc.toLowerCase()
+    k => k.toLowerCase() === loc.toLowerCase() || loc.toLowerCase().startsWith(k.toLowerCase())
   );
-  if (!normalizedLoc) return true;
+  if (!normalizedLoc) {
+    if (moduleKey === 'odour') return false; // Bad Odour is strictly restricted to Nagpur
+    return true;
+  }
   return DIVISION_MODULE_MAP[normalizedLoc].includes(moduleKey);
 }
 

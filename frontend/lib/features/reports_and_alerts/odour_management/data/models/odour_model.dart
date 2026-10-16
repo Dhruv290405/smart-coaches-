@@ -182,6 +182,7 @@ class OdourHistoryPoint {
 
 class CoachToiletGroup {
   final String coachNumber;
+  final String deviceId;
   final String coachType;
   final String trainNumber;
   final String trainName;
@@ -190,12 +191,20 @@ class CoachToiletGroup {
 
   CoachToiletGroup({
     required this.coachNumber,
+    required this.deviceId,
     required this.coachType,
     required this.trainNumber,
     required this.trainName,
     required this.route,
     required this.toilets,
   });
+
+  String get displayName {
+    if (coachNumber.isNotEmpty && coachNumber != deviceId && coachNumber != 'Unknown') {
+      return '$deviceId ($coachNumber)';
+    }
+    return deviceId;
+  }
 
   int get totalToilets => toilets.length;
   int get activeToilets => toilets.where((t) => t.isActive).length;
@@ -209,16 +218,14 @@ class CoachToiletGroup {
   static List<CoachToiletGroup> groupByCoach(List<OdourCoachModel> models) {
     final map = <String, List<OdourCoachModel>>{};
     for (final m in models) {
-      // Coach_no is not guaranteed to be unique in the registration table.
-      // Keep readings from distinct devices in separate coach groups while
-      // still grouping multiple washrooms reported by the same device.
-      final groupKey = '${m.coachNumber}::${m.deviceId}';
+      final groupKey = m.deviceId.isNotEmpty ? m.deviceId : m.coachNumber;
       map.putIfAbsent(groupKey, () => []).add(m);
     }
     return map.entries.map((e) {
       final first = e.value.first;
       return CoachToiletGroup(
-        coachNumber: e.key,
+        coachNumber: first.coachNumber,
+        deviceId: first.deviceId,
         coachType: first.coachType,
         trainNumber: first.trainNumber,
         trainName: first.trainName,

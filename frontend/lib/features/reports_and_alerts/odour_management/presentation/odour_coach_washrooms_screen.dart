@@ -26,7 +26,7 @@ class OdourCoachWashroomsScreen extends StatelessWidget {
           onPressed: () => Navigator.pop(context),
         ),
         titleSpacing: 4,
-        title: Text('Coach ${group.coachNumber} Washrooms', style: AppTextStyles.header1),
+        title: Text('${group.displayName} Washrooms', style: AppTextStyles.header1),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(AppDimensions.paddingLarge),

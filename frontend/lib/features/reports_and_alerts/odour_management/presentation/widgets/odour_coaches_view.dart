@@ -114,7 +114,7 @@ class _CoachGroupCardState extends State<_CoachGroupCard> {
                 children: [
                   Expanded(
                     child: Text(
-                      'Coach ${widget.group.coachNumber}',
+                      widget.group.displayName,
                       style: GoogleFonts.poppins(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,

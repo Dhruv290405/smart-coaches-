@@ -18,11 +18,11 @@ class CustomDrawer extends StatefulWidget {
 }
 
 const Map<String, List<String>> _divisionModuleMap = {
-  'Danapur': ['acp', 'hot_axle_section2', 'bc_pressure', 'sensor_config', 'odour'],
+  'Danapur': ['acp', 'hot_axle_section2', 'bc_pressure', 'sensor_config'],
   'Nagpur': ['brake_binding', 'hot_axle_section1', 'sensor_config', 'odour'],
-  'Howrah': ['brake_binding', 'odour'],
-  'Kolkata': ['brake_binding', 'odour'],
-  'South Eastern': ['brake_binding', 'odour'],
+  'Howrah': ['brake_binding'],
+  'Kolkata': ['brake_binding'],
+  'South Eastern': ['brake_binding'],
   'Jaipur': ['brake_binding'],
 };
 
@@ -79,15 +79,19 @@ class _CustomDrawerState extends State<CustomDrawer> {
     final allowedModules = divisionName != null
         ? (_divisionModuleMap.entries
             .firstWhere(
-              (e) => e.key.toLowerCase() == divisionName.toLowerCase(),
+              (e) => divisionName.toLowerCase().startsWith(e.key.toLowerCase()),
               orElse: () => const MapEntry('', <String>[]),
             )
             .value)
         : null;
 
     bool isModuleAllowed(String label) {
-      if (allowedModules == null || allowedModules.isEmpty) return true;
       final key = _moduleKeyFor(label);
+      if (roleId == 1 || roleId == 2) return true;
+      if (allowedModules == null || allowedModules.isEmpty) {
+        if (key == 'odour') return false; // Strictly restricted to Nagpur
+        return true;
+      }
       if (key == 'hot_axle') {
         return allowedModules.contains('hot_axle') ||
                allowedModules.contains('hot_axle_section1') ||

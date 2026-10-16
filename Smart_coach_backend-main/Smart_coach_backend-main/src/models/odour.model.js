@@ -109,30 +109,41 @@ class OdourModel {
 
     async getLatestStatusForAllCoaches(location = null) {
         try {
+            let normalizedLoc = location ? location.trim() : null;
+            if (normalizedLoc && normalizedLoc.toLowerCase().includes('nagpur')) {
+                normalizedLoc = 'Nagpur';
+            }
+
             let coachesQuery = acpSupabase
                 .from(SECTION1_COACHES_TABLE)
-                .select('Coach_ID,device_ID,Coach_no,Train_No,location');
+                .select('*');
 
-            if (location) coachesQuery = coachesQuery.ilike('location', location);
+            if (normalizedLoc) {
+                coachesQuery = coachesQuery.ilike('location', `%${normalizedLoc}%`);
+            }
 
             const { data: coaches, error: coachesError } = await coachesQuery;
             if (coachesError) throw coachesError;
 
+            const registeredDeviceIds = (coaches || []).map(c => c.device_ID).filter(Boolean);
+            if (registeredDeviceIds.length === 0) {
+                return [];
+            }
+
             let query = acpSupabase
                 .from(SECTION1_TABLE)
-                .select('device_ID,Coach_ID,Coach_no,voc_index,h2s_ppm,nh3_ppm,temperature,location,Door_Status,Door_Count,long_lock_count,Door_Open_Duration_Seconds,Door_Closed_Duration_Seconds,Status_VOC,Train_No,timestamp')
+                .select('*')
+                .in('device_ID', registeredDeviceIds)
                 .order('timestamp', { ascending: false })
                 .limit(500);
 
-            if (location) query = query.ilike('location', location);
             const { data, error } = await query;
-
             if (error) throw error;
 
             // Latest row per device
             const grouped = {};
             for (const row of data || []) {
-                const key = row.device_ID || row.Coach_ID || row.Coach_no;
+                const key = row.device_ID;
                 if (!key) continue;
                 if (!grouped[key] || new Date(row.timestamp) > new Date(grouped[key].timestamp)) {
                     grouped[key] = row;
@@ -142,28 +153,22 @@ class OdourModel {
             // The registration table is authoritative. Return every registered
             // coach even when that coach has not produced a reading yet.
             const real = (coaches || []).map((coach) => {
-                const reading = grouped[coach.device_ID] || grouped[coach.Coach_ID] || {};
+                const reading = grouped[coach.device_ID] || {};
                 return this._mapBadOdourRow({
                     ...coach,
                     ...reading,
-                    device_ID: reading.device_ID || coach.device_ID,
-                    Coach_ID: reading.Coach_ID || coach.Coach_ID,
+                    device_ID: coach.device_ID,
+                    Coach_ID: reading.Coach_ID || coach.Coach_ID || coach.device_ID,
                     Coach_no: reading.Coach_no || coach.Coach_no,
+                    coach_type: coach.Coach_no || 'LWCZAC',
                     Train_No: reading.Train_No || coach.Train_No,
-                    location: reading.location || coach.location,
+                    location: coach.location || reading.location,
                 });
             });
-            if (real.length === 0 && this._demoFallbackEnabled()) {
-                console.warn('Odour Dashboard: Section 1 DB empty, serving demo fallback.');
-                return this._section1DemoData();
-            }
+
             return real;
         } catch (err) {
             console.error("Odour Dashboard Error:", err.message);
-            if (this._demoFallbackEnabled()) {
-                console.warn('Odour Dashboard: Section 1 DB unreachable, serving demo fallback.');
-                return this._section1DemoData();
-            }
             return [];
         }
     }
