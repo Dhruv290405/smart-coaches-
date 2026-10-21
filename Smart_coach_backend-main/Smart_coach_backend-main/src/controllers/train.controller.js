@@ -5,7 +5,6 @@ const coachModel = require('../models/coach.model');
 const supabaseAdmin = require('../config/supabaseAdmin');
 const userModel = require('../models/user.model');
 const rbac = require('../utils/rbac');
-const jwt = require('jsonwebtoken');
 
 const trainController = {
 
@@ -115,24 +114,11 @@ const trainController = {
     try {
       const { zone_id, division_id, region_id, search, targer_user_id } = req.query;
 
-      // Get token from header
-      const authHeader = req.header('Authorization');
-      const token = authHeader?.split(' ')[1];
-      let user_id = null;
-      let decodedUser = null;
-
-      try {
-        decodedUser = jwt.verify(token, process.env.JWT_SECRET || 'your_jwt_secret');
-        user_id = targer_user_id
-      } catch (err) {
-        if (err.name === 'TokenExpiredError') {
-          console.log('Token expired:', err.message);
-        }
-        if (err.name === 'JsonWebTokenError') {
-          console.log('Invalid token:', err.message);
-        }
-        console.log(`Error decoding token: ${err.message}`);
-      }
+      // This endpoint powers public registration and user-management train
+      // assignment, so it must return the full train list regardless of the
+      // caller's location. Location scoping for monitoring/config views lives
+      // in getTrains (GET /trains).
+      const user_id = targer_user_id;
 
       const zoneId = parseInt(zone_id);
       const divisionId = parseInt(division_id);
@@ -180,20 +166,6 @@ const trainController = {
       };
 
       let trains = await trainModel.getAll(filters);
-
-      // Config is global data: only Master/tester see everything. Everyone
-      // else sees only rows positively attributed to their own regions;
-      // unattributed rows are hidden instead of being treated as shared.
-      const scopedRegionIds = await rbac.getScopedRegionIds(decodedUser);
-      if (scopedRegionIds) {
-        const scoped = new Set(scopedRegionIds.map(Number));
-        trains = scopedRegionIds.length === 0 ? [] : trains.filter(t => {
-          const regions = [t.region_id, t.origination_region_id]
-            .filter(v => v !== null && v !== undefined && v !== '')
-            .map(Number);
-          return regions.some(r => scoped.has(r));
-        });
-      }
 
       // ✅ Inject is_mapped flag if user is available
       let userMappedTrainIds = [];

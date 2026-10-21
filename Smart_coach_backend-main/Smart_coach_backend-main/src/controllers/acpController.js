@@ -128,7 +128,6 @@ const getFilterOptions = async (req, res) => {
             trains = applyLocationFilter(trains.map(t => ({ train_location: t.train_no })), req.user)
                 .filter(t => t.train_location)
                 .map(t => ({ train_no: t.train_location }));
-            if (trains.length === 0) trains = await AcpModel.getUniqueTrains();
             return res.status(200).json({ success: true, data: trains });
         }
 
