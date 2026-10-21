@@ -33,14 +33,11 @@ class SensorDeviceConfigurationRemoteDataSourceImpl {
   }
 
   Future<List<device_response.DeviceItem>> fetchDevice({
-    String? status,
-    String? organisationType,
-    String? fromDate,
-    String? toDate,
+    int? masterModuleId,
   }) async {
     return safeRequest(() async {
       final device_response.DeviceListResponse deviceListResponse =
-          await restClient.getDeviceList();
+          await restClient.getDeviceList(masterModuleId: masterModuleId);
       if (!deviceListResponse.success || deviceListResponse.data == null) {
         throw Exception(deviceListResponse.message);
       }

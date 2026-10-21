@@ -20,8 +20,18 @@ const deviceController = {
 
       let query = supabaseAdmin.from('device_master').select('*');
 
+      let moduleDeviceIds = null;
       if (master_module_id) {
-        query = query.eq('master_module_id', master_module_id);
+        const { data: mappings, error: mapError } = await supabaseAdmin
+          .from('module_device_mapping')
+          .select('device_id')
+          .eq('module_id', master_module_id);
+        if (mapError) throw mapError;
+        moduleDeviceIds = [...new Set((mappings || []).map(m => m.device_id).filter(Boolean))];
+        if (moduleDeviceIds.length === 0) {
+          return successResponse(res, 'Devices retrieved successfully', []);
+        }
+        query = query.in('device_id', moduleDeviceIds);
       }
 
       if (device_type_id) {
@@ -39,7 +49,10 @@ const deviceController = {
       const { data: devices, error } = await query;
       if (error) throw error;
 
-      const moduleIds = [...new Set((devices || []).map(d => d.master_module_id).filter(Boolean))];
+      const moduleIds = [...new Set([
+        ...(moduleDeviceIds ? [master_module_id] : []),
+        ...(devices || []).map(d => d.master_module_id).filter(Boolean),
+      ])];
       const userIds = [...new Set((devices || []).flatMap(d => [d.created_by, d.updated_by].filter(Boolean)))];
 
       let mmMap = {};
@@ -69,11 +82,13 @@ const deviceController = {
       }
 
       let device_master = (devices || []).map(d => {
-        const mm = mmMap[d.master_module_id] || {};
+        const moduleId = d.master_module_id || (moduleDeviceIds ? Number(master_module_id) : null);
+        const mm = mmMap[moduleId] || {};
         const coach = coachMap[mm.coach_id] || {};
         const train = trainMap[coach.train_id] || {};
         return {
           ...d,
+          master_module_id: moduleId,
           train_id: coach.train_id || null,
           master_module_serial: mm.seriel_number || null,
           coach_unique_id: coach.coach_unique_id || null,
@@ -87,7 +102,7 @@ const deviceController = {
       });
 
       const scopedRegionIds = await rbac.getScopedRegionIds(req.user);
-      if (scopedRegionIds) {
+      if (scopedRegionIds && !moduleDeviceIds) {
         if (scopedRegionIds.length === 0) {
           device_master = [];
         } else {

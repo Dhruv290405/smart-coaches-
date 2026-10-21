@@ -73,8 +73,12 @@ class _ConfigureSensorDeviceState extends State<ConfigureSensorDevice> {
   void _loadDevices() {
     if (selectedCoach != null && selectedMasterModuleId != null) {
       setState(() {
-        _sensorDeviceConfigurationBloc.add(LoadDeviceListData());
+        selectedDevicesId = null;
+        showSensorSection = false;
         showDeviceSection = true;
+        _sensorDeviceConfigurationBloc.add(
+          LoadDeviceListData(masterModuleId: selectedMasterModuleId),
+        );
       });
     }
   }
@@ -486,20 +490,27 @@ class _ConfigureSensorDeviceState extends State<ConfigureSensorDevice> {
                 ),
               ),
               SizedBox(height: 1.h),
-              Wrap(
-                spacing: 2.w,
-                runSpacing: 1.h,
-                children: state.deviceList.map((device) {
+              if (state.deviceList.isEmpty)
+                Text(
+                  'No devices are mapped to this master module.',
+                  style: TextStyle(fontSize: 11.5.sp, color: Colors.grey),
+                )
+              else
+                Wrap(
+                  spacing: 2.w,
+                  runSpacing: 1.h,
+                  children: state.deviceList.map((device) {
                     return _buildStatusView(
                       (device.shortName != null && device.shortName!.isNotEmpty)
                           ? device.shortName
-                          : (device.fullName != null && device.fullName!.isNotEmpty)
+                          : (device.fullName != null &&
+                                  device.fullName!.isNotEmpty)
                               ? device.fullName
                               : device.deviceUniqueId ?? '---',
                       DeviceStatusHelper.fromId(device.isActive),
                     );
-                }).toList(),
-              ),
+                  }).toList(),
+                ),
               SizedBox(height: 2.h),
               CustomDropDown<DeviceEntity>(
                 label: 'Device',
@@ -526,10 +537,16 @@ class _ConfigureSensorDeviceState extends State<ConfigureSensorDevice> {
                   CustomButton(
                     text: 'Configure Sensors',
                     onPressed: () {
-                      if (selectedDevicesId != null) {
-                        showSensorSection = true;
+                      if (selectedDevicesId == null) {
+                        ToastMessageUtils.showMessage(
+                          context,
+                          'Please select a device first',
+                        );
+                        return;
                       }
-                      setState(() {});
+                      setState(() {
+                        showSensorSection = true;
+                      });
                     },
                     textSize: 12,
                     isDisabled: selectedDevicesId == null,

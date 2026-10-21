@@ -597,9 +597,12 @@ class _RestClient implements RestClient {
   }
 
   @override
-  Future<DeviceListResponse> getDeviceList() async {
+  Future<DeviceListResponse> getDeviceList({int? masterModuleId}) async {
     final _extra = <String, dynamic>{};
     final queryParameters = <String, dynamic>{};
+    if (masterModuleId != null) {
+      queryParameters['master_module_id'] = masterModuleId;
+    }
     final _headers = <String, dynamic>{};
     const Map<String, dynamic>? _data = null;
     final _options = _setStreamType<DeviceListResponse>(

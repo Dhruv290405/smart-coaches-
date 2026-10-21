@@ -4,7 +4,11 @@ abstract class SensorDeviceConfigurationEvent {}
 
 class LoadInitialData extends SensorDeviceConfigurationEvent {}
 
-class LoadDeviceListData extends SensorDeviceConfigurationEvent {}
+class LoadDeviceListData extends SensorDeviceConfigurationEvent {
+  final int? masterModuleId;
+
+  LoadDeviceListData({this.masterModuleId});
+}
 
 class LoadMasterModuleConfigurationList extends SensorDeviceConfigurationEvent {}
 

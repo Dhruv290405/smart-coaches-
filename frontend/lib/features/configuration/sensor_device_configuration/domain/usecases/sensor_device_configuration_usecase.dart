@@ -16,7 +16,8 @@ class SensorDeviceConfigurationUseCase {
 
   Future<List<CoachEntity>> fetchCoachList() => repository.fetchCoachList();
 
-  Future<List<DeviceEntity>> fetchDevice() => repository.fetchDevice();
+  Future<List<DeviceEntity>> fetchDevice({int? masterModuleId}) =>
+      repository.fetchDevice(masterModuleId: masterModuleId);
 
   Future<List<SensorDeviceEntity>> fetchSensorDeviceList() => repository.fetchSensorDeviceList();
 

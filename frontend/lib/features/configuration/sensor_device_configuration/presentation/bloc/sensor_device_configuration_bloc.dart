@@ -60,7 +60,8 @@ class SensorDeviceConfigurationBloc extends Bloc<SensorDeviceConfigurationEvent,
       Emitter<SensorDeviceConfigurationState> emit) async {
     emit(state.copyWith(isLoading: true, errorMessage: null));
     try {
-      List<DeviceEntity> deviceList = await sensorDeviceConfigurationUseCase.fetchDevice();
+      List<DeviceEntity> deviceList = await sensorDeviceConfigurationUseCase
+          .fetchDevice(masterModuleId: event.masterModuleId);
 
       emit(state.copyWith(isLoading: false, deviceList: deviceList));
     } catch (e) {

@@ -26,8 +26,9 @@ class SensorDeviceConfigurationRepositoryImpl implements SensorDeviceConfigurati
   }
 
   @override
-  Future<List<DeviceEntity>> fetchDevice() async {
-    final models = await remoteDataSource.fetchDevice();
+  Future<List<DeviceEntity>> fetchDevice({int? masterModuleId}) async {
+    final models =
+        await remoteDataSource.fetchDevice(masterModuleId: masterModuleId);
     return models.map((m) {
       String? createdAt = Utils.formatReadableDate(m.createdAt,
           dateFormat: Constants.dateTimeFormatToShowInTable);

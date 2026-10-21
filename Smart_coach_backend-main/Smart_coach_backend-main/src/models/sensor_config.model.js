@@ -17,6 +17,9 @@ class Sensor_configModel extends BaseModel {
   }
 
   async getRuleId(sensor_type_id) {
+    if (sensor_type_id === null || sensor_type_id === undefined || sensor_type_id === '') {
+      return null;
+    }
     const { data, error } = await supabaseAdmin
       .from("rule_sensor_mapping")
       .select("rule_id")

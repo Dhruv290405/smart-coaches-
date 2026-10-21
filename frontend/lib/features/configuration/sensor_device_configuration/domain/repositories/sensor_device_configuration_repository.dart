@@ -9,7 +9,7 @@ import '../../../master_module_configuration/domain/entities/master_module_entit
 abstract class SensorDeviceConfigurationRepository {
   Future<List<CoachEntity>> fetchCoachList();
 
-  Future<List<DeviceEntity>> fetchDevice();
+  Future<List<DeviceEntity>> fetchDevice({int? masterModuleId});
 
   Future<List<SensorDeviceEntity>> fetchSensorDeviceList();
 

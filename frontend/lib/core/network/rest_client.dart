@@ -178,7 +178,8 @@ abstract class RestClient {
       );
 
   @GET(ApiConstants.devicesApiEndpoint)
-  Future<DeviceListResponse> getDeviceList();
+  Future<DeviceListResponse> getDeviceList(
+      {@Query("master_module_id") int? masterModuleId});
 
   @POST(ApiConstants.devicesApiEndpoint)
   Future<CreateDeviceConfigurationResponse> createDeviceConfiguration(
