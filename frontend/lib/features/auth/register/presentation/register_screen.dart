@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:get_it/get_it.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sizer/sizer.dart';
 import 'package:smart_coach_new/core/utils/color_constants.dart';
 import 'package:smart_coach_new/core/utils/image_utils.dart';
 import 'package:smart_coach_new/core/utils/loader.dart';
+import 'package:smart_coach_new/core/utils/prefs.dart';
 import 'package:smart_coach_new/core/utils/toast_message_utils.dart';
 import 'package:smart_coach_new/core/utils/utils.dart';
 import 'package:smart_coach_new/core/utils/validators.dart';
@@ -53,6 +55,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final prefs = GetIt.I<Prefs>();
+    final isLoggedIn =
+        (prefs.token?.isNotEmpty ?? false) || prefs.getUser() != null;
     return Scaffold(
       body: SafeArea(
         child: Container(
@@ -250,12 +255,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 : SizedBox(
                                     height: 6.h,
                                     child: CustomButton(
-                                      text: 'Back to Login',
+                                      text: isLoggedIn
+                                          ? 'Back to Dashboard'
+                                          : 'Back to Login',
                                       color: Color(0xFFF3F3F5),
                                       textColor: Colors.black,
                                       prefixIcon: Icons.arrow_back_ios_sharp,
                                       onPressed: () {
-                                        context.go(AppRouter.loginRoute);
+                                        context.go(
+                                          isLoggedIn
+                                              ? AppRouter.dashboardRoute
+                                              : AppRouter.loginRoute,
+                                        );
                                       },
                                     ),
                                   ),
