@@ -559,14 +559,25 @@ class _ConfigureTrainState extends State<ConfigureTrain> {
     }
   }
 
-  void _doFetch() {
+  void _doFetch() async {
     final trainNumber = trainNumberController.text.trim();
     if (trainNumber.isEmpty) {
       ToastMessageUtils.showMessage(context, 'Please enter Train Number to fetch');
       return;
     }
 
-    final state = context.read<TrainConfigurationBloc>().state;
+    var state = context.read<TrainConfigurationBloc>().state;
+    if (state.trainList.isEmpty) {
+      _trainConfigurationBloc.add(LoadTrainConfigurationList());
+      try {
+        state = await _trainConfigurationBloc.stream
+            .firstWhere((s) => s.trainList.isNotEmpty)
+            .timeout(const Duration(seconds: 10));
+      } catch (_) {}
+    }
+
+    if (!mounted) return;
+
     final existingTrain = state.trainList.firstWhere(
       (t) => t.trainNumber.toString() == trainNumber,
       orElse: () => const TrainConfigsEntity(),

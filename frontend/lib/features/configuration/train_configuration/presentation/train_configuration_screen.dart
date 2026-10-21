@@ -7,10 +7,17 @@ import 'package:smart_coach_new/core/widgets/custom_button.dart';
 import 'package:smart_coach_new/core/widgets/custom_toggle_buttons.dart';
 import 'package:smart_coach_new/features/configuration/train_configuration/domain/entities/train_configs_entity.dart';
 import 'package:smart_coach_new/features/configuration/train_configuration/presentation/bloc/train_configuration_bloc.dart';
+import 'package:smart_coach_new/features/configuration/train_configuration/presentation/bloc/train_configuration_event.dart';
 import 'package:smart_coach_new/features/configuration/train_configuration/presentation/widgets/configure_train.dart';
 import 'package:smart_coach_new/features/configuration/train_configuration/presentation/widgets/train_list.dart';class TrainConfigurationScreen extends StatefulWidget {	const TrainConfigurationScreen({super.key});	@override	State<TrainConfigurationScreen> createState() =>			_TrainConfigurationScreenState();}class _TrainConfigurationScreenState extends State<TrainConfigurationScreen> {
 	int selectedTab = 0;
 	TrainConfigsEntity? selectedTrainItem;
+
+	@override
+	void initState() {
+		super.initState();
+		context.read<TrainConfigurationBloc>().add(LoadTrainConfigurationList());
+	}
 
 	Future<void> _exportTrainList() async {
 		final state = context.read<TrainConfigurationBloc>().state;
