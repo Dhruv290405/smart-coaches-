@@ -87,9 +87,11 @@ class _CustomDrawerState extends State<CustomDrawer> {
 
     bool isModuleAllowed(String label) {
       final key = _moduleKeyFor(label);
-      if (roleId == 1 || roleId == 2) return true;
+      if (roleId == 1) return true;
       if (allowedModules == null || allowedModules.isEmpty) {
-        if (key == 'odour') return false; // Strictly restricted to Nagpur
+        if (key == 'odour' || key == 'hot_axle' || key == 'bc_pressure') {
+          return false;
+        }
         return true;
       }
       if (key == 'hot_axle') {

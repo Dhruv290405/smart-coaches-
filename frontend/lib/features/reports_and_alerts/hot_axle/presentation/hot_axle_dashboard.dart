@@ -56,8 +56,21 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
   List<HamsDataModel> _newCompanyData = [];
   final Set<String> _expandedSections = {'our', 'ecr'};
 
-  bool get _isDanapur => (getIt<Prefs>().getUser()?.divisionName ?? getIt<Prefs>().getUser()?.regionName ?? '').toLowerCase() == 'danapur';
-  bool get _isNagpur => (getIt<Prefs>().getUser()?.divisionName ?? getIt<Prefs>().getUser()?.regionName ?? '').toLowerCase() == 'nagpur';
+  String get _location => (getIt<Prefs>().getUser()?.divisionName ??
+          getIt<Prefs>().getUser()?.regionName ??
+          '')
+      .toLowerCase();
+  bool get _isDanapur => _location.contains('danapur');
+  bool get _isNagpur => _location.contains('nagpur');
+  bool get _isMaster {
+    final user = getIt<Prefs>().getUser();
+    return (user?.roleId ?? 0) == 1 ||
+        (user?.email ?? '').toLowerCase() == 'tester@example.com';
+  }
+
+  bool get _showSection1 => _isMaster || _isNagpur;
+  bool get _showSection2 => _isMaster || _isDanapur;
+  bool get _hasHotAxleAccess => _showSection1 || _showSection2;
 
   @override
   void initState() {
@@ -103,8 +116,8 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
   }
 
   void _updateFilterLists() {
-    final showNewData = _isNagpur || (!_isDanapur && (selectedCompany == 'All' || selectedCompany == 'Section 1'));
-    final showOldData = _isDanapur || (!_isNagpur && (selectedCompany == 'All' || selectedCompany == 'Section 2'));
+    final showNewData = _showSection1 && (selectedCompany == 'All' || selectedCompany == 'Section 1');
+    final showOldData = _showSection2 && (selectedCompany == 'All' || selectedCompany == 'Section 2');
 
     final Set<String> trains = {};
     final Set<String> types = {};
@@ -339,10 +352,12 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
                 physics: const AlwaysScrollableScrollPhysics(),
                 child: Padding(
                   padding: const EdgeInsets.all(AppDimensions.paddingLarge),
-                  child: Column(
+                  child: !_hasHotAxleAccess
+                      ? _buildNoAccessState()
+                      : Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (!_isDanapur) _buildSectionCard(child: _buildCompanyFilter()),
+                      if (_showSection1 && _showSection2) _buildSectionCard(child: _buildCompanyFilter()),
                       const SizedBox(height: 8),
                       _buildSectionCard(child: _buildFiltersSection()),
                       const SizedBox(height: 8),
@@ -465,8 +480,8 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
   }
 
   Widget _buildDeviceSections() {
-    final showNewData = _isNagpur || (!_isDanapur && (selectedCompany == 'All' || selectedCompany == 'Section 1'));
-    final showOldData = _isDanapur || (!_isNagpur && (selectedCompany == 'All' || selectedCompany == 'Section 2'));
+    final showNewData = _showSection1 && (selectedCompany == 'All' || selectedCompany == 'Section 1');
+    final showOldData = _showSection2 && (selectedCompany == 'All' || selectedCompany == 'Section 2');
 
     final hasNew = _filteredHamsCoaches.isNotEmpty && showNewData;
     final hasOld = _filteredCoaches.isNotEmpty && showOldData;
@@ -493,6 +508,29 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
         if (hasNew && hasOld) const SizedBox(height: 8),
         if (hasOld) _buildExpandableSection('Section 2', _filteredCoaches.length, 'ecr', _buildDeviceGridForList(_filteredCoaches)),
       ],
+    );
+  }
+
+  Widget _buildNoAccessState() {
+    return Container(
+      height: 220,
+      width: double.infinity,
+      alignment: Alignment.center,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.lock_outline, size: 48, color: Colors.grey[400]),
+          const SizedBox(height: 12),
+          Text(
+            'Hot Axle is not available for your location',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              color: const Color(0xFF6B7280),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
