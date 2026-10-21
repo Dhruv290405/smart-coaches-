@@ -44,6 +44,125 @@ function isAdmin(user) {
 }
 
 /**
+ * The shared tester account keeps full visibility (used by QA / demos).
+ */
+function isTester(user) {
+  return !!user && String(user.email || '').trim().toLowerCase() === 'tester@example.com';
+}
+
+/**
+ * Users that must never be location-restricted (admins + tester).
+ */
+function isUnrestrictedUser(user) {
+  return isAdmin(user) || (user && user.role_id === 2) || isTester(user);
+}
+
+function _normaliseLocation(value) {
+  return value == null ? '' : String(value).trim().toLowerCase();
+}
+
+/**
+ * Case-insensitive location match, tolerant of suffixes such as
+ * "Jaipur_N1" or "Nagpur Division" (same rule used for brake-binding).
+ */
+function locationMatches(value, target) {
+  const a = _normaliseLocation(value);
+  const b = _normaliseLocation(target);
+  if (!a || !b) return false;
+  return (
+    a === b ||
+    a.startsWith(b + '_') || a.startsWith(b + ' ') ||
+    b.startsWith(a + '_') || b.startsWith(a + ' ')
+  );
+}
+
+/**
+ * Locations that own a module, per the division -> module map.
+ * e.g. hot_axle_section1 -> ['Nagpur'], hot_axle_section2 -> ['Danapur'].
+ */
+function getModuleOwnerLocations(moduleKey) {
+  return Object.entries(DIVISION_MODULE_MAP)
+    .filter(([, modules]) => modules.includes(moduleKey))
+    .map(([location]) => location);
+}
+
+/**
+ * Strict ownership check for a module: the user must belong to one of the
+ * locations that own the module. Unlike isModuleAuthorized this does NOT
+ * return true for unmapped divisions, so unrelated locations cannot see
+ * another location's telemetry.
+ */
+function isModuleLocationOwner(user, moduleKey) {
+  if (!user) return false;
+  if (isUnrestrictedUser(user)) return true;
+  const owners = getModuleOwnerLocations(moduleKey);
+  if (owners.length === 0) return false;
+  const userLocations = getUserLocations(user);
+  return userLocations.some(loc => owners.some(owner => locationMatches(loc, owner)));
+}
+
+/**
+ * Region ids that belong to the user's division/region (used to scope config
+ * lists). Returns null when the user is unrestricted, and [] when their
+ * location cannot be resolved.
+ */
+async function getScopedRegionIds(user) {
+  if (!user || isUnrestrictedUser(user)) return null;
+  const locs = getUserLocations(user);
+  if (locs.length === 0) return [];
+  for (const loc of locs) {
+    const { data: divisions } = await supabaseAdmin
+      .from('division_master')
+      .select('division_id')
+      .ilike('name', loc);
+    const divisionIds = (divisions || []).map(d => d.division_id);
+    if (divisionIds.length > 0) {
+      const { data: regions } = await supabaseAdmin
+        .from('region_master')
+        .select('region_id')
+        .in('division_id', divisionIds);
+      const ids = (regions || []).map(r => r.region_id);
+      if (ids.length > 0) return ids;
+    }
+    const { data: regionRow } = await supabaseAdmin
+      .from('region_master')
+      .select('region_id')
+      .ilike('name', loc)
+      .limit(1);
+    if (regionRow && regionRow.length > 0) return [regionRow[0].region_id];
+  }
+  return [];
+}
+
+/**
+ * Map of train_id -> { region_id, origination_region_id } used to attribute
+ * config rows (coaches/devices) to a region without hiding rows that have no
+ * known region.
+ */
+async function getTrainRegionMap() {
+  const { data } = await supabaseAdmin
+    .from('train_master')
+    .select('train_id, region_id, origination_region_id');
+  const map = {};
+  for (const t of data || []) map[t.train_id] = t;
+  return map;
+}
+
+/**
+ * true/false when a train is positively attributed to a region,
+ * null when the region is unknown (caller should keep the row visible).
+ */
+function trainBelongsToRegions(trainMap, trainId, scopedRegionIds) {
+  if (!trainId) return null;
+  const train = trainMap[trainId];
+  if (!train) return null;
+  const regions = [train.region_id, train.origination_region_id].filter(Boolean);
+  if (regions.length === 0) return null;
+  const scoped = new Set(scopedRegionIds);
+  return regions.some(r => scoped.has(r));
+}
+
+/**
  * Division-level module authorization mapping.
  * Specifies which telemetry modules each division is allowed to view.
  */
@@ -205,6 +324,14 @@ module.exports = {
   getUserLocations,
   getUserLocation,
   isAdmin,
+  isTester,
+  isUnrestrictedUser,
+  locationMatches,
+  getModuleOwnerLocations,
+  isModuleLocationOwner,
+  getScopedRegionIds,
+  getTrainRegionMap,
+  trainBelongsToRegions,
   requireLocation,
   isModuleAuthorized,
   DIVISION_MODULE_MAP,

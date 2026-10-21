@@ -13,13 +13,16 @@ class PressureModel {
         }
     }
 
-    async getLatestData(deviceId = null, limit = 10000, authorizedCoaches = null) {
+    async getLatestData(deviceId = null, limit = 10000, authorizedCoaches = null, authorizedTrains = null) {
         try {
             let query = supabaseAdmin
                 .from('pressure_logs')
                 .select('*');
 
             if (authorizedCoaches !== null && authorizedCoaches.length === 0) {
+                return [];
+            }
+            if (authorizedTrains !== null && authorizedTrains.length === 0) {
                 return [];
             }
 
@@ -29,6 +32,10 @@ class PressureModel {
 
             if (authorizedCoaches !== null && authorizedCoaches.length > 0) {
                 query = query.in('coach_number', authorizedCoaches);
+            }
+
+            if (authorizedTrains !== null && authorizedTrains.length > 0) {
+                query = query.in('train_number', authorizedTrains.map(String));
             }
 
             const { data, error } = await query
@@ -43,7 +50,7 @@ class PressureModel {
         }
     }
 
-    async getDashboardStatus(authorizedCoaches = null) {
+    async getDashboardStatus(authorizedCoaches = null, authorizedTrains = null) {
         try {
             const { data, error } = await supabaseAdmin
                 .rpc('get_latest_per_coach');
@@ -55,9 +62,17 @@ class PressureModel {
             if (authorizedCoaches !== null && authorizedCoaches.length === 0) {
                 return [];
             }
+            if (authorizedTrains !== null && authorizedTrains.length === 0) {
+                return [];
+            }
 
             if (authorizedCoaches !== null && authorizedCoaches.length > 0) {
                 results = results.filter(r => authorizedCoaches.includes(r.coach_number));
+            }
+
+            if (authorizedTrains !== null && authorizedTrains.length > 0) {
+                const allowed = new Set(authorizedTrains.map(String));
+                results = results.filter(r => r.train_number != null && allowed.has(String(r.train_number)));
             }
 
             return results;

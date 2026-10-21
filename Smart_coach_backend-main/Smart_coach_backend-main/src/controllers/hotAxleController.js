@@ -120,7 +120,7 @@ const hotAxleController = {
             const historyLimit = parseInt(req.query.limit) || 10;
             let authorizedCoaches = await rbac.getAuthorizedCoachNumbers(req.user);
 
-            if (!rbac.isModuleAuthorized(req.user, 'hot_axle_section2')) {
+            if (!rbac.isModuleLocationOwner(req.user, 'hot_axle_section2')) {
                 return res.status(200).json({
                     success: true,
                     count: 0,
@@ -129,7 +129,7 @@ const hotAxleController = {
                 });
             }
 
-            if (rbac.isModuleAuthorized(req.user, 'hot_axle_section2') && (!authorizedCoaches || authorizedCoaches.length === 0)) {
+            if (rbac.isModuleLocationOwner(req.user, 'hot_axle_section2') && (!authorizedCoaches || authorizedCoaches.length === 0)) {
                 authorizedCoaches = null;
             }
 
@@ -181,7 +181,7 @@ const hotAxleController = {
                        (coachDeviceId && (coachDeviceId.toLowerCase().includes('hams') || coachDeviceId.includes('SCBB-NP-26-003'))) ||
                        (deviceId && (deviceId.toLowerCase().startsWith('hams') || /^a[1-4][1-2]$/i.test(deviceId)));
 
-        if (isHams && !rbac.isModuleAuthorized(req.user, 'hot_axle_section1')) {
+        if (isHams && !rbac.isModuleLocationOwner(req.user, 'hot_axle_section1')) {
             return res.status(200).json({
                 success: true,
                 meta: { totalRecords: 0, currentPage: parseInt(page), totalPages: 0, limit: parseInt(limit) },
@@ -189,7 +189,7 @@ const hotAxleController = {
             });
         }
 
-        if (!isHams && !rbac.isModuleAuthorized(req.user, 'hot_axle_section2')) {
+        if (!isHams && !rbac.isModuleLocationOwner(req.user, 'hot_axle_section2')) {
             return res.status(200).json({
                 success: true,
                 meta: { totalRecords: 0, currentPage: parseInt(page), totalPages: 0, limit: parseInt(limit) },
@@ -465,7 +465,7 @@ const hotAxleController = {
 
         const offset = (parseInt(page) - 1) * parseInt(limit);
         let authorizedCoaches = await rbac.getAuthorizedCoachNumbers(req.user);
-        if (rbac.isModuleAuthorized(req.user, 'hot_axle_section2') && (!authorizedCoaches || authorizedCoaches.length === 0)) {
+        if (rbac.isModuleLocationOwner(req.user, 'hot_axle_section2') && (!authorizedCoaches || authorizedCoaches.length === 0)) {
             authorizedCoaches = null;
         }
 
@@ -593,7 +593,7 @@ const hotAxleController = {
 
     getFilterOptions: async (req, res) => {
         try {
-            if (!rbac.isModuleAuthorized(req.user, 'hot_axle_section2')) {
+            if (!rbac.isModuleLocationOwner(req.user, 'hot_axle_section2')) {
                 return res.status(200).json({
                     success: true,
                     data: { deviceIds: [], coachTypes: [], owningRlys: [], trainNos: [], coachNumbers: [] }
@@ -613,7 +613,7 @@ const hotAxleController = {
             const { trainNo, deviceId, coachType, owningRly, coachNumber } = req.query;
             let authorizedCoaches = await rbac.getAuthorizedCoachNumbers(req.user);
 
-            if (!rbac.isModuleAuthorized(req.user, 'hot_axle_section2')) {
+            if (!rbac.isModuleLocationOwner(req.user, 'hot_axle_section2')) {
                 return res.status(200).json({
                     success: true,
                     totalCoaches: 0,
@@ -621,7 +621,7 @@ const hotAxleController = {
                 });
             }
 
-            if (rbac.isModuleAuthorized(req.user, 'hot_axle_section2') && (!authorizedCoaches || authorizedCoaches.length === 0)) {
+            if (rbac.isModuleLocationOwner(req.user, 'hot_axle_section2') && (!authorizedCoaches || authorizedCoaches.length === 0)) {
                 authorizedCoaches = null;
             }
 
@@ -649,8 +649,8 @@ const hotAxleController = {
 
     getNewCompanyData: async (req, res) => {
         try {
-            const hasSection1 = rbac.isModuleAuthorized(req.user, 'hot_axle_section1');
-            const hasSection2 = rbac.isModuleAuthorized(req.user, 'hot_axle_section2');
+            const hasSection1 = rbac.isModuleLocationOwner(req.user, 'hot_axle_section1');
+            const hasSection2 = rbac.isModuleLocationOwner(req.user, 'hot_axle_section2');
 
             if (hasSection1) {
                 const supabaseOld = require('../config/supabaseOld');

@@ -1,5 +1,6 @@
 const { successResponse, errorResponse } = require("../utils/response");
 const coachModel = require("../models/coach.model");
+const rbac = require("../utils/rbac");
 const { toMySQLDatetime } = require("../middleware/datetime");
 
 const coachController = {
@@ -123,7 +124,17 @@ const coachController = {
 
   async getAllCoaches(req, res, next) {
     try {
-      const coaches = await coachModel.getAllCoachesWithDetails();
+      let coaches = await coachModel.getAllCoachesWithDetails();
+
+      const scopedRegionIds = await rbac.getScopedRegionIds(req.user);
+      if (scopedRegionIds && scopedRegionIds.length > 0 && coaches && coaches.length > 0) {
+        const trainMap = await rbac.getTrainRegionMap();
+        const filteredCoaches = coaches.filter(c => {
+          const belongs = rbac.trainBelongsToRegions(trainMap, c.train_id, scopedRegionIds);
+          return belongs !== false;
+        });
+        if (filteredCoaches.length > 0) coaches = filteredCoaches;
+      }
 
       if (!coaches || coaches.length === 0) {
         return successResponse(res, "No coaches found.", []);

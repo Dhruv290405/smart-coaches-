@@ -4,6 +4,7 @@ const deviceModel = require('../models/device.model');
 const masterModuleModel = require('../models/master-module.model');
 const deviceTypeModel = require('../models/master.model').deviceTypeModel;
 const supabaseAdmin = require('../config/supabaseAdmin');
+const rbac = require('../utils/rbac');
 const { toMySQLDatetime } = require('../middleware/datetime');
 
 
@@ -63,16 +64,17 @@ const deviceController = {
       const trainIds = [...new Set(Object.values(coachMap).map(c => c.train_id).filter(Boolean))];
       let trainMap = {};
       if (trainIds.length > 0) {
-        const { data: trains } = await supabaseAdmin.from('train_master').select('train_id, train_number, train_name').in('train_id', trainIds);
+        const { data: trains } = await supabaseAdmin.from('train_master').select('train_id, train_number, train_name, region_id, origination_region_id').in('train_id', trainIds);
         for (const t of trains || []) trainMap[t.train_id] = t;
       }
 
-      const device_master = (devices || []).map(d => {
+      let device_master = (devices || []).map(d => {
         const mm = mmMap[d.master_module_id] || {};
         const coach = coachMap[mm.coach_id] || {};
         const train = trainMap[coach.train_id] || {};
         return {
           ...d,
+          train_id: coach.train_id || null,
           master_module_serial: mm.seriel_number || null,
           coach_unique_id: coach.coach_unique_id || null,
           train_number: train.train_number || null,
@@ -83,6 +85,15 @@ const deviceController = {
           updated_by: userMap[d.updated_by] ?? null,
         };
       });
+
+      const scopedRegionIds = await rbac.getScopedRegionIds(req.user);
+      if (scopedRegionIds && scopedRegionIds.length > 0 && device_master.length > 0) {
+        const filteredDevices = device_master.filter(d => {
+          const belongs = rbac.trainBelongsToRegions(trainMap, d.train_id, scopedRegionIds);
+          return belongs !== false;
+        });
+        if (filteredDevices.length > 0) device_master = filteredDevices;
+      }
 
       return successResponse(res, 'Devices retrieved successfully', device_master);
     } catch (error) {

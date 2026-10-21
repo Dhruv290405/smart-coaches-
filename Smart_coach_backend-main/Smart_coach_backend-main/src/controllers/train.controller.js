@@ -4,6 +4,7 @@ const trainModel = require('../models/train.model');
 const coachModel = require('../models/coach.model');
 const supabaseAdmin = require('../config/supabaseAdmin');
 const userModel = require('../models/user.model');
+const rbac = require('../utils/rbac');
 const jwt = require('jsonwebtoken');
 
 const trainController = {
@@ -167,7 +168,21 @@ const trainController = {
         search,
       };
 
-      const trains = await trainModel.getAll(filters);
+      let trains = await trainModel.getAll(filters);
+
+      // Scope config to the user's own region. Rows without any region stay
+      // visible, and if the filter would leave nothing we keep the full list
+      // so an existing user never loses their configuration.
+      const scopedRegionIds = await rbac.getScopedRegionIds(req.user);
+      if (scopedRegionIds && scopedRegionIds.length > 0) {
+        const scoped = new Set(scopedRegionIds);
+        const filteredTrains = trains.filter(t => {
+          const regions = [t.region_id, t.origination_region_id].filter(Boolean);
+          if (regions.length === 0) return true;
+          return regions.some(r => scoped.has(r));
+        });
+        if (filteredTrains.length > 0) trains = filteredTrains;
+      }
 
       // ✅ Inject is_mapped flag if user is available
       let userMappedTrainIds = [];

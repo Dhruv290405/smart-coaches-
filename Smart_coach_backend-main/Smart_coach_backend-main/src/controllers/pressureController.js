@@ -46,16 +46,21 @@ const pressureController = {
     // 2. NEW GET API - FETCH SAVED PRESSURE DATA
     getPressureData: async (req, res) => {
         try {
-            if (!rbac.isModuleAuthorized(req.user, 'bc_pressure')) {
-                return res.status(200).json({ success: true, count: 0, data: [] });
-            }
             const deviceId = req.query.deviceId || null;
             const limit = parseInt(req.query.limit) || 10;
-            let authorizedCoaches = await rbac.getAuthorizedCoachNumbers(req.user);
-            if (rbac.isModuleAuthorized(req.user, 'bc_pressure') && (!authorizedCoaches || authorizedCoaches.length === 0)) {
-                authorizedCoaches = null; // Danapur is authorized for BC Pressure
+
+            // BC Pressure belongs to Danapur; admins/tester see everything.
+            // Other locations may only see rows whose train_no is registered to them.
+            const isOwner = rbac.isModuleLocationOwner(req.user, 'bc_pressure');
+            let authorizedTrains = null;
+            if (!isOwner) {
+                const trains = await rbac.getAuthorizedTrainNumbers(req.user);
+                if (!trains || trains.length === 0) {
+                    return res.status(200).json({ success: true, count: 0, data: [] });
+                }
+                authorizedTrains = trains.map(String);
             }
-            const results = await PressureModel.getLatestData(deviceId, limit, authorizedCoaches);
+            const results = await PressureModel.getLatestData(deviceId, limit, null, authorizedTrains);
 
             return res.status(200).json({
                 success: true,
@@ -71,14 +76,18 @@ const pressureController = {
 
     getDashboardStatus: async (req, res) => {
         try {
-            if (!rbac.isModuleAuthorized(req.user, 'bc_pressure')) {
-                return res.status(200).json({ success: true, totalDevices: 0, data: [] });
+            // BC Pressure belongs to Danapur; admins/tester see everything.
+            // Other locations may only see rows whose train_no is registered to them.
+            const isOwner = rbac.isModuleLocationOwner(req.user, 'bc_pressure');
+            let authorizedTrains = null;
+            if (!isOwner) {
+                const trains = await rbac.getAuthorizedTrainNumbers(req.user);
+                if (!trains || trains.length === 0) {
+                    return res.status(200).json({ success: true, totalDevices: 0, data: [] });
+                }
+                authorizedTrains = trains.map(String);
             }
-            let authorizedCoaches = await rbac.getAuthorizedCoachNumbers(req.user);
-            if (rbac.isModuleAuthorized(req.user, 'bc_pressure') && (!authorizedCoaches || authorizedCoaches.length === 0)) {
-                authorizedCoaches = null; // Danapur authorized for BC Pressure
-            }
-            const statusData = await PressureModel.getDashboardStatus(authorizedCoaches);
+            const statusData = await PressureModel.getDashboardStatus(null, authorizedTrains);
 
             return res.status(200).json({
                 success: true,
