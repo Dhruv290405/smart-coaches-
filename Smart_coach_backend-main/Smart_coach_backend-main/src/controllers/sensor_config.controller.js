@@ -93,12 +93,10 @@ const sensorConfigController = {
             const regions = [t.region_id, t.origination_region_id]
               .filter(Boolean)
               .map(Number);
-            if (regions.length > 0) {
-              regionsByNumber.set(
-                String(t.train_number).trim().toLowerCase(),
-                regions
-              );
-            }
+            regionsByNumber.set(
+              String(t.train_number).trim().toLowerCase(),
+              regions
+            );
           }
 
           const scoped = new Set(scopedRegionIds.map(Number));
@@ -106,7 +104,8 @@ const sensorConfigController = {
             const regions = regionsByNumber.get(
               String(c.train_no || '').trim().toLowerCase()
             );
-            return !!regions && regions.some(r => scoped.has(r));
+            if (!regions || regions.length === 0) return true;
+            return regions.some(r => scoped.has(r));
           });
         }
       }
