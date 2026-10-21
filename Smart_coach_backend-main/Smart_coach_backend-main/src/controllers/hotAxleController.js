@@ -93,7 +93,13 @@ const hotAxleController = {
                     `Hot Axle Alert (${status})`,
                     `Coach ${coachNo} on train ${trainNo} reported ${status} axle temperature.`,
                     'HOT_AXLE',
-                    { module: 'hot_axle', coach_no: coachNo, train_no: trainNo, status }
+                    {
+                        module: 'hot_axle_section2',
+                        coach_no: coachNo,
+                        train_no: trainNo,
+                        status,
+                        location: payload.location || payload.train_location || payload.locName || payload.division,
+                    }
                 );
             }
 

@@ -9,7 +9,7 @@ const emailService = require("./emailService");
  */
 const TYPE_TO_MODULE = {
   ODOUR: 'odour',
-  HOT_AXLE: 'hot_axle_section1',
+  HOT_AXLE: 'hot_axle_section2',
   ACP: 'acp',
   BRAKE_BINDING: 'brake_binding',
   CR_OVERCHARGE: 'brake_binding',
@@ -33,7 +33,8 @@ const SCOPED_MODULES = new Set([
 
 function resolveModuleKey(type, data = {}) {
   const fromData = data && data.module ? String(data.module) : null;
-  const key = fromData || TYPE_TO_MODULE[type] || null;
+  const mappedType = TYPE_TO_MODULE[type] || null;
+  const key = fromData && SCOPED_MODULES.has(fromData) ? fromData : mappedType;
   return key && SCOPED_MODULES.has(key) ? key : null;
 }
 
@@ -43,22 +44,16 @@ function resolveModuleKey(type, data = {}) {
  * legacy "receive everything" behaviour.
  */
 function userMatchesScope(user, moduleKey, location) {
-  if (rbac.isAdmin(user)) return true;
+  // Only role 1 (Master) and the tester bypass location ownership. Role 2
+  // (Super Admin) is location-scoped for notifications, otherwise users such
+  // as Jabalpur receive alerts for modules they cannot see in the app.
+  if (rbac.isUnrestrictedUser(user)) return true;
 
   if (!rbac.getUserLocation(user)) return false;
 
-  const moduleAllowed = (key) => {
-    if (!key) return true;
-    if (key === 'hot_axle_section1' || key === 'hot_axle_section2') {
-      return (
-        rbac.isModuleAuthorized(user, 'hot_axle_section1') ||
-        rbac.isModuleAuthorized(user, 'hot_axle_section2')
-      );
-    }
-    return rbac.isModuleAuthorized(user, key);
-  };
-
-  if (!moduleAllowed(moduleKey)) return false;
+  // Strict module ownership: unmapped divisions must not receive a module's
+  // telemetry alerts. This mirrors the module location guard used by the APIs.
+  if (moduleKey && !rbac.isModuleLocationOwner(user, moduleKey)) return false;
 
   if (location) {
     // Suffix-aware match: a "Jaipur" user should match "Jaipur_N1"/"Jaipur_N2".
@@ -178,7 +173,8 @@ async function broadcastPushNotification(title, body, type, data = {}, scope = {
     await saveInAppNotifications(title, body, type, userIds);
 
     // Email channel (Brevo) — only for allow-listed alert types, throttled.
-    await emailService.sendAlertEmails(userIds, title, body, type);
+    // When a location is known, email only users whose data scope matches it.
+    await emailService.sendAlertEmails(userIds, title, body, type, { location });
   } catch (err) {
     console.error("❌ broadcastPushNotification error:", err.message);
   }
@@ -246,7 +242,8 @@ async function saveInAppNotificationForAllUsers(title, body, type, scope = {}) {
     await saveInAppNotifications(title, body, type, userIds);
 
     // Email channel (Brevo) — only for allow-listed alert types, throttled.
-    await emailService.sendAlertEmails(userIds, title, body, type);
+    // When a location is known, email only users whose data scope matches it.
+    await emailService.sendAlertEmails(userIds, title, body, type, { location });
   } catch (err) {
     console.error("❌ saveInAppNotificationForAllUsers error:", err.message);
   }

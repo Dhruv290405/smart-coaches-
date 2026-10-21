@@ -78,19 +78,63 @@ async function sendTransactionalEmail(to, subject, html) {
   }
 }
 
-async function getEmailsForUsers(userIds) {
+const LOCATION_ALIASES = {
+  kolkatta: 'kolkata',
+  calcutta: 'kolkata',
+};
+
+function normalizeLocation(value) {
+  const raw = String(value == null ? '' : value).trim().toLowerCase().replace(/\s+/g, ' ');
+  if (!raw) return '';
+  const key = raw.replace(/[^a-z0-9]/g, '');
+  return LOCATION_ALIASES[key] || raw;
+}
+
+function userMatchesLocation(user, location) {
+  const target = normalizeLocation(location);
+  // Fail closed: without a concrete alert location we cannot prove the user
+  // should see this data, so do not send a cross-location email.
+  if (!target) return false;
+  if (target === 'unknown' || target === 'n/a' || target === 'na') return false;
+
+  const values = [
+    user.division_master,
+    user.region_master,
+    user.zone_master,
+  ].map((rel) => {
+    const name = Array.isArray(rel) ? rel[0]?.name : rel?.name;
+    return normalizeLocation(name);
+  }).filter(Boolean);
+
+  return values.some((name) =>
+    target === name ||
+    target.startsWith(`${name}_`) ||
+    target.startsWith(`${name} `) ||
+    name.startsWith(`${target}_`) ||
+    name.startsWith(`${target} `)
+  );
+}
+
+async function getEmailsForUsers(userIds, location = null) {
   const ids = [...new Set((userIds || []).filter((id) => id != null))];
   if (ids.length === 0) return [];
 
   const { data, error } = await supabaseAdmin
     .from('user_master')
-    .select('user_id, email, first_name')
+    .select(`
+      user_id, email, first_name,
+      zone_master!left(name),
+      division_master!left(name),
+      region_master!left(name)
+    `)
     .in('user_id', ids);
   if (error) {
     console.error('[EMAIL] Failed to fetch recipient emails:', error.message);
     return [];
   }
-  return (data || []).filter((u) => u.email && String(u.email).includes('@'));
+  return (data || [])
+    .filter((u) => u.email && String(u.email).includes('@'))
+    .filter((u) => userMatchesLocation(u, location));
 }
 
 function buildAlertHtml(title, body, type) {
@@ -118,7 +162,7 @@ function buildAlertHtml(title, body, type) {
  * allowlist, a per-recipient/per-type cooldown, and a daily cap so we stay
  * within Brevo's quota.
  */
-async function sendAlertEmails(userIds, title, body, type) {
+async function sendAlertEmails(userIds, title, body, type, options = {}) {
   try {
     if (!isEnabled()) return { sent: 0, skipped: 'disabled' };
 
@@ -131,7 +175,7 @@ async function sendAlertEmails(userIds, title, body, type) {
     const limit = dailyLimit();
     if (sentToday >= limit) return { sent: 0, skipped: 'daily_limit' };
 
-    const recipients = await getEmailsForUsers(userIds);
+    const recipients = await getEmailsForUsers(userIds, options.location || null);
     if (recipients.length === 0) return { sent: 0, skipped: 'no_recipients' };
 
     const cooldown = cooldownMs();

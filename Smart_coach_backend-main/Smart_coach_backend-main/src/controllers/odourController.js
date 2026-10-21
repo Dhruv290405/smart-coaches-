@@ -49,7 +49,13 @@ const odourController = {
                     'Bad Odour Alert',
                     `Coach ${coachNo} on train ${trainNo} reported poor air quality (VOC: ${dataToSave.voc_index}, H₂S: ${dataToSave.h2s_ppm}, NH₃: ${dataToSave.nh3_ppm}).`,
                     'ODOUR',
-                    { module: 'odour', coach_no: coachNo, train_no: trainNo, device_id: deviceKey }
+                    {
+                        module: 'odour',
+                        coach_no: coachNo,
+                        train_no: trainNo,
+                        device_id: deviceKey,
+                        location: dataToSave.location || dataToSave.train_location || dataToSave.locName || dataToSave.division,
+                    }
                 );
             }
             _odourAlertState[deviceKey] = isAlert;

@@ -91,7 +91,13 @@ const receiveAcpData = async (req, res) => {
                     'ACP Obstruction Alert',
                     `Coach ${techCoachNo} on train ${assetData.train_no} reported an ACP obstruction (count: ${currentCount}).`,
                     'ACP',
-                    { module: 'acp', coach_no: techCoachNo, train_no: assetData.train_no, count: currentCount }
+                    {
+                        module: 'acp',
+                        coach_no: techCoachNo,
+                        train_no: assetData.train_no,
+                        count: currentCount,
+                        location: assetData.train_location,
+                    }
                 );
             } else {
                 await AcpModel.updateLiveStatus(assetData, 'HEARTBEAT');
