@@ -100,6 +100,8 @@ const trainController = {
           const regions = [t.region_id, t.origination_region_id]
             .filter(v => v !== null && v !== undefined && v !== '')
             .map(Number);
+          // Trains without any region assignment are not scoped to a location.
+          if (regions.length === 0) return true;
           return regions.some(r => scoped.has(r));
         });
       }
