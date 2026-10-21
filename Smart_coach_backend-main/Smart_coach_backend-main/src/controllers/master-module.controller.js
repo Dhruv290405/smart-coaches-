@@ -97,8 +97,8 @@ const masterModuleController = {
 
         if (!modulesMap.has(targetModuleKey)) {
           modulesMap.set(targetModuleKey, {
-            // Priority given to mapped_device_id as per requirement
-            module_id: row.mapped_device_id ? row.mapped_device_id : row.module_id, 
+            // Always expose the real module_id; mapped devices live in `devices`.
+            module_id: row.module_id,
             module_unique_id: row.module_unique_id,
             make_model: row.make_model,
             firmware_version: row.firmware_version,
