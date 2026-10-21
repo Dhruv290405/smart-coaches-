@@ -87,12 +87,14 @@ const deviceController = {
       });
 
       const scopedRegionIds = await rbac.getScopedRegionIds(req.user);
-      if (scopedRegionIds && scopedRegionIds.length > 0 && device_master.length > 0) {
-        const filteredDevices = device_master.filter(d => {
-          const belongs = rbac.trainBelongsToRegions(trainMap, d.train_id, scopedRegionIds);
-          return belongs !== false;
-        });
-        if (filteredDevices.length > 0) device_master = filteredDevices;
+      if (scopedRegionIds) {
+        if (scopedRegionIds.length === 0) {
+          device_master = [];
+        } else {
+          device_master = device_master.filter(d =>
+            rbac.trainBelongsToRegions(trainMap, d.train_id, scopedRegionIds) === true
+          );
+        }
       }
 
       return successResponse(res, 'Devices retrieved successfully', device_master);

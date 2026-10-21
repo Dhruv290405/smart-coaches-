@@ -92,8 +92,18 @@ const trainController = {
         }
       }
 
-      const trains = Array.from(trainsMap.values());
+      let trains = Array.from(trainsMap.values());
 
+      const scopedRegionIds = await rbac.getScopedRegionIds(req.user);
+      if (scopedRegionIds) {
+        const scoped = new Set(scopedRegionIds.map(Number));
+        trains = scopedRegionIds.length === 0 ? [] : trains.filter(t => {
+          const regions = [t.region_id, t.origination_region_id]
+            .filter(v => v !== null && v !== undefined && v !== '')
+            .map(Number);
+          return regions.some(r => scoped.has(r));
+        });
+      }
 
       return successResponse(res, 'Trains fetched successfully', trains, 200);
     } catch (error) {
@@ -109,9 +119,10 @@ const trainController = {
       const authHeader = req.header('Authorization');
       const token = authHeader?.split(' ')[1];
       let user_id = null;
+      let decodedUser = null;
 
       try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your_jwt_secret');
+        decodedUser = jwt.verify(token, process.env.JWT_SECRET || 'your_jwt_secret');
         user_id = targer_user_id
       } catch (err) {
         if (err.name === 'TokenExpiredError') {
@@ -170,18 +181,18 @@ const trainController = {
 
       let trains = await trainModel.getAll(filters);
 
-      // Scope config to the user's own region. Rows without any region stay
-      // visible, and if the filter would leave nothing we keep the full list
-      // so an existing user never loses their configuration.
-      const scopedRegionIds = await rbac.getScopedRegionIds(req.user);
-      if (scopedRegionIds && scopedRegionIds.length > 0) {
-        const scoped = new Set(scopedRegionIds);
-        const filteredTrains = trains.filter(t => {
-          const regions = [t.region_id, t.origination_region_id].filter(Boolean);
-          if (regions.length === 0) return true;
+      // Config is global data: only Master/tester see everything. Everyone
+      // else sees only rows positively attributed to their own regions;
+      // unattributed rows are hidden instead of being treated as shared.
+      const scopedRegionIds = await rbac.getScopedRegionIds(decodedUser);
+      if (scopedRegionIds) {
+        const scoped = new Set(scopedRegionIds.map(Number));
+        trains = scopedRegionIds.length === 0 ? [] : trains.filter(t => {
+          const regions = [t.region_id, t.origination_region_id]
+            .filter(v => v !== null && v !== undefined && v !== '')
+            .map(Number);
           return regions.some(r => scoped.has(r));
         });
-        if (filteredTrains.length > 0) trains = filteredTrains;
       }
 
       // ✅ Inject is_mapped flag if user is available
@@ -286,7 +297,20 @@ const trainController = {
 
   async getTrainsForUsers(req, res, next) {
     try {
-      const trains = await trainModel.getTrainsForUsers();
+      let trains = await trainModel.getTrainsForUsers();
+
+      const scopedRegionIds = await rbac.getScopedRegionIds(req.user);
+      if (scopedRegionIds) {
+        if (scopedRegionIds.length === 0) {
+          trains = [];
+        } else {
+          const trainMap = await rbac.getTrainRegionMap();
+          trains = trains.filter(t =>
+            rbac.trainBelongsToRegions(trainMap, t.train_id, scopedRegionIds) === true
+          );
+        }
+      }
+
       return successResponse(res, 'Trains retrieved successfully', trains);
     } catch (error) {
       next(error);

@@ -4,6 +4,7 @@ const masterModuleModel = require('../models/master-module.model');
 const coachModel = require('../models/coach.model');
 const { toMySQLDatetime } = require('../middleware/datetime');
 const deviceTypeModel = require('../models/master.model').deviceTypeModel;
+const rbac = require('../utils/rbac');
 
 const masterModuleController = {
 
@@ -166,7 +167,12 @@ const masterModuleController = {
         return res.status(400).json({ message: 'User ID is required.' });
       }
 
-      const rawRows = await masterModuleModel.findByUserId(userId);
+      let rawRows = await masterModuleModel.findByUserId(userId);
+
+      // Non-Master users only see modules attached to trains mapped to them.
+      if (rawRows && !rbac.isUnrestrictedUser(req.user)) {
+        rawRows = rawRows.filter(r => r.is_train_mapped_to_user === 1);
+      }
 
       if (!rawRows || rawRows.length === 0) {
         return successResponse(res, 'No master modules found for the trains assigned to this user.', []);

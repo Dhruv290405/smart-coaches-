@@ -1,6 +1,8 @@
 const { successResponse, errorResponse } = require("../utils/response");
 const sensorConfigModel = require("../models/sensor_config.model");
 const { toMySQLDatetime } = require("../middleware/datetime");
+const supabaseAdmin = require("../config/supabaseAdmin");
+const rbac = require("../utils/rbac");
 
 const sensorConfigController = {
   // Create a new coach
@@ -75,6 +77,39 @@ const sensorConfigController = {
   async getAllSensorConfigs(req, res, next) {
     try {
       var configs = await sensorConfigModel.getAllSensorConfigs();
+
+      const scopedRegionIds = await rbac.getScopedRegionIds(req.user);
+      if (scopedRegionIds) {
+        if (scopedRegionIds.length === 0) {
+          configs = [];
+        } else {
+          const { data: trains } = await supabaseAdmin
+            .from('train_master')
+            .select('train_number,region_id,origination_region_id');
+
+          const regionsByNumber = new Map();
+          for (const t of trains || []) {
+            if (!t.train_number) continue;
+            const regions = [t.region_id, t.origination_region_id]
+              .filter(Boolean)
+              .map(Number);
+            if (regions.length > 0) {
+              regionsByNumber.set(
+                String(t.train_number).trim().toLowerCase(),
+                regions
+              );
+            }
+          }
+
+          const scoped = new Set(scopedRegionIds.map(Number));
+          configs = configs.filter(c => {
+            const regions = regionsByNumber.get(
+              String(c.train_no || '').trim().toLowerCase()
+            );
+            return !!regions && regions.some(r => scoped.has(r));
+          });
+        }
+      }
 
       // 🔥 FIX: Check if configs exists and has data before accessing index 0
       if (!configs || configs.length === 0) {

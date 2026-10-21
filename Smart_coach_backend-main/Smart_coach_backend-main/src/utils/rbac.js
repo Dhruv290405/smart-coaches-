@@ -122,28 +122,41 @@ async function getScopedRegionIds(user) {
   if (!user || isUnrestrictedUser(user)) return null;
   const locs = getUserLocations(user);
   if (locs.length === 0) return [];
-  for (const loc of locs) {
-    const { data: divisions } = await supabaseAdmin
-      .from('division_master')
-      .select('division_id')
-      .ilike('name', loc);
-    const divisionIds = (divisions || []).map(d => d.division_id);
-    if (divisionIds.length > 0) {
-      const { data: regions } = await supabaseAdmin
-        .from('region_master')
-        .select('region_id')
-        .in('division_id', divisionIds);
-      const ids = (regions || []).map(r => r.region_id);
-      if (ids.length > 0) return ids;
-    }
-    const { data: regionRow } = await supabaseAdmin
-      .from('region_master')
-      .select('region_id')
-      .ilike('name', loc)
-      .limit(1);
-    if (regionRow && regionRow.length > 0) return [regionRow[0].region_id];
+
+  const normalised = locs.map(l => _normaliseLocation(l));
+  const [{ data: divisions }, { data: regions }] = await Promise.all([
+    supabaseAdmin.from('division_master').select('division_id,name'),
+    supabaseAdmin.from('region_master').select('region_id,name,division_id')
+  ]);
+
+  const divisionRows = divisions || [];
+  const regionRows = regions || [];
+
+  let matchedDivisions = divisionRows.filter(d =>
+    normalised.includes(_normaliseLocation(d.name))
+  );
+  if (matchedDivisions.length === 0) {
+    matchedDivisions = divisionRows.filter(d =>
+      locs.some(l => locationMatches(d.name, l))
+    );
   }
-  return [];
+  const divisionIds = new Set(matchedDivisions.map(d => d.division_id));
+
+  const ids = new Set(
+    regionRows
+      .filter(r => divisionIds.has(r.division_id))
+      .map(r => r.region_id)
+  );
+
+  const exactRegions = regionRows.filter(r =>
+    normalised.includes(_normaliseLocation(r.name))
+  );
+  const nameMatchedRegions = exactRegions.length > 0
+    ? exactRegions
+    : regionRows.filter(r => locs.some(l => locationMatches(r.name, l)));
+  for (const r of nameMatchedRegions) ids.add(r.region_id);
+
+  return [...ids];
 }
 
 /**
@@ -336,6 +349,7 @@ module.exports = {
   getUserLocations,
   getUserLocation,
   isAdmin,
+  isMasterUser,
   isTester,
   isUnrestrictedUser,
   locationMatches,

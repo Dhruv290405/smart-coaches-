@@ -127,13 +127,15 @@ const coachController = {
       let coaches = await coachModel.getAllCoachesWithDetails();
 
       const scopedRegionIds = await rbac.getScopedRegionIds(req.user);
-      if (scopedRegionIds && scopedRegionIds.length > 0 && coaches && coaches.length > 0) {
-        const trainMap = await rbac.getTrainRegionMap();
-        const filteredCoaches = coaches.filter(c => {
-          const belongs = rbac.trainBelongsToRegions(trainMap, c.train_id, scopedRegionIds);
-          return belongs !== false;
-        });
-        if (filteredCoaches.length > 0) coaches = filteredCoaches;
+      if (scopedRegionIds) {
+        if (scopedRegionIds.length === 0) {
+          coaches = [];
+        } else {
+          const trainMap = await rbac.getTrainRegionMap();
+          coaches = coaches.filter(c =>
+            rbac.trainBelongsToRegions(trainMap, c.train_id, scopedRegionIds) === true
+          );
+        }
       }
 
       if (!coaches || coaches.length === 0) {
