@@ -104,6 +104,8 @@ class UserModel extends BaseModel {
   async getPendingUsersByScope(currentUser, filters = {}) {
     if (!currentUser || !currentUser.role_id) return [];
 
+    const isTester = String(currentUser.email || '').trim().toLowerCase() === 'tester@example.com';
+
     let query = supabaseAdmin
       .from('user_master')
       .select(`
@@ -127,61 +129,71 @@ class UserModel extends BaseModel {
         region_master!left(name)
       `);
 
-    query = query.gt('role_id', currentUser.role_id);
+    if (!isTester) {
+      query = query.gt('role_id', currentUser.role_id);
+    }
     query = query.neq('approval_status', 'Deleted');
 
-    switch (currentUser.role_id) {
-      case 1:
-      case 2:
-        break;
-      case 3: {
-        const orParts = [`and(role_id.eq.4,zone_id.eq.${currentUser.zone_id})`];
-        const { data: divisions } = await supabaseAdmin
-          .from('division_master')
-          .select('division_id')
-          .eq('zone_id', currentUser.zone_id);
-        const divisionIds = (divisions || []).map(d => d.division_id);
-        if (divisionIds.length > 0) {
+    if (isTester) {
+      // Tester login has full visibility across all users.
+    } else {
+      switch (currentUser.role_id) {
+        case 1:
+        case 2: {
+          // Master / Super Admin only manage users inside their own zone.
+          if (!currentUser.zone_id) return [];
+          query = query.eq('zone_id', currentUser.zone_id);
+          break;
+        }
+        case 3: {
+          const orParts = [`and(role_id.eq.4,zone_id.eq.${currentUser.zone_id})`];
+          const { data: divisions } = await supabaseAdmin
+            .from('division_master')
+            .select('division_id')
+            .eq('zone_id', currentUser.zone_id);
+          const divisionIds = (divisions || []).map(d => d.division_id);
+          if (divisionIds.length > 0) {
+            const { data: regions } = await supabaseAdmin
+              .from('region_master')
+              .select('region_id')
+              .in('division_id', divisionIds);
+            const regionIds = (regions || []).map(r => r.region_id);
+            orParts.push(`and(role_id.in.(5,6),division_id.in.(${divisionIds.join(',')}))`);
+            if (regionIds.length > 0) {
+              orParts.push(`and(role_id.eq.7,region_id.in.(${regionIds.join(',')}))`);
+            }
+          }
+          query = query.or(orParts.join(','));
+          break;
+        }
+        case 4: {
+          const orParts = [`and(role_id.in.(5,6),division_id.eq.${currentUser.division_id})`];
           const { data: regions } = await supabaseAdmin
             .from('region_master')
             .select('region_id')
-            .in('division_id', divisionIds);
+            .eq('division_id', currentUser.division_id);
           const regionIds = (regions || []).map(r => r.region_id);
-          orParts.push(`and(role_id.in.(5,6),division_id.in.(${divisionIds.join(',')}))`);
           if (regionIds.length > 0) {
             orParts.push(`and(role_id.eq.7,region_id.in.(${regionIds.join(',')}))`);
           }
+          query = query.or(orParts.join(','));
+          break;
         }
-        query = query.or(orParts.join(','));
-        break;
-      }
-      case 4: {
-        const orParts = [`and(role_id.in.(5,6),division_id.eq.${currentUser.division_id})`];
-        const { data: regions } = await supabaseAdmin
-          .from('region_master')
-          .select('region_id')
-          .eq('division_id', currentUser.division_id);
-        const regionIds = (regions || []).map(r => r.region_id);
-        if (regionIds.length > 0) {
-          orParts.push(`and(role_id.eq.7,region_id.in.(${regionIds.join(',')}))`);
+        case 5: {
+          query = query.eq('role_id', 7);
+          const { data: regions } = await supabaseAdmin
+            .from('region_master')
+            .select('region_id')
+            .eq('division_id', currentUser.division_id);
+          const regionIds = (regions || []).map(r => r.region_id);
+          if (regionIds.length > 0) {
+            query = query.in('region_id', regionIds);
+          }
+          break;
         }
-        query = query.or(orParts.join(','));
-        break;
+        default:
+          return [];
       }
-      case 5: {
-        query = query.eq('role_id', 7);
-        const { data: regions } = await supabaseAdmin
-          .from('region_master')
-          .select('region_id')
-          .eq('division_id', currentUser.division_id);
-        const regionIds = (regions || []).map(r => r.region_id);
-        if (regionIds.length > 0) {
-          query = query.in('region_id', regionIds);
-        }
-        break;
-      }
-      default:
-        return [];
     }
 
     if (filters.status) {
@@ -274,12 +286,19 @@ class UserModel extends BaseModel {
   async isApproverAuthorized(currentUser, targetUser, currentUserRole) {
     const currentRoleId = currentUser.role_id;
     const targetRoleId = targetUser.role_id;
+    const isTester = String(currentUser.email || '').trim().toLowerCase() === 'tester@example.com';
 
     // Must be managing a lower role (higher role_id = lower in hierarchy)
     if (targetRoleId <= currentRoleId) return false;
 
-    // Master (role_id=1) and Super Admin (role_id=2) can approve any lower role system-wide
-    if (currentRoleId <= 2) return true;
+    // Tester login can approve any lower role system-wide
+    if (isTester) return true;
+
+    // Master (role_id=1) / Super Admin (role_id=2): same zone only
+    if (currentRoleId <= 2) {
+      if (!currentUser.zone_id) return false;
+      return targetUser.zone_id === currentUser.zone_id;
+    }
 
     // Admin / Division Admin (role_id=3): same zone
     if (currentRoleId === 3) {
