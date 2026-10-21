@@ -118,3 +118,25 @@ class DieselTankModel {
     return '${lastUpdated.day.toString().padLeft(2, '0')} ${months[lastUpdated.month - 1]}, ${lastUpdated.year} | $hour:$minute $amPm';
   }
 }
+
+class DieselHistoryPoint {
+  final DateTime timestamp;
+  final double percentage;
+
+  const DieselHistoryPoint({
+    required this.timestamp,
+    required this.percentage,
+  });
+
+  factory DieselHistoryPoint.fromJson(Map<String, dynamic> json) {
+    final rawValue = json['value'];
+    final value = rawValue is num
+        ? rawValue.toDouble()
+        : double.tryParse(rawValue?.toString() ?? '') ?? 0;
+    final parsedTime = DateTime.tryParse(json['timestamp']?.toString() ?? '');
+    return DieselHistoryPoint(
+      timestamp: (parsedTime ?? DateTime.now()).toLocal(),
+      percentage: value.clamp(0, 100).toDouble(),
+    );
+  }
+}

@@ -76,12 +76,20 @@ async function getLatestReadings(sensorIds) {
   return Array.from(latestMap.values());
 }
 
-async function getReadingHistory(sensorId, limit = 10000) {
-  const { data, error } = await supabaseAdmin
+async function getReadingHistory(
+  sensorId,
+  { fromDate = null, toDate = null, limit = 10000 } = {}
+) {
+  let query = supabaseAdmin
     .from('sensor_data')
     .select('value, timestamp')
-    .eq('sensor_id', sensorId)
-    .order('timestamp', { ascending: false })
+    .eq('sensor_id', sensorId);
+
+  if (fromDate) query = query.gte('timestamp', fromDate);
+  if (toDate) query = query.lte('timestamp', toDate);
+
+  const { data, error } = await query
+    .order('timestamp', { ascending: true })
     .limit(limit);
 
   if (error) throw error;

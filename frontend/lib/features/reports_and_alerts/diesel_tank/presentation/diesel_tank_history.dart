@@ -426,8 +426,11 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:intl/intl.dart';
+import 'package:smart_coach_new/core/network/api_constants.dart';
 import 'package:smart_coach_new/core/helper/status_helper.dart';
 import 'package:smart_coach_new/core/widgets/period_filter.dart';
+import 'package:smart_coach_new/features/reports_and_alerts/diesel_tank/data/datasources/diesel_data_service.dart';
 import 'package:smart_coach_new/features/reports_and_alerts/diesel_tank/data/models/diesel_tank_model.dart';
 
 import '../../../../core/utils/app_dimensions.dart';
@@ -447,9 +450,93 @@ class DieselTankHistory extends StatefulWidget {
 }
 
 class _DieselTankHistoryState extends State<DieselTankHistory> {
+  final DieselDataService _dataService = DieselDataService(
+    baseUrl: ApiConstants.devUrl,
+  );
   String selectedPeriod = '1 Day';
+  DateTimeRange? customRange;
+  List<DieselHistoryPoint> _history = [];
+  bool _isLoadingHistory = true;
+  String? _historyError;
   final Color _valuePurple = const Color(0xFF513ADF);
-  final Color _boxGrey = const Color(0xFFF8F9FA); 
+  final Color _boxGrey = const Color(0xFFF8F9FA);
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHistory();
+  }
+
+  DateTimeRange _rangeForPeriod() {
+    final now = DateTime.now();
+    switch (selectedPeriod) {
+      case 'Live':
+        return DateTimeRange(
+          start: now.subtract(const Duration(hours: 24)),
+          end: now,
+        );
+      case '7 Days':
+        return DateTimeRange(start: now.subtract(const Duration(days: 7)), end: now);
+      case '30 Days':
+        return DateTimeRange(start: now.subtract(const Duration(days: 30)), end: now);
+      case 'Custom':
+        return customRange ??
+            DateTimeRange(
+              start: now.subtract(const Duration(days: 7)),
+              end: now,
+            );
+      case '1 Day':
+      default:
+        return DateTimeRange(start: now.subtract(const Duration(days: 1)), end: now);
+    }
+  }
+
+  Future<void> _loadHistory() async {
+    setState(() {
+      _isLoadingHistory = true;
+      _historyError = null;
+    });
+    try {
+      final range = _rangeForPeriod();
+      final history = await _dataService.fetchDieselHistory(
+        widget.tank.sensorId,
+        fromDate: range.start,
+        toDate: range.end,
+      );
+      if (!mounted) return;
+      setState(() {
+        _history = history;
+        _isLoadingHistory = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _history = [];
+        _isLoadingHistory = false;
+        _historyError = 'Unable to load diesel history. Please try again.';
+      });
+    }
+  }
+
+  Future<void> _onPeriodChanged(String value) async {
+    if (value == 'Custom') {
+      final now = DateTime.now();
+      final range = await showDateRangePicker(
+        context: context,
+        firstDate: DateTime(now.year - 2),
+        lastDate: now,
+        initialDateRange: customRange,
+      );
+      if (range == null || !mounted) return;
+      setState(() {
+        customRange = range;
+        selectedPeriod = value;
+      });
+    } else {
+      setState(() => selectedPeriod = value);
+    }
+    await _loadHistory();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -478,9 +565,19 @@ class _DieselTankHistoryState extends State<DieselTankHistory> {
               const SizedBox(height: 20),
               PeriodFilter(
                 selected: selectedPeriod,
-                periods: const ['Live', '1 Day', '7 Days', '30 Days'],
-                onChanged: (val) => setState(() => selectedPeriod = val),
+                periods: const ['Live', '1 Day', '7 Days', '30 Days', 'Custom'],
+                onChanged: _onPeriodChanged,
               ),
+              if (selectedPeriod == 'Custom' && customRange != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  '${DateFormat('dd MMM yyyy').format(customRange!.start)} - '
+                  '${DateFormat('dd MMM yyyy').format(customRange!.end)}',
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: ColorConstants.textSecondary,
+                  ),
+                ),
+              ],
               const SizedBox(height: 20),
               
               _buildGraphCard(),
@@ -587,7 +684,7 @@ class _DieselTankHistoryState extends State<DieselTankHistory> {
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(
-              'Last Updated: 10:46 AM',
+              'Last Updated: ${widget.tank.getFormattedDate()}',
               style: AppTextStyles.bodySmall,
             ),
           ),
@@ -641,114 +738,16 @@ class _DieselTankHistoryState extends State<DieselTankHistory> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Graph inside a Grey Box
           Container(
             height: 220,
             padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
             decoration: BoxDecoration(
-              color: _boxGrey, // Grey background for graph
+              color: _boxGrey,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: LineChart(
-              LineChartData(
-                gridData: FlGridData(
-                  show: true,
-                  drawVerticalLine: false,
-                  horizontalInterval: 20,
-                  getDrawingHorizontalLine: (value) => FlLine(
-                    color: ColorConstants.divider,
-                    strokeWidth: 1,
-                  ),
-                ),
-                titlesData: FlTitlesData(
-                  leftTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      interval: 20,
-                      reservedSize: 40,
-                      getTitlesWidget: (value, meta) => Text(
-                        '${value.toInt()}%',
-                        style: AppTextStyles.bodySmall,
-                      ),
-                    ),
-                  ),
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      interval: 1,
-                      reservedSize: 30,
-                      getTitlesWidget: (value, meta) {
-                        const labels = [
-                          '09:00 AM',
-                          '11:00 AM',
-                          '08:00 PM',
-                          '10:00 PM'
-                        ];
-                        if (value.toInt() >= 0 && value.toInt() < labels.length) {
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: Text(
-                              labels[value.toInt()],
-                              style: AppTextStyles.bodySmall.copyWith(fontSize: 9),
-                            ),
-                          );
-                        }
-                        return const SizedBox.shrink();
-                      },
-                    ),
-                  ),
-                  topTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false)),
-                  rightTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false)),
-                ),
-                borderData: FlBorderData(show: false),
-                minX: 0,
-                maxX: 3,
-                minY: 0,
-                maxY: 100,
-                lineBarsData: [
-                  LineChartBarData(
-                    spots: const [
-                      FlSpot(0, 5),
-                      FlSpot(0.5, 10),
-                      FlSpot(1, 20),
-                      FlSpot(1.5, 25),
-                      FlSpot(2, 45),
-                      FlSpot(2.5, 60),
-                      FlSpot(2.7, 80),
-                      FlSpot(3, 95),
-                    ],
-                    isCurved: true,
-                    color: Colors.green,
-                    barWidth: 2,
-                    dotData: FlDotData(
-                      show: true,
-                      getDotPainter: (spot, percent, barData, index) =>
-                          FlDotCirclePainter(
-                        radius: 4,
-                        color: index == 0 ? Colors.red : Colors.green,
-                        strokeWidth: 0,
-                      ),
-                    ),
-                    belowBarData: BarAreaData(
-                      show: true,
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.green.withValues(alpha: 0.3),
-                          Colors.green.withValues(alpha: 0.05),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            child: _buildGraphContent(),
           ),
           const SizedBox(height: 16),
-          // Info Text moved inside the card
           Text(
             'Last Updated: ${widget.tank.getFormattedDate()}',
             style: AppTextStyles.bodySmall.copyWith(
@@ -768,7 +767,178 @@ class _DieselTankHistoryState extends State<DieselTankHistory> {
     );
   }
 
+  Widget _buildGraphContent() {
+    if (_isLoadingHistory) {
+      return const Center(child: CircularProgressIndicator(strokeWidth: 3));
+    }
+    if (_historyError != null) {
+      return Center(
+        child: Text(
+          _historyError!,
+          textAlign: TextAlign.center,
+          style: AppTextStyles.bodySmall.copyWith(
+            color: ColorConstants.textSecondary,
+          ),
+        ),
+      );
+    }
+    if (_history.isEmpty) {
+      return Center(
+        child: Text(
+          'No history available for this period',
+          textAlign: TextAlign.center,
+          style: AppTextStyles.bodySmall.copyWith(
+            color: ColorConstants.textSecondary,
+          ),
+        ),
+      );
+    }
+
+    final spots = List<FlSpot>.generate(
+      _history.length,
+      (i) => FlSpot(i.toDouble(), _history[i].percentage),
+    );
+    final maxX = _history.length > 1 ? (_history.length - 1).toDouble() : 1.0;
+    final interval = _history.length <= 1
+        ? 1.0
+        : (_history.length / 4).ceilToDouble();
+    final labelFormat = DateFormat('dd MMM\nHH:mm');
+
+    return LineChart(
+      LineChartData(
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: false,
+          horizontalInterval: 20,
+          getDrawingHorizontalLine: (value) => FlLine(
+            color: ColorConstants.divider,
+            strokeWidth: 1,
+          ),
+        ),
+        titlesData: FlTitlesData(
+          leftTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              interval: 20,
+              reservedSize: 40,
+              getTitlesWidget: (value, meta) => Text(
+                '${value.toInt()}%',
+                style: AppTextStyles.bodySmall,
+              ),
+            ),
+          ),
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              interval: interval,
+              reservedSize: 34,
+              getTitlesWidget: (value, meta) {
+                final index = value.round();
+                if (index < 0 || index >= _history.length) {
+                  return const SizedBox.shrink();
+                }
+                return Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    labelFormat.format(_history[index].timestamp),
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.bodySmall.copyWith(fontSize: 8),
+                  ),
+                );
+              },
+            ),
+          ),
+          topTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+          rightTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+        ),
+        borderData: FlBorderData(show: false),
+        minX: 0,
+        maxX: maxX,
+        minY: 0,
+        maxY: 100,
+        lineBarsData: [
+          LineChartBarData(
+            spots: spots,
+            isCurved: _history.length > 2,
+            color: Colors.green,
+            barWidth: 2,
+            dotData: FlDotData(show: _history.length <= 20),
+            belowBarData: BarAreaData(
+              show: true,
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.green.withValues(alpha: 0.3),
+                  Colors.green.withValues(alpha: 0.05),
+                ],
+              ),
+            ),
+          ),
+        ],
+        lineTouchData: LineTouchData(
+          touchTooltipData: LineTouchTooltipData(
+            getTooltipItems: (touchedSpots) {
+              return touchedSpots.map((spot) {
+                final index = spot.x
+                    .round()
+                    .clamp(0, _history.length - 1)
+                    .toInt();
+                return LineTooltipItem(
+                  '${DateFormat('dd MMM HH:mm').format(_history[index].timestamp)}\n'
+                  '${spot.y.toStringAsFixed(1)}%',
+                  AppTextStyles.bodySmall.copyWith(
+                    color: ColorConstants.textPrimary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                );
+              }).toList();
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildStatsCards() {
+    final levels = _history.map((e) => e.percentage).toList();
+    var lowest = '--';
+    var highest = '--';
+    var consumption = '--';
+    var refilled = '--';
+
+    if (levels.isNotEmpty) {
+      final minLevel = levels.reduce((a, b) => a < b ? a : b);
+      final maxLevel = levels.reduce((a, b) => a > b ? a : b);
+      lowest = '${minLevel.toStringAsFixed(0)}%';
+      highest = '${maxLevel.toStringAsFixed(0)}%';
+
+      var refills = 0;
+      for (var i = 1; i < levels.length; i++) {
+        if (levels[i] > levels[i - 1] + 5) refills++;
+      }
+      refilled = '$refills time${refills == 1 ? '' : 's'}';
+
+      if (_history.length > 1 && levels.first > levels.last) {
+        final hours = _history.last.timestamp
+                .difference(_history.first.timestamp)
+                .inMinutes /
+            60;
+        if (hours > 0) {
+          final liters = (levels.first - levels.last) /
+              100 *
+              widget.tank.capacity;
+          consumption = '${(liters / hours).toStringAsFixed(1)}L/hr';
+        }
+      } else {
+        consumption = '0L/hr';
+      }
+    }
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -787,17 +957,17 @@ class _DieselTankHistoryState extends State<DieselTankHistory> {
         children: [
           Row(
             children: [
-              _buildStatItem('Lowest Level', '10%', _valuePurple),
+              _buildStatItem('Lowest Level', lowest, _valuePurple),
               const SizedBox(width: 12),
-              _buildStatItem('Highest Level', '95%', _valuePurple),
+              _buildStatItem('Highest Level', highest, _valuePurple),
             ],
           ),
           const SizedBox(height: 12),
           Row(
             children: [
-              _buildStatItem('Consumption', '400L/hr', _valuePurple),
+              _buildStatItem('Consumption', consumption, _valuePurple),
               const SizedBox(width: 12),
-              _buildStatItem('Refilled', '2 times', _valuePurple),
+              _buildStatItem('Refilled', refilled, _valuePurple),
             ],
           ),
         ],

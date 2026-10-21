@@ -386,7 +386,12 @@ class _DieselLevelScreenState extends State<DieselLevelScreen> {
   List<String> get locoNumbers {
     final unique = <String>{'All Locos'};
     for (final t in _allTanks) {
-      if (t.locoNumber.isNotEmpty) unique.add(t.locoNumber);
+      if (t.locoNumber.isEmpty) continue;
+      if (selectedTrainNumber != 'All' &&
+          t.trainName != selectedTrainNumber) {
+        continue;
+      }
+      unique.add(t.locoNumber);
     }
     return unique.toList()..sort();
   }
@@ -491,9 +496,11 @@ class _DieselLevelScreenState extends State<DieselLevelScreen> {
     } catch (e) {
       if (mounted) {
         final userEmail = GetIt.I<Prefs>().getUser()?.email;
-        if (userEmail == 'tester@example.com') _loadMockData();
+        final isTester = userEmail == 'tester@example.com';
+        if (isTester) _loadMockData();
         setState(() {
           _isLoading = false;
+          _errorMessage = isTester ? null : 'Unable to load diesel readings. Please try again.';
         });
       }
     }
@@ -744,8 +751,15 @@ class _DieselLevelScreenState extends State<DieselLevelScreen> {
                 label: AppStrings.trainNumber,
                 value: selectedTrainNumber,
                 items: trainNumbers,
-                onChanged: (value) =>
-                    setState(() => selectedTrainNumber = value!),
+                onChanged: (value) {
+                  setState(() {
+                    selectedTrainNumber = value!;
+                    if (selectedLocoNumber != 'All Locos' &&
+                        !locoNumbers.contains(selectedLocoNumber)) {
+                      selectedLocoNumber = 'All Locos';
+                    }
+                  });
+                },
               ),
             ),
             const SizedBox(width: 8),

@@ -66,23 +66,7 @@ class _OdourDashboardState extends State<OdourDashboard> {
           setState(() {
             _initialLoadComplete = true;
             _allRecords = _mergeLastGood(records);
-            trainNumbers = [
-              'All Trains',
-              ..._allRecords.map((e) => e.trainNumber).toSet(),
-            ];
-            coachTypes = [
-              'All Types',
-              ..._allRecords.map((e) => e.coachType).toSet(),
-            ];
-            coachNumbers = [
-              'All Unique IDs',
-              ..._allRecords.map((e) => e.coachNumber).toSet(),
-            ];
-            companies = [
-              'All',
-              ..._allRecords.map((e) => e.section).toSet().toList()..sort(),
-            ];
-            _applyFilters();
+            _updateFilteredRecords();
             lastUpdated = DateFormat('HH:mm:ss').format(DateTime.now());
           });
         }
@@ -116,20 +100,7 @@ class _OdourDashboardState extends State<OdourDashboard> {
     final records = repository.getSampleData();
     setState(() {
       _allRecords = records;
-      trainNumbers = [
-        'All Trains',
-        ...records.map((e) => e.trainNumber).toSet(),
-      ];
-      coachTypes = ['All Types', ...records.map((e) => e.coachType).toSet()];
-      coachNumbers = [
-        'All Unique IDs',
-        ...records.map((e) => e.coachNumber).toSet(),
-      ];
-      companies = [
-        'All',
-        ...records.map((e) => e.section).toSet().toList()..sort(),
-      ];
-      _applyFilters();
+      _updateFilteredRecords();
     });
   }
 
@@ -150,32 +121,87 @@ class _OdourDashboardState extends State<OdourDashboard> {
     _applyFilters();
   }
 
+  List<String> _sortedValues(Iterable<String> values) {
+    return values
+        .where((v) => v.isNotEmpty && v != '--' && v != 'N/A')
+        .toSet()
+        .toList()
+      ..sort();
+  }
+
+  void _rebuildFilterOptions() {
+    companies = const ['All', 'Section 1', 'Section 2'];
+    if (!companies.contains(selectedCompany)) selectedCompany = 'All';
+
+    final sectionRecords = _allRecords
+        .where((r) => selectedCompany == 'All' || r.section == selectedCompany)
+        .toList();
+
+    trainNumbers = [
+      'All Trains',
+      ..._sortedValues(sectionRecords.map((r) => r.trainNumber)),
+    ];
+    if (!trainNumbers.contains(selectedTrainNumber)) {
+      selectedTrainNumber = 'All Trains';
+    }
+
+    final trainRecords = selectedTrainNumber == 'All Trains'
+        ? sectionRecords
+        : sectionRecords
+              .where((r) => r.trainNumber == selectedTrainNumber)
+              .toList();
+
+    coachTypes = [
+      'All Types',
+      ..._sortedValues(trainRecords.map((r) => r.coachType)),
+    ];
+    if (!coachTypes.contains(selectedCoachType)) {
+      selectedCoachType = 'All Types';
+    }
+
+    final typeRecords = selectedCoachType == 'All Types'
+        ? trainRecords
+        : trainRecords
+              .where((r) => r.coachType == selectedCoachType)
+              .toList();
+
+    coachNumbers = [
+      'All Unique IDs',
+      ..._sortedValues(typeRecords.map((r) => r.coachNumber)),
+    ];
+    if (!coachNumbers.contains(selectedCoachNumber)) {
+      selectedCoachNumber = 'All Unique IDs';
+    }
+  }
+
+  void _updateFilteredRecords() {
+    _rebuildFilterOptions();
+    _filteredRecords = _allRecords.where((r) {
+      final matchesTrain =
+          selectedTrainNumber == 'All Trains' ||
+          r.trainNumber == selectedTrainNumber;
+      final matchesType =
+          selectedCoachType == 'All Types' || r.coachType == selectedCoachType;
+      final matchesCoach =
+          selectedCoachNumber == 'All Unique IDs' ||
+          r.coachNumber == selectedCoachNumber;
+      final matchesStatus =
+          selectedStatus == 'All' ||
+          (selectedStatus == 'ON' && r.isActive) ||
+          (selectedStatus == 'OFF' && !r.isActive);
+      final matchesCompany =
+          selectedCompany == 'All' || r.section == selectedCompany;
+      return matchesTrain &&
+          matchesType &&
+          matchesCoach &&
+          matchesStatus &&
+          matchesCompany;
+    }).toList();
+    _groupedCoaches = CoachToiletGroup.groupByCoach(_filteredRecords);
+  }
+
   void _applyFilters() {
-    setState(() {
-      _filteredRecords = _allRecords.where((r) {
-        final matchesTrain =
-            selectedTrainNumber == 'All Trains' ||
-            r.trainNumber == selectedTrainNumber;
-        final matchesType =
-            selectedCoachType == 'All Types' ||
-            r.coachType == selectedCoachType;
-        final matchesCoach =
-            selectedCoachNumber == 'All Unique IDs' ||
-            r.coachNumber == selectedCoachNumber;
-        final matchesStatus =
-            selectedStatus == 'All' ||
-            (selectedStatus == 'ON' && r.isActive) ||
-            (selectedStatus == 'OFF' && !r.isActive);
-        final matchesCompany =
-            selectedCompany == 'All' || r.section == selectedCompany;
-        return matchesTrain &&
-            matchesType &&
-            matchesCoach &&
-            matchesStatus &&
-            matchesCompany;
-      }).toList();
-      _groupedCoaches = CoachToiletGroup.groupByCoach(_filteredRecords);
-    });
+    setState(_updateFilteredRecords);
   }
 
   List<Map<String, dynamic>> _generateRichData() {
@@ -290,12 +316,14 @@ class _OdourDashboardState extends State<OdourDashboard> {
               else if (selectedViewType == 'Analytics')
                 _buildSectionCard(
                   child: OdourChartView(
-                    records: _allRecords,
+                    records: _filteredRecords,
                     groups: _groupedCoaches,
                   ),
                 )
               else if (selectedViewType == 'Alerts')
-                _buildSectionCard(child: OdourAlertsView(records: _allRecords)),
+                _buildSectionCard(
+                  child: OdourAlertsView(records: _filteredRecords),
+                ),
             ],
           ),
         ),
@@ -345,16 +373,18 @@ class _OdourDashboardState extends State<OdourDashboard> {
                     grouped: CoachToiletGroup.groupByCoach(s1),
                   ),
           ),
-        if (showS2 && s2.isNotEmpty) ...[
+        if (showS2 && (s2.isNotEmpty || selectedCompany == 'Section 2')) ...[
           const SizedBox(height: 8),
           _buildExpandableSection(
             'Section 2',
             s2.length,
             'odour_s2',
-            OdourCoachesView(
-              coaches: s2,
-              grouped: CoachToiletGroup.groupByCoach(s2),
-            ),
+            s2.isEmpty
+                ? _buildEmptySectionState()
+                : OdourCoachesView(
+                    coaches: s2,
+                    grouped: CoachToiletGroup.groupByCoach(s2),
+                  ),
           ),
         ],
       ],
@@ -665,7 +695,7 @@ class _OdourDashboardState extends State<OdourDashboard> {
                 label: AppStrings.generateReport,
                 svgIcon: AppIcons.report,
                 onTap: () =>
-                    OdourReportGenerator.generate(context, _allRecords),
+                    OdourReportGenerator.generate(context, _filteredRecords),
                 isFullWidth: true,
               ),
             ),
@@ -678,7 +708,7 @@ class _OdourDashboardState extends State<OdourDashboard> {
   }
 
   void _sendAlerts() {
-    final alertCoaches = _allRecords
+    final alertCoaches = _filteredRecords
         .where((r) => r.hasAlert)
         .map((r) => '${r.coachNumber} (${r.toiletPosition})')
         .toSet()

@@ -71,12 +71,26 @@ exports.getDieselReadings = async (req, res) => {
 
 exports.getDieselHistory = async (req, res) => {
   try {
-    const { sensor_id } = req.query;
+    const { sensor_id, fromDate, toDate } = req.query;
     if (!sensor_id) {
       return errorResponse(res, 'Missing sensor_id', 400);
     }
+    if (!rbac.isModuleAuthorized(req.user, 'diesel')) {
+      return successResponse(res, 'Diesel history is not available for this user', [], 200);
+    }
 
-    const history = await dieselModel.getReadingHistory(sensor_id);
+    const authorizedCoaches = await rbac.getAuthorizedCoachNumbers(req.user);
+    if (authorizedCoaches !== null) {
+      const sensors = await dieselModel.getDieselSensors(null, authorizedCoaches);
+      if (!sensors.some((sensor) => sensor.sensor_id === sensor_id)) {
+        return successResponse(res, 'Diesel history is not available for this user', [], 200);
+      }
+    }
+
+    const history = await dieselModel.getReadingHistory(sensor_id, {
+      fromDate: fromDate || null,
+      toDate: toDate || null,
+    });
     return successResponse(res, 'Diesel reading history retrieved', history, 200);
   } catch (err) {
     console.error('Error fetching diesel history:', err);

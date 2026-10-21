@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:intl/intl.dart';
+import 'package:smart_coach_new/core/network/api_constants.dart';
+import 'package:smart_coach_new/features/reports_and_alerts/diesel_tank/data/datasources/diesel_data_service.dart';
 import 'package:smart_coach_new/features/reports_and_alerts/diesel_tank/presentation/widgets/current_level_card.dart';
 import 'package:smart_coach_new/features/reports_and_alerts/diesel_tank/presentation/widgets/tank_info_section.dart';
 import 'package:smart_coach_new/features/reports_and_alerts/diesel_tank/presentation/widgets/view_history_button.dart';
@@ -22,7 +25,87 @@ class DieselChartView extends StatefulWidget {
 }
 
 class _DieselChartViewState extends State<DieselChartView> {
+  final DieselDataService _dataService = DieselDataService(
+    baseUrl: ApiConstants.devUrl,
+  );
   String selectedPeriod = 'Live';
+  DateTimeRange? customRange;
+  List<DieselHistoryPoint> _history = [];
+  bool _isLoadingHistory = true;
+  String? _historyError;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHistory();
+  }
+
+  DateTimeRange _rangeForPeriod() {
+    final now = DateTime.now();
+    switch (selectedPeriod) {
+      case 'Live':
+        return DateTimeRange(start: now.subtract(const Duration(hours: 1)), end: now);
+      case '7 Days':
+        return DateTimeRange(start: now.subtract(const Duration(days: 7)), end: now);
+      case '30 Days':
+        return DateTimeRange(start: now.subtract(const Duration(days: 30)), end: now);
+      case 'Custom':
+        return customRange ??
+            DateTimeRange(
+              start: now.subtract(const Duration(days: 7)),
+              end: now,
+            );
+      default:
+        return DateTimeRange(start: now.subtract(const Duration(hours: 1)), end: now);
+    }
+  }
+
+  Future<void> _loadHistory() async {
+    setState(() {
+      _isLoadingHistory = true;
+      _historyError = null;
+    });
+    try {
+      final range = _rangeForPeriod();
+      final history = await _dataService.fetchDieselHistory(
+        widget.tank.sensorId,
+        fromDate: range.start,
+        toDate: range.end,
+      );
+      if (!mounted) return;
+      setState(() {
+        _history = history;
+        _isLoadingHistory = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _history = [];
+        _isLoadingHistory = false;
+        _historyError = 'Unable to load diesel history.';
+      });
+    }
+  }
+
+  Future<void> _onPeriodChanged(String value) async {
+    if (value == 'Custom') {
+      final now = DateTime.now();
+      final range = await showDateRangePicker(
+        context: context,
+        firstDate: DateTime(now.year - 2),
+        lastDate: now,
+        initialDateRange: customRange,
+      );
+      if (range == null || !mounted) return;
+      setState(() {
+        customRange = range;
+        selectedPeriod = value;
+      });
+    } else {
+      setState(() => selectedPeriod = value);
+    }
+    await _loadHistory();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,8 +125,18 @@ class _DieselChartViewState extends State<DieselChartView> {
         PeriodFilter(
           selected: selectedPeriod,
           periods: const ['Live', '7 Days', '30 Days', 'Custom'],
-          onChanged: (val) => setState(() => selectedPeriod = val),
+          onChanged: _onPeriodChanged,
         ),
+        if (selectedPeriod == 'Custom' && customRange != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            '${DateFormat('dd MMM yyyy').format(customRange!.start)} - '
+            '${DateFormat('dd MMM yyyy').format(customRange!.end)}',
+            style: AppTextStyles.bodySmall.copyWith(
+              color: ColorConstants.textSecondary,
+            ),
+          ),
+        ],
         const SizedBox(height: 16),
 
         _buildLineChart(),
@@ -73,6 +166,46 @@ class _DieselChartViewState extends State<DieselChartView> {
   }
 
   Widget _buildLineChart() {
+    if (_isLoadingHistory) {
+      return Container(
+        height: 200,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: ColorConstants.cardBackground,
+          borderRadius: BorderRadius.circular(AppDimensions.radiusLarge),
+        ),
+        child: const CircularProgressIndicator(strokeWidth: 3),
+      );
+    }
+    if (_historyError != null || _history.isEmpty) {
+      return Container(
+        height: 200,
+        alignment: Alignment.center,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: ColorConstants.cardBackground,
+          borderRadius: BorderRadius.circular(AppDimensions.radiusLarge),
+        ),
+        child: Text(
+          _historyError ?? 'No history available for this period',
+          textAlign: TextAlign.center,
+          style: AppTextStyles.bodySmall.copyWith(
+            color: ColorConstants.textSecondary,
+          ),
+        ),
+      );
+    }
+
+    final spots = List<FlSpot>.generate(
+      _history.length,
+      (i) => FlSpot(i.toDouble(), _history[i].percentage),
+    );
+    final maxX = _history.length > 1 ? (_history.length - 1).toDouble() : 1.0;
+    final interval = _history.length <= 1
+        ? 1.0
+        : (_history.length / 4).ceilToDouble();
+    final labelFormat = DateFormat('dd MMM\nHH:mm');
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -86,7 +219,7 @@ class _DieselChartViewState extends State<DieselChartView> {
             gridData: FlGridData(
               show: true,
               drawVerticalLine: false,
-              horizontalInterval: 1000,
+              horizontalInterval: 20,
               getDrawingHorizontalLine: (value) => FlLine(
                 color: ColorConstants.divider,
                 strokeWidth: 1,
@@ -96,10 +229,10 @@ class _DieselChartViewState extends State<DieselChartView> {
               leftTitles: AxisTitles(
                 sideTitles: SideTitles(
                   showTitles: true,
-                  interval: 1000,
-                  reservedSize: 45,
+                  interval: 20,
+                  reservedSize: 40,
                   getTitlesWidget: (value, meta) => Text(
-                    '${value.toInt()}L',
+                    '${value.toInt()}%',
                     style: AppTextStyles.bodySmall,
                   ),
                 ),
@@ -107,62 +240,43 @@ class _DieselChartViewState extends State<DieselChartView> {
               bottomTitles: AxisTitles(
                 sideTitles: SideTitles(
                   showTitles: true,
-                  interval: 1,
-                  reservedSize: 30,
+                  interval: interval,
+                  reservedSize: 34,
                   getTitlesWidget: (value, meta) {
-                    const labels = [
-                      '09:00 AM',
-                      '11:00 AM',
-                      '08:00 PM',
-                      'Now'
-                    ];
-                    if (value.toInt() >= 0 && value.toInt() < labels.length) {
-                      return Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          labels[value.toInt()],
-                          style:
-                              AppTextStyles.bodySmall.copyWith(fontSize: 9),
-                        ),
-                      );
+                    final index = value.round();
+                    if (index < 0 || index >= _history.length) {
+                      return const SizedBox.shrink();
                     }
-                    return const SizedBox.shrink();
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        labelFormat.format(_history[index].timestamp),
+                        textAlign: TextAlign.center,
+                        style: AppTextStyles.bodySmall.copyWith(fontSize: 8),
+                      ),
+                    );
                   },
                 ),
               ),
               topTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false)),
+                sideTitles: SideTitles(showTitles: false),
+              ),
               rightTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false)),
+                sideTitles: SideTitles(showTitles: false),
+              ),
             ),
             borderData: FlBorderData(show: false),
             minX: 0,
-            maxX: 3,
+            maxX: maxX,
             minY: 0,
-            maxY: 5000,
+            maxY: 100,
             lineBarsData: [
               LineChartBarData(
-                spots: const [
-                  FlSpot(0, 500),
-                  FlSpot(0.5, 800),
-                  FlSpot(1, 1500),
-                  FlSpot(1.5, 1200),
-                  FlSpot(2, 2500),
-                  FlSpot(2.5, 3500),
-                  FlSpot(3, 250),
-                ],
-                isCurved: true,
+                spots: spots,
+                isCurved: _history.length > 2,
                 color: Colors.green,
                 barWidth: 2,
-                dotData: FlDotData(
-                  show: true,
-                  getDotPainter: (spot, percent, barData, index) =>
-                      FlDotCirclePainter(
-                    radius: 4,
-                    color: Colors.green,
-                    strokeWidth: 0,
-                  ),
-                ),
+                dotData: FlDotData(show: _history.length <= 20),
                 belowBarData: BarAreaData(
                   show: true,
                   gradient: LinearGradient(
@@ -180,8 +294,13 @@ class _DieselChartViewState extends State<DieselChartView> {
               touchTooltipData: LineTouchTooltipData(
                 getTooltipItems: (touchedSpots) {
                   return touchedSpots.map((spot) {
+                    final index = spot.x
+                        .round()
+                        .clamp(0, _history.length - 1)
+                        .toInt();
                     return LineTooltipItem(
-                      'Fuel: ${spot.y.toInt()} L',
+                      '${DateFormat('dd MMM HH:mm').format(_history[index].timestamp)}\n'
+                      '${spot.y.toStringAsFixed(1)}%',
                       AppTextStyles.bodySmall.copyWith(
                         color: ColorConstants.textPrimary,
                         fontWeight: FontWeight.w500,
