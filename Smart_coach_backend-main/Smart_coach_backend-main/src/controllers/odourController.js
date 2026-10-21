@@ -72,7 +72,7 @@ const odourController = {
 
     getDashboardStatus: async (req, res) => {
         try {
-            if (!rbac.isModuleAuthorized(req.user, 'odour')) {
+            if (!rbac.isModuleLocationOwner(req.user, 'odour')) {
                 return res.status(200).json({ success: true, totalCoaches: 0, data: [] });
             }
             // Admins bypass location filtering to view all system devices; non-admins are scoped to their assigned division.
@@ -93,7 +93,7 @@ const odourController = {
 
     getHistory: async (req, res) => {
         try {
-            if (!rbac.isModuleAuthorized(req.user, 'odour')) {
+            if (!rbac.isModuleLocationOwner(req.user, 'odour')) {
                 return res.status(200).json({ success: true, data: [] });
             }
             const deviceId = req.query.deviceId;

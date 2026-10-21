@@ -44,6 +44,16 @@ function isAdmin(user) {
 }
 
 /**
+ * Strict Master (role_id=1) check. Unlike isAdmin this does NOT treat
+ * Super Admin (role 2) as a global bypass, so location ownership still
+ * applies to role 2 accounts.
+ */
+function isMasterUser(user) {
+  if (!user) return false;
+  return user.role_id === 1 || user.role === 'Master' || user.role_name === 'Master';
+}
+
+/**
  * The shared tester account keeps full visibility (used by QA / demos).
  */
 function isTester(user) {
@@ -51,10 +61,12 @@ function isTester(user) {
 }
 
 /**
- * Users that must never be location-restricted (admins + tester).
+ * Users that must never be location-restricted: Master (role 1) + tester.
+ * Super Admin (role 2) is intentionally NOT included so it cannot see
+ * another location's telemetry.
  */
 function isUnrestrictedUser(user) {
-  return isAdmin(user) || (user && user.role_id === 2) || isTester(user);
+  return isMasterUser(user) || isTester(user);
 }
 
 function _normaliseLocation(value) {
