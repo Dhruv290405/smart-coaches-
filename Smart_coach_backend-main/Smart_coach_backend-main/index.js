@@ -89,11 +89,18 @@ app.get('/smart_coach_api/api', (req, res) => {
   });
 });
 
+const deployedCommit = () =>
+  process.env.RENDER_GIT_COMMIT ||
+  process.env.RAILWAY_GIT_COMMIT_SHA ||
+  process.env.GIT_COMMIT ||
+  null;
+
 app.get('/smart_coach_api/api/health', (req, res) => {
   res.json({
     success: true,
     application: 'Smart Coaches API',
     status: 'Running',
+    commit: deployedCommit(),
     timestamp: new Date().toISOString(),
   });
 });
@@ -125,6 +132,7 @@ app.get('/health', (req, res) => {
   res.status(200).json({
     status: 'ok',
     message: 'Server is running',
+    commit: deployedCommit(),
     acp: {
       envUrl: acpUrl,
       envKey: acpKey,
