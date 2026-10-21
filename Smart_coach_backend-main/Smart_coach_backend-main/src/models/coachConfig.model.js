@@ -37,7 +37,7 @@ class CoachConfigModel {
                 module_id,
                 module_unique_id,
                 module_device_mapping!left(
-                    module_device_mapping_id,
+                    id,
                     device_master!left(
                         device_id,
                         short_name,
@@ -67,7 +67,7 @@ class CoachConfigModel {
                     is_active: dev?.is_active || null,
                     module_id: mod.module_id,
                     module_unique_id: mod.module_unique_id,
-                    module_device_mapping_id: mapping?.module_device_mapping_id || null
+                    module_device_mapping_id: mapping?.id || null
                 });
             }
         }

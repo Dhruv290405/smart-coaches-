@@ -80,8 +80,9 @@ class TrainModel extends BaseModel {
     if (error) throw error;
     if (!trains || trains.length === 0) return [];
 
-    const userIds = [...new Set(trains.flatMap(t => [t.created_by, t.updated_by].filter(Boolean)))];
-    const regionIds = [...new Set(trains.flatMap(t => [t.origination_region_id, t.region_id, t.departure_station_id, t.destination_station_id].filter(Boolean)))];
+    const userIds = [...new Set(trains.flatMap(t => [t.created_by, t.updated_by].filter(v => /^\d+$/.test(String(v || '')))))];
+    const regionIds = [...new Set(trains.flatMap(t => [t.origination_region_id, t.region_id].filter(Boolean)))];
+    const stationIds = [...new Set(trains.flatMap(t => [t.departure_station_id, t.destination_station_id].filter(Boolean)))];
 
     let userMap = {};
     if (userIds.length > 0) {
@@ -89,11 +90,41 @@ class TrainModel extends BaseModel {
       for (const u of users || []) userMap[u.user_id] = u;
     }
 
+    const userName = (value) => {
+      if (value === null || value === undefined || value === '') return null;
+      const match = userMap[value];
+      if (match) return match.first_name;
+      return /^\d+$/.test(String(value)) ? null : String(value);
+    };
+
+    const numericRegionIds = regionIds.filter(id => /^\d+$/.test(String(id))).map(Number);
+    const numericStationIds = stationIds.filter(id => /^\d+$/.test(String(id))).map(Number);
+
     let regionMap = {};
-    if (regionIds.length > 0) {
-      const { data: regions } = await supabaseAdmin.from('region_master').select('region_id, name').in('region_id', regionIds);
+    if (numericRegionIds.length > 0) {
+      const { data: regions, error } = await supabaseAdmin
+        .from('region_master')
+        .select('region_id, name')
+        .in('region_id', numericRegionIds);
+      if (error) throw error;
       for (const r of regions || []) regionMap[r.region_id] = r;
     }
+
+    let stationMap = {};
+    if (numericStationIds.length > 0) {
+      const { data: stations, error } = await supabaseAdmin
+        .from('stations')
+        .select('region_id, name')
+        .in('region_id', numericStationIds);
+      if (error) throw error;
+      for (const st of stations || []) stationMap[st.region_id] = st;
+    }
+
+    const stationName = (id) => {
+      if (id === null || id === undefined || id === '') return null;
+      const match = stationMap[id] || regionMap[id];
+      return match ? match.name : String(id);
+    };
 
     const trainIds = trains.map(t => t.train_id);
     let coachesByTrain = {};
@@ -121,17 +152,18 @@ class TrainModel extends BaseModel {
           region_id: t.region_id,
           departure_station_id: t.departure_station_id,
           destination_station_id: t.destination_station_id,
+          no_of_coaches: t.no_of_coaches != null ? t.no_of_coaches : coaches.length,
           line: t.line,
           train_operator: t.train_operator,
           engine_number: t.engine_number,
           created_at: t.created_at,
           updated_at: t.updated_at,
-          created_by: t.created_by ? (userMap[t.created_by] ? userMap[t.created_by].first_name : null) : null,
-          updated_by: t.updated_by ? (userMap[t.updated_by] ? userMap[t.updated_by].first_name : null) : null,
+          created_by: userName(t.created_by),
+          updated_by: userName(t.updated_by),
           origination_region_name: t.origination_region_id ? (regionMap[t.origination_region_id] ? regionMap[t.origination_region_id].name : null) : null,
           region_name: t.region_id ? (regionMap[t.region_id] ? regionMap[t.region_id].name : null) : null,
-          departure_station_name: t.departure_station_id ? (regionMap[t.departure_station_id] ? regionMap[t.departure_station_id].name : null) : null,
-          destination_station_name: t.destination_station_id ? (regionMap[t.destination_station_id] ? regionMap[t.destination_station_id].name : null) : null,
+          departure_station_name: stationName(t.departure_station_id),
+          destination_station_name: stationName(t.destination_station_id),
           coach_id: c.coach_id,
           coach_unique_id: c.coach_unique_id,
           coach_display_id: c.coach_display_id,
@@ -148,17 +180,18 @@ class TrainModel extends BaseModel {
           region_id: t.region_id,
           departure_station_id: t.departure_station_id,
           destination_station_id: t.destination_station_id,
+          no_of_coaches: t.no_of_coaches != null ? t.no_of_coaches : coaches.length,
           line: t.line,
           train_operator: t.train_operator,
           engine_number: t.engine_number,
           created_at: t.created_at,
           updated_at: t.updated_at,
-          created_by: t.created_by ? (userMap[t.created_by] ? userMap[t.created_by].first_name : null) : null,
-          updated_by: t.updated_by ? (userMap[t.updated_by] ? userMap[t.updated_by].first_name : null) : null,
+          created_by: userName(t.created_by),
+          updated_by: userName(t.updated_by),
           origination_region_name: t.origination_region_id ? (regionMap[t.origination_region_id] ? regionMap[t.origination_region_id].name : null) : null,
           region_name: t.region_id ? (regionMap[t.region_id] ? regionMap[t.region_id].name : null) : null,
-          departure_station_name: t.departure_station_id ? (regionMap[t.departure_station_id] ? regionMap[t.departure_station_id].name : null) : null,
-          destination_station_name: t.destination_station_id ? (regionMap[t.destination_station_id] ? regionMap[t.destination_station_id].name : null) : null,
+          departure_station_name: stationName(t.departure_station_id),
+          destination_station_name: stationName(t.destination_station_id),
           coach_id: null,
           coach_unique_id: null,
           coach_display_id: null,

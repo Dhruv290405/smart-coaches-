@@ -66,7 +66,10 @@ class Sensor_configModel extends BaseModel {
         location,
         remarks,
         master_module_id,
-        coach_id
+        coach_id,
+        status: 'ONLINE',
+        created_at: new Date().toISOString(),
+        is_active: 1
       }])
       .select();
 
@@ -90,6 +93,8 @@ class Sensor_configModel extends BaseModel {
       comm_coach_no: r.device_master ? r.device_master.comm_coach_no || '' : '',
       train_no: r.device_master ? r.device_master.train_no || '' : '',
       train_location: r.device_master ? r.device_master.train_location || '' : '',
+      status: r.status || (r.is_active ? 'ONLINE' : 'OFFLINE'),
+      created_at: r.created_at || r.install_date || null,
       device_master: undefined
     }));
   }

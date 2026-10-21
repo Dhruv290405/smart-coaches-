@@ -23,6 +23,13 @@ import 'package:smart_coach_new/features/configuration/train_configuration/prese
 import 'package:smart_coach_new/features/drop_down_value/data/models/region_list_response.dart';
 import 'package:smart_coach_new/features/drop_down_value/data/models/station_list_response.dart';
 
+int? _asInt(dynamic value) {
+  if (value == null) return null;
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  return int.tryParse(value.toString().trim());
+}
+
 class CoachConfig {
   String? uniqueNumber;
   String? entityType;
@@ -90,10 +97,10 @@ class _ConfigureTrainState extends State<ConfigureTrain> {
     trainNameController.text = item.trainName ?? '';
     engineNumberController.text = item.engineNumber ?? '';
 
-    selectedOriginationRegionId = item.originationRegionId;
-    selectedRegionId = item.regionId;
-    selectedDepartureStationId = item.departureStationId;
-    selectedDestinationStationId = item.destinationStationId;
+    selectedOriginationRegionId = _asInt(item.originationRegionId);
+    selectedRegionId = _asInt(item.regionId);
+    selectedDepartureStationId = _asInt(item.departureStationId);
+    selectedDestinationStationId = _asInt(item.destinationStationId);
     selectedLine = item.line;
     selectedTrainOperator = item.trainOperator;
 
@@ -103,7 +110,7 @@ class _ConfigureTrainState extends State<ConfigureTrain> {
         final updated = CoachConfig()
           ..uniqueNumber = coachEntity.coachUniqueId
           ..displayId = coachEntity.coachDisplayId
-          ..position = coachEntity.position
+          ..position = _asInt(coachEntity.position)
           ..entityType = coachEntity.entityType;
 
         coaches?.add(updated);
@@ -587,10 +594,10 @@ class _ConfigureTrainState extends State<ConfigureTrain> {
       setState(() {
         trainNameController.text = existingTrain.trainName ?? '';
         engineNumberController.text = existingTrain.engineNumber ?? '';
-        selectedOriginationRegionId = existingTrain.originationRegionId;
-        selectedRegionId = existingTrain.regionId;
-        selectedDepartureStationId = existingTrain.departureStationId;
-        selectedDestinationStationId = existingTrain.destinationStationId;
+        selectedOriginationRegionId = _asInt(existingTrain.originationRegionId);
+        selectedRegionId = _asInt(existingTrain.regionId);
+        selectedDepartureStationId = _asInt(existingTrain.departureStationId);
+        selectedDestinationStationId = _asInt(existingTrain.destinationStationId);
         selectedLine = existingTrain.line;
         selectedTrainOperator = existingTrain.trainOperator;
 
@@ -598,7 +605,7 @@ class _ConfigureTrainState extends State<ConfigureTrain> {
           coaches = existingTrain.coaches!.map((c) => CoachConfig()
             ..uniqueNumber = c.coachUniqueId
             ..displayId = c.coachDisplayId
-            ..position = c.position
+            ..position = _asInt(c.position)
             ..entityType = c.entityType).toList();
         }
       });

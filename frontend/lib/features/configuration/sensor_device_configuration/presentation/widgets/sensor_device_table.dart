@@ -231,13 +231,14 @@ class TableDataSource extends DataGridSource {
             value: coachItem.location ?? emptyText),
         DataGridCell<String>(
             columnName: 'Status',
-            value: coachItem.status ?? emptyText),
+            value: coachItem.status ??
+                (coachItem.isActive == true ? 'ONLINE' : 'OFFLINE')),
         DataGridCell<String>(
             columnName: 'Install Date',
             value: coachItem.installDate ?? emptyText),
         DataGridCell<String>(
             columnName: 'Created',
-            value: coachItem.createdAt ?? emptyText),
+            value: coachItem.createdAt ?? coachItem.installDate ?? emptyText),
         DataGridCell<String>(columnName: 'Actions', value: null),
       ]);
     }).toList();
