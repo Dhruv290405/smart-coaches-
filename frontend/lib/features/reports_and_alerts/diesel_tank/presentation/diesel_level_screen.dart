@@ -333,7 +333,6 @@
 //   }
 // }
 
-
 import 'package:flutter/material.dart';
 import 'package:smart_coach_new/core/network/api_constants.dart';
 import 'package:smart_coach_new/core/widgets/view_type_selector.dart';
@@ -365,9 +364,11 @@ class DieselLevelScreen extends StatefulWidget {
 }
 
 class _DieselLevelScreenState extends State<DieselLevelScreen> {
-  final DieselDataService _dataService = DieselDataService(baseUrl: ApiConstants.devUrl);
+  final DieselDataService _dataService = DieselDataService(
+    baseUrl: ApiConstants.devUrl,
+  );
   String selectedTrainNumber = 'All';
-  String selectedLocoNumber = 'All Locos'; 
+  String selectedLocoNumber = 'All Locos';
   String selectedStatus = 'All';
   String selectedViewType = 'Diesel Tanks';
   List<DieselTankModel> _allTanks = [];
@@ -392,14 +393,24 @@ class _DieselLevelScreenState extends State<DieselLevelScreen> {
 
   List<DieselTankModel> get _filteredTanks {
     return _allTanks.where((t) {
-      if (selectedStatus != 'All' && t.status.toLowerCase() != selectedStatus.toLowerCase()) return false;
-      if (selectedLocoNumber != 'All Locos' && t.locoNumber != selectedLocoNumber) return false;
-      if (selectedTrainNumber != 'All' && t.trainName != selectedTrainNumber) return false;
+      if (selectedStatus != 'All' &&
+          t.status.toLowerCase() != selectedStatus.toLowerCase()) {
+        return false;
+      }
+      if (selectedLocoNumber != 'All Locos' &&
+          t.locoNumber != selectedLocoNumber) {
+        return false;
+      }
+      if (selectedTrainNumber != 'All' &&
+          t.trainName != selectedTrainNumber) {
+        return false;
+      }
       return true;
     }).toList();
   }
 
-  DieselTankModel? get _selectedTank => _filteredTanks.isNotEmpty ? _filteredTanks.first : null;
+  DieselTankModel? get _selectedTank =>
+      _filteredTanks.isNotEmpty ? _filteredTanks.first : null;
 
   @override
   void initState() {
@@ -417,9 +428,13 @@ class _DieselLevelScreenState extends State<DieselLevelScreen> {
         trainName: '12615/6 Grand Trunk Express',
         percentage: 75,
         status: 'Good',
-        height: 180, width: 120, length: 220,
-        capacity: 5000, consumptionRate: 400,
-        estimatedRunTime: 8.5, rangeLeft: 950,
+        height: 180,
+        width: 120,
+        length: 220,
+        capacity: 5000,
+        consumptionRate: 400,
+        estimatedRunTime: 8.5,
+        rangeLeft: 950,
         refilledBy: 'Ramesh Kumar',
         lastUpdated: now,
       ),
@@ -430,9 +445,13 @@ class _DieselLevelScreenState extends State<DieselLevelScreen> {
         trainName: '12617/8 Mangala Express',
         percentage: 25,
         status: 'Warning',
-        height: 180, width: 120, length: 220,
-        capacity: 5000, consumptionRate: 400,
-        estimatedRunTime: 2.5, rangeLeft: 300,
+        height: 180,
+        width: 120,
+        length: 220,
+        capacity: 5000,
+        consumptionRate: 400,
+        estimatedRunTime: 2.5,
+        rangeLeft: 300,
         refilledBy: 'Suresh Singh',
         lastUpdated: now.subtract(const Duration(hours: 2)),
       ),
@@ -443,9 +462,13 @@ class _DieselLevelScreenState extends State<DieselLevelScreen> {
         trainName: '12619/0 Matsyagandha Express',
         percentage: 10,
         status: 'Critical',
-        height: 180, width: 120, length: 220,
-        capacity: 5000, consumptionRate: 400,
-        estimatedRunTime: 1.0, rangeLeft: 120,
+        height: 180,
+        width: 120,
+        length: 220,
+        capacity: 5000,
+        consumptionRate: 400,
+        estimatedRunTime: 1.0,
+        rangeLeft: 120,
         refilledBy: 'Amit Verma',
         lastUpdated: now.subtract(const Duration(hours: 5)),
       ),
@@ -509,10 +532,7 @@ class _DieselLevelScreenState extends State<DieselLevelScreen> {
         leadingWidth: 40,
         leading: IconButton(
           padding: EdgeInsets.zero,
-          icon: const Icon(
-            Icons.arrow_back,
-            color: ColorConstants.textPrimary,
-          ),
+          icon: const Icon(Icons.arrow_back, color: ColorConstants.textPrimary),
           onPressed: () {
             Navigator.pop(context);
           },
@@ -527,8 +547,7 @@ class _DieselLevelScreenState extends State<DieselLevelScreen> {
             child: Padding(
               padding: const EdgeInsets.only(right: 16),
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: ColorConstants.white,
                   borderRadius: BorderRadius.circular(8),
@@ -545,92 +564,120 @@ class _DieselLevelScreenState extends State<DieselLevelScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _errorMessage != null
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.cloud_off, size: 48, color: ColorConstants.textSecondary),
-                        const SizedBox(height: 16),
-                        Text('Unable to load data', style: AppTextStyles.header2),
-                        const SizedBox(height: 8),
-                        Text(_errorMessage!, style: AppTextStyles.bodySmall, textAlign: TextAlign.center),
-                        const SizedBox(height: 16),
-                        ElevatedButton(onPressed: _loadData, child: const Text('Retry')),
-                      ],
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.cloud_off,
+                      size: 48,
+                      color: ColorConstants.textSecondary,
                     ),
-                  ),
-                )
-              : _allTanks.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.inbox_outlined, size: 48, color: ColorConstants.textSecondary),
-                          const SizedBox(height: 16),
-                          Text('No diesel tank data available', style: AppTextStyles.header2),
-                        ],
+                    const SizedBox(height: 16),
+                    Text('Unable to load data', style: AppTextStyles.header2),
+                    const SizedBox(height: 8),
+                    Text(
+                      _errorMessage!,
+                      style: AppTextStyles.bodySmall,
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: _loadData,
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          : SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(AppDimensions.paddingLarge),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (_filteredTanks.length > 1)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(
+                          '${_filteredTanks.length} tank(s) matching filters',
+                          style: AppTextStyles.bodySmall.copyWith(
+                            color: ColorConstants.primary,
+                          ),
+                        ),
                       ),
-                    )
-                  : SingleChildScrollView(
-                      child: Padding(
-                        padding: const EdgeInsets.all(AppDimensions.paddingLarge),
+                    _buildSectionCard(child: _buildFiltersSection()),
+                    const SizedBox(height: 8),
+
+                    _buildSectionCard(child: _buildQuickActionsSection()),
+                    const SizedBox(height: 8),
+
+                    _buildSectionCard(child: _buildViewTypeSection()),
+                    const SizedBox(height: 8),
+
+                    if (_filteredTanks.isEmpty)
+                      _buildSectionCard(child: _buildEmptyState())
+                    else if (selectedViewType == 'Diesel Tanks') ...[
+                      _buildSectionCard(
+                        child: DieselTankView(tank: _selectedTank!),
+                      ),
+                      const SizedBox(height: 16),
+                      _buildSectionCard(
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            if (_filteredTanks.length > 1)
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 8),
-                                child: Text(
-                                  '${_filteredTanks.length} tank(s) matching filters',
-                                  style: AppTextStyles.bodySmall.copyWith(color: ColorConstants.primary),
-                                ),
-                              ),
-                            _buildSectionCard(child: _buildFiltersSection()),
-                            const SizedBox(height: 8),
-
-                            _buildSectionCard(child: _buildQuickActionsSection()),
-                            const SizedBox(height: 8),
-
-                            _buildSectionCard(child: _buildViewTypeSection()),
-                            const SizedBox(height: 8),
-
-                            if (_selectedTank != null) ...[
-                              if (selectedViewType == 'Diesel Tanks') ...[
-                                _buildSectionCard(child: DieselTankView(tank: _selectedTank!)),
-                                const SizedBox(height: 16),
-                                _buildSectionCard(
-                                  child: Column(
-                                    children: [
-                                      TankInfoSection(
-                                        title: AppStrings.dieselTankInfo,
-                                        tank: _selectedTank!,
-                                      ),
-                                      const SizedBox(height: 20),
-                                      ViewHistoryButton(
-                                        onPressed: () {
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (_) =>
-                                                  DieselTankHistory(tank: _selectedTank!),
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                    ],
+                            TankInfoSection(
+                              title: AppStrings.dieselTankInfo,
+                              tank: _selectedTank!,
+                            ),
+                            const SizedBox(height: 20),
+                            ViewHistoryButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        DieselTankHistory(tank: _selectedTank!),
                                   ),
-                                ),
-                              ] else if (selectedViewType == 'Chart View')
-                                _buildSectionCard(child: DieselChartView(tank: _selectedTank!))
-                              else if (selectedViewType == 'Alerts')
-                                _buildSectionCard(child: const DieselAlertsView()),
-                            ],
+                                );
+                              },
+                            ),
                           ],
                         ),
                       ),
-                    ),
+                    ] else if (selectedViewType == 'Chart View')
+                      _buildSectionCard(
+                        child: DieselChartView(tank: _selectedTank!),
+                      )
+                    else if (selectedViewType == 'Alerts')
+                      _buildSectionCard(
+                        child: DieselAlertsView(tanks: _filteredTanks),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 24),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.inbox_outlined,
+              size: 48,
+              color: ColorConstants.textSecondary,
+            ),
+            const SizedBox(height: 16),
+            Text('No diesel tank data available', style: AppTextStyles.header2),
+          ],
+        ),
+      ),
     );
   }
 
@@ -655,7 +702,9 @@ class _DieselLevelScreenState extends State<DieselLevelScreen> {
           children: [
             Text(
               AppStrings.filters,
-              style: AppTextStyles.header2.copyWith(color: ColorConstants.primary),
+              style: AppTextStyles.header2.copyWith(
+                color: ColorConstants.primary,
+              ),
             ),
             GestureDetector(
               onTap: _clearFilters,
@@ -667,7 +716,11 @@ class _DieselLevelScreenState extends State<DieselLevelScreen> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.clear_all, size: 14, color: ColorConstants.primary),
+                    const Icon(
+                      Icons.clear_all,
+                      size: 14,
+                      color: ColorConstants.primary,
+                    ),
                     const SizedBox(width: 4),
                     Text(
                       'Clear Filters',
@@ -767,25 +820,34 @@ class _DieselLevelScreenState extends State<DieselLevelScreen> {
               ),
             ),
             const SizedBox(width: 8),
-              Expanded(
-                child: ActionButton(
-                  label: AppStrings.generateReport,
-                  svgIcon: AppIcons.report,
-                  onTap: _generateReport,
-                  isFullWidth: true,
-                ),
+            Expanded(
+              child: ActionButton(
+                label: AppStrings.generateReport,
+                svgIcon: AppIcons.report,
+                onTap: _generateReport,
+                isFullWidth: true,
               ),
+            ),
             const SizedBox(width: 8),
             GestureDetector(
               onTap: _refreshData,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
                   color: ColorConstants.cardBackground,
-                  borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
+                  borderRadius: BorderRadius.circular(
+                    AppDimensions.radiusMedium,
+                  ),
                   border: Border.all(color: ColorConstants.divider),
                 ),
-                child: const Icon(Icons.refresh, size: 18, color: ColorConstants.iconGrey),
+                child: const Icon(
+                  Icons.refresh,
+                  size: 18,
+                  color: ColorConstants.iconGrey,
+                ),
               ),
             ),
           ],
@@ -807,8 +869,7 @@ class _DieselLevelScreenState extends State<DieselLevelScreen> {
                 label: AppStrings.dieselTanks,
                 svgIcon: AppIcons.waterDrop,
                 isSelected: selectedViewType == 'Diesel Tanks',
-                onTap: () =>
-                    setState(() => selectedViewType = 'Diesel Tanks'),
+                onTap: () => setState(() => selectedViewType = 'Diesel Tanks'),
               ),
             ),
             const SizedBox(width: 8),
@@ -817,8 +878,7 @@ class _DieselLevelScreenState extends State<DieselLevelScreen> {
                 label: AppStrings.chartView,
                 svgIcon: AppIcons.graph,
                 isSelected: selectedViewType == 'Chart View',
-                onTap: () =>
-                    setState(() => selectedViewType = 'Chart View'),
+                onTap: () => setState(() => selectedViewType = 'Chart View'),
               ),
             ),
             const SizedBox(width: 8),
