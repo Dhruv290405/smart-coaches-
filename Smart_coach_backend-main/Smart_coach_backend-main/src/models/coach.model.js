@@ -6,6 +6,58 @@ class CoachModel extends BaseModel {
     super("coaches");
   }
 
+  async _resolveMake(make) {
+    const raw = make === null || make === undefined ? "" : String(make).trim();
+    if (raw === "" || ["null", "undefined"].includes(raw.toLowerCase())) {
+      return { id: null, name: null };
+    }
+
+    const numericId = Number(raw);
+    if (Number.isInteger(numericId) && numericId > 0) {
+      const { data } = await supabaseAdmin
+        .from("coach_make")
+        .select("id, name")
+        .eq("id", numericId)
+        .maybeSingle();
+      if (data) return { id: data.id, name: data.name };
+      return { id: numericId, name: null };
+    }
+
+    const { data } = await supabaseAdmin
+      .from("coach_make")
+      .select("id, name")
+      .ilike("name", raw)
+      .maybeSingle();
+    if (data) return { id: data.id, name: data.name };
+    return { id: null, name: raw };
+  }
+
+  async _resolveType(type) {
+    const raw = type === null || type === undefined ? "" : String(type).trim();
+    if (raw === "" || ["null", "undefined"].includes(raw.toLowerCase())) {
+      return { id: null, code: null };
+    }
+
+    const numericId = Number(raw);
+    if (Number.isInteger(numericId) && numericId > 0) {
+      const { data } = await supabaseAdmin
+        .from("coach_type")
+        .select("id, code")
+        .eq("id", numericId)
+        .maybeSingle();
+      if (data) return { id: data.id, code: data.code };
+      return { id: numericId, code: null };
+    }
+
+    const { data } = await supabaseAdmin
+      .from("coach_type")
+      .select("id, code")
+      .ilike("code", raw)
+      .maybeSingle();
+    if (data) return { id: data.id, code: data.code };
+    return { id: null, code: raw };
+  }
+
   async createCoach(data) {
     const created_date = new Date().toISOString();
 
@@ -19,14 +71,19 @@ class CoachModel extends BaseModel {
       throw new Error(`Coach with unique ID "${data.coach_unique_id}" already exists.`);
     }
 
+    const make = await this._resolveMake(data.make_of_coach);
+    const type = await this._resolveType(data.type_of_coach);
+
     const { data: coachData, error: coachError } = await supabaseAdmin
       .from("coach_master")
       .insert([{
         entity_type: data.entity_type,
         coach_unique_id: data.coach_unique_id,
         coach_display_id: data.coach_display_id,
-        make_of_coach: data.make_of_coach,
-        type_of_coach: data.type_of_coach,
+        make_of_coach_id: make.id,
+        make_of_coach_name: make.name,
+        type_of_coach_id: type.id,
+        type_of_coach_code: type.code,
         manufacturing_year: data.manufacturing_year,
         no_of_master_module: data.no_of_master_module,
         coach_status: data.coach_status,
@@ -52,14 +109,19 @@ class CoachModel extends BaseModel {
       throw new Error(`Coach Unique ID "${data.coach_unique_id}" is already used by another coach.`);
     }
 
+    const make = await this._resolveMake(data.make_of_coach);
+    const type = await this._resolveType(data.type_of_coach);
+
     const { error: updError } = await supabaseAdmin
       .from("coach_master")
       .update({
         entity_type: data.entity_type,
         coach_unique_id: data.coach_unique_id,
         coach_display_id: data.coach_display_id,
-        make_of_coach: data.make_of_coach,
-        type_of_coach: data.type_of_coach,
+        make_of_coach_id: make.id,
+        make_of_coach_name: make.name,
+        type_of_coach_id: type.id,
+        type_of_coach_code: type.code,
         manufacturing_year: data.manufacturing_year,
         position: data.position,
         no_of_master_module: data.no_of_master_module,
@@ -135,8 +197,8 @@ class CoachModel extends BaseModel {
     if (error) throw new Error("Failed to fetch coaches: " + error.message);
     if (!rows || rows.length === 0) return [];
 
-    const makeIds = [...new Set(rows.filter(r => r.make_of_coach).map(r => r.make_of_coach))];
-    const typeIds = [...new Set(rows.filter(r => r.type_of_coach).map(r => r.type_of_coach))];
+    const makeIds = [...new Set(rows.map(r => r.make_of_coach_id).filter(Boolean))];
+    const typeIds = [...new Set(rows.map(r => r.type_of_coach_id).filter(Boolean))];
     const userIds = [...new Set(rows.flatMap(r => [r.created_by, r.updated_by].filter(Boolean)))];
 
     let makeMap = {};
@@ -187,10 +249,10 @@ class CoachModel extends BaseModel {
         updated_by: c.updated_by,
         updated_by_name: c.updated_by ? (userMap[c.updated_by] ? userMap[c.updated_by].first_name : null) : null,
         updated_date: c.updated_date,
-        make_of_coach_name: c.make_of_coach ? (makeMap[c.make_of_coach] ? makeMap[c.make_of_coach].name : '') : '',
-        make_of_coach_id: c.make_of_coach,
-        type_of_coach_code: c.type_of_coach ? (typeMap[c.type_of_coach] ? typeMap[c.type_of_coach].code : '') : '',
-        type_of_coach_id: c.type_of_coach,
+        make_of_coach_name: c.make_of_coach_name || (c.make_of_coach_id && makeMap[c.make_of_coach_id] ? makeMap[c.make_of_coach_id].name : '') || '',
+        make_of_coach_id: c.make_of_coach_id,
+        type_of_coach_code: c.type_of_coach_code || (c.type_of_coach_id && typeMap[c.type_of_coach_id] ? typeMap[c.type_of_coach_id].code : '') || '',
+        type_of_coach_id: c.type_of_coach_id,
         master_module_ids: modules.map(mm => mm.module_unique_id).join(', '),
         master_module_locations: modules.map(mm => mm.location).join(', ')
       };
