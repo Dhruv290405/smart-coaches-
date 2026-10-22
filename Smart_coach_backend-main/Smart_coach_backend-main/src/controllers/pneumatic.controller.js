@@ -76,7 +76,7 @@ exports.getBreakBindingData = async (req, res) => {
         return forwardToOldBackend(req, res, '/pneumatic/status');
     }
     try {
-        const filterDeviceId = req.query.deviceId || null; 
+        let filterDeviceId = req.query.deviceId || null; 
         const historyLimit = Math.min(parseInt(req.query.limit) || 10000, 10000); 
         const historyOffset = parseInt(req.query.offset) || 0;
         
