@@ -31,7 +31,6 @@ class OdourWashroomDetailsView extends StatelessWidget {
         return ColorConstants.statusWarning;
       case 'critical': 
       case 'bad':
-      case 'hot':
       case 'humid':
         return ColorConstants.statusCritical;
       default: return ColorConstants.iconGrey;
@@ -277,7 +276,7 @@ class OdourWashroomDetailsView extends StatelessWidget {
                   fit: BoxFit.scaleDown,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: Text('${value.toStringAsFixed(2)}', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w800, color: color)),
+                    child: Text(value.toStringAsFixed(2), style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w800, color: color)),
                   ),
                 ),
               ),
@@ -482,6 +481,7 @@ class _HistoryChart extends StatefulWidget {
 
 class _HistoryChartState extends State<_HistoryChart> {
   List<OdourHistoryPoint> _points = [];
+  List<DateTime> _times = [];
   bool _loading = true;
   String _error = '';
 
@@ -494,9 +494,20 @@ class _HistoryChartState extends State<_HistoryChart> {
   Future<void> _load() async {
     try {
       final data = await OdourRepository().getOdourHistory(widget.toilet.deviceId, widget.toilet.section);
+      final parsed = <MapEntry<OdourHistoryPoint, DateTime>>[];
+      for (final point in data) {
+        final time = DateTime.tryParse(point.timestamp);
+        if (time != null) parsed.add(MapEntry(point, time.toLocal()));
+      }
+      parsed.sort((a, b) => a.value.compareTo(b.value));
+
+      final points = parsed.isEmpty ? data : parsed.map((e) => e.key).toList();
+      final times = parsed.isEmpty ? <DateTime>[] : parsed.map((e) => e.value).toList();
+
       if (mounted) {
         setState(() {
-          _points = data;
+          _points = points;
+          _times = times;
           _loading = false;
         });
       }
@@ -505,12 +516,25 @@ class _HistoryChartState extends State<_HistoryChart> {
     }
   }
 
-  String _fmt(String ts) {
-    try {
-      return DateFormat('dd MMM HH:mm').format(DateTime.parse(ts).toLocal());
-    } catch (_) {
-      return ts;
+  List<double> get _xValues => _times.length == _points.length
+      ? _times.map((t) => t.millisecondsSinceEpoch.toDouble()).toList()
+      : List<double>.generate(_points.length, (i) => i.toDouble());
+
+  String _fmtAt(double x, List<double> xs) {
+    if (_times.length != _points.length || _times.isEmpty) {
+      final idx = x.round().clamp(0, _points.length - 1).toInt();
+      return _points[idx].timestamp;
     }
+    int nearest = 0;
+    double best = double.infinity;
+    for (var i = 0; i < xs.length; i++) {
+      final delta = (xs[i] - x).abs();
+      if (delta < best) {
+        best = delta;
+        nearest = i;
+      }
+    }
+    return DateFormat('dd MMM\nHH:mm').format(_times[nearest]);
   }
 
   @override
@@ -532,39 +556,68 @@ class _HistoryChartState extends State<_HistoryChart> {
             ),
           )
         else
-          SizedBox(
-            height: 220,
-            child: LineChart(
-              LineChartData(
-                gridData: FlGridData(show: true, drawVerticalLine: false),
-                titlesData: FlTitlesData(
-                  leftTitles: AxisTitles(
-                    sideTitles: SideTitles(showTitles: true, reservedSize: 36, getTitlesWidget: (v, _) => Text(v.toInt().toString(), style: GoogleFonts.poppins(fontSize: 9, color: ColorConstants.textTertiary))),
-                  ),
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 28,
-                      interval: (_points.length / 4).ceilToDouble().clamp(1, 1000),
-                      getTitlesWidget: (v, _) {
-                        final idx = v.toInt();
-                        if (idx < 0 || idx >= _points.length) return const Text('');
-                        return Text(_fmt(_points[idx].timestamp), style: GoogleFonts.poppins(fontSize: 8, color: ColorConstants.textTertiary));
-                      },
+          Builder(
+            builder: (context) {
+              final xs = _xValues;
+              final firstX = xs.first;
+              final lastX = xs.length > 1 ? xs.last : firstX + 1;
+              final span = lastX - firstX;
+              return SizedBox(
+                height: 220,
+                child: LineChart(
+                  LineChartData(
+                    minX: firstX,
+                    maxX: lastX,
+                    minY: 0,
+                    clipData: const FlClipData.all(),
+                    gridData: FlGridData(show: true, drawVerticalLine: false),
+                    titlesData: FlTitlesData(
+                      leftTitles: AxisTitles(
+                        sideTitles: SideTitles(showTitles: true, reservedSize: 36, getTitlesWidget: (v, _) => Text(v.toInt().toString(), style: GoogleFonts.poppins(fontSize: 9, color: ColorConstants.textTertiary))),
+                      ),
+                      bottomTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 30,
+                          interval: span > 0 ? span / 4 : 1,
+                          getTitlesWidget: (v, _) {
+                            if (v < firstX || v > lastX) return const Text('');
+                            return Text(
+                              _fmtAt(v, xs),
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.poppins(fontSize: 8, color: ColorConstants.textTertiary),
+                            );
+                          },
+                        ),
+                      ),
+                      rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                      topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    ),
+                    lineBarsData: [
+                      _line(_points.map((p) => p.voc).toList(), xs, const Color(0xFF7C3AED), 'VOC'),
+                      _line(_points.map((p) => p.nh3).toList(), xs, const Color(0xFF2563EB), 'NH₃'),
+                      _line(_points.map((p) => p.h2s).toList(), xs, const Color(0xFFDC2626), 'H₂S'),
+                      _line(_points.map((p) => p.temperature).toList(), xs, const Color(0xFF059669), 'Temp'),
+                    ],
+                    lineTouchData: LineTouchData(
+                      enabled: true,
+                      touchTooltipData: LineTouchTooltipData(
+                        getTooltipItems: (items) => items.map((item) {
+                          return LineTooltipItem(
+                            '${_fmtAt(item.x, xs)}\n${item.y.toStringAsFixed(1)}',
+                            TextStyle(
+                              color: item.bar.color ?? Colors.black87,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          );
+                        }).toList(),
+                      ),
                     ),
                   ),
-                  rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
                 ),
-                lineBarsData: [
-                  _line(_points.map((p) => p.voc).toList(), const Color(0xFF7C3AED), 'VOC'),
-                  _line(_points.map((p) => p.nh3).toList(), const Color(0xFF2563EB), 'NH₃'),
-                  _line(_points.map((p) => p.h2s).toList(), const Color(0xFFDC2626), 'H₂S'),
-                  _line(_points.map((p) => p.temperature).toList(), const Color(0xFF059669), 'Temp'),
-                ],
-                lineTouchData: LineTouchData(enabled: true),
-              ),
-            ),
+              );
+            },
           ),
         if (_points.isNotEmpty) ...[
           const SizedBox(height: 8),
@@ -583,10 +636,13 @@ class _HistoryChartState extends State<_HistoryChart> {
     );
   }
 
-  LineChartBarData _line(List<double> values, Color color, String key) {
+  LineChartBarData _line(List<double> values, List<double> xs, Color color, String key) {
     return LineChartBarData(
-      spots: values.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value)).toList(),
-      isCurved: true,
+      spots: List<FlSpot>.generate(
+        values.length,
+        (i) => FlSpot(xs[i], values[i] < 0 ? 0 : values[i]),
+      ),
+      isCurved: false,
       color: color,
       barWidth: 2,
       dotData: FlDotData(show: false),

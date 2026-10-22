@@ -7,6 +7,8 @@ import 'package:intl/intl.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:open_file/open_file.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
 import 'package:smart_coach_new/core/utils/device_id_mapper.dart';
 import '../data/models/pneumatic_status_model.dart';
 import 'bloc/brake_binding_event.dart';
@@ -162,6 +164,28 @@ class _BrakeBindingHistoryScreenState extends State<BrakeBindingHistoryScreen> w
                     );
                   },
                 ),
+                AnimatedBuilder(
+                  animation: _tabController,
+                  builder: (ctx, _) {
+                    final isHistoryTab = _tabController.index == 0;
+                    final history = state.historyPneumaticStatus?.history?.data ?? [];
+                    final faults = state.historyPneumaticStatus?.activeFaults ?? [];
+                    final isEmpty = isHistoryTab ? history.isEmpty : faults.isEmpty;
+                    return IconButton(
+                      tooltip: 'Download PDF',
+                      icon: const Icon(Icons.picture_as_pdf, color: Color(0xFFDC2626)),
+                      onPressed: isEmpty
+                          ? null
+                          : () {
+                              if (isHistoryTab) {
+                                _pickAndDownloadPdf(history);
+                              } else {
+                                _downloadFaultsPdf(faults);
+                              }
+                            },
+                    );
+                  },
+                ),
                 const SizedBox(width: 8),
               ],
               bottom: TabBar(
@@ -242,7 +266,7 @@ class _BrakeBindingHistoryScreenState extends State<BrakeBindingHistoryScreen> w
     );
   }
 
-  Future<void> _pickAndDownloadExcel(List<PneumaticHistoryData> allHistory) async {
+  Future<(DateTimeRange, List<PneumaticHistoryData>)?> _pickHistoryForExport() async {
     DateTimeRange? range = _selectedDateRange;
 
     if (range == null) {
@@ -266,7 +290,7 @@ class _BrakeBindingHistoryScreenState extends State<BrakeBindingHistoryScreen> w
       );
     }
 
-    if (range == null) return;
+    if (range == null) return null;
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -288,7 +312,6 @@ class _BrakeBindingHistoryScreenState extends State<BrakeBindingHistoryScreen> w
       final fromDate = DateFormat('yyyy-MM-dd').format(range.start);
       final toDate = DateFormat('yyyy-MM-dd').format(range.end);
 
-      // Fetch full data from API with date params and high limit
       final response = await _bloc.breakBindingUsecases.getPneumaticStatus(
         deviceId: _selectedDeviceId,
         fromDate: fromDate,
@@ -306,10 +329,10 @@ class _BrakeBindingHistoryScreenState extends State<BrakeBindingHistoryScreen> w
             const SnackBar(content: Text('No data found for selected date range'), backgroundColor: Colors.orange),
           );
         }
-        return;
+        return null;
       }
 
-      await _buildAndSaveExcel(fetched, range);
+      return (range, fetched);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
@@ -317,7 +340,20 @@ class _BrakeBindingHistoryScreenState extends State<BrakeBindingHistoryScreen> w
           SnackBar(content: Text('Download failed: $e'), backgroundColor: Colors.red),
         );
       }
+      return null;
     }
+  }
+
+  Future<void> _pickAndDownloadExcel(List<PneumaticHistoryData> allHistory) async {
+    final picked = await _pickHistoryForExport();
+    if (picked == null) return;
+    await _buildAndSaveExcel(picked.$2, picked.$1);
+  }
+
+  Future<void> _pickAndDownloadPdf(List<PneumaticHistoryData> allHistory) async {
+    final picked = await _pickHistoryForExport();
+    if (picked == null) return;
+    await _buildAndSavePdf(picked.$2, picked.$1);
   }
 
   Future<void> _buildAndSaveExcel(List<PneumaticHistoryData> history, DateTimeRange range) async {
@@ -414,6 +450,206 @@ class _BrakeBindingHistoryScreenState extends State<BrakeBindingHistoryScreen> w
     final fileName = 'active_faults_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.xlsx';
     final file = File('${dir.path}/$fileName');
     await file.writeAsBytes(excel.encode()!);
+    await OpenFile.open(file.path);
+  }
+
+  String _formatExportTimestamp(dynamic raw) {
+    try {
+      final dt = DateTime.parse(raw.toString());
+      return DateFormat('dd/MM/yyyy HH:mm:ss').format(dt);
+    } catch (_) {
+      return raw?.toString() ?? '';
+    }
+  }
+
+  Future<void> _buildAndSavePdf(List<PneumaticHistoryData> history, DateTimeRange range) async {
+    if (!mounted) return;
+    final state = context.read<BrakeBindingBloc>().state;
+    final df = DateFormat('dd/MM/yyyy');
+    final generated = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
+    final deviceLabel = _selectedDeviceId == null ? 'All Devices' : _getActualId(_selectedDeviceId);
+    final pdf = pw.Document();
+
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4.landscape,
+        margin: const pw.EdgeInsets.all(20),
+        footer: (ctx) => pw.Align(
+          alignment: pw.Alignment.centerRight,
+          child: pw.Text(
+            'Page ${ctx.pageNumber} of ${ctx.pagesCount}',
+            style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey600),
+          ),
+        ),
+        build: (ctx) => [
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(
+                    'Brake Binding History Report',
+                    style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold, color: PdfColors.blue900),
+                  ),
+                  pw.SizedBox(height: 4),
+                  pw.Text('Period: ${df.format(range.start)} to ${df.format(range.end)}',
+                      style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700)),
+                  pw.Text('Train: ${_getTrainNo(state)}  |  Location: ${_getLocation(state)}  |  Device: $deviceLabel',
+                      style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700)),
+                ],
+              ),
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.end,
+                children: [
+                  pw.Text('Generated: $generated', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
+                  pw.Text('Total Records: ${history.length}',
+                      style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: PdfColors.blue900)),
+                ],
+              ),
+            ],
+          ),
+          pw.SizedBox(height: 12),
+          pw.TableHelper.fromTextArray(
+            headers: const [
+              'SR. NO', 'TIMESTAMP', 'DEVICE ID', 'TRAIN NO', 'LOCATION',
+              'BP', 'FP', 'CR', 'BC', 'BRAKE STATUS',
+              'APPLIED', 'RELEASED', 'DURATION', 'BRAKE FAULT',
+            ],
+            data: List.generate(history.length, (i) {
+              final item = history[i];
+              return [
+                '${i + 1}',
+                _formatExportTimestamp(item.timestamp),
+                _getActualId(item.deviceId?.toString()),
+                item.trainNo?.toString() ?? '',
+                item.location?.toString() ?? '',
+                '${item.bp ?? 0}',
+                '${item.fp ?? 0}',
+                '${item.cr ?? 0}',
+                '${item.bc ?? 0}',
+                item.brakeStatus?.toString() ?? '',
+                '${item.brakeAppliedTime ?? 0}s',
+                '${item.brakeReleasedTime ?? 0}s',
+                '${item.brakeDuration ?? 0}s',
+                item.brakeFault?.toString() ?? 'All parameters OK',
+              ];
+            }),
+            headerStyle: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 6),
+            headerDecoration: const pw.BoxDecoration(color: PdfColors.blue900),
+            cellStyle: const pw.TextStyle(fontSize: 5.5),
+            cellHeight: 16,
+            border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.4),
+            cellAlignments: {
+              0: pw.Alignment.center,
+              1: pw.Alignment.center,
+              2: pw.Alignment.center,
+              3: pw.Alignment.center,
+              4: pw.Alignment.centerLeft,
+              5: pw.Alignment.center,
+              6: pw.Alignment.center,
+              7: pw.Alignment.center,
+              8: pw.Alignment.center,
+              9: pw.Alignment.center,
+              10: pw.Alignment.center,
+              11: pw.Alignment.center,
+              12: pw.Alignment.center,
+              13: pw.Alignment.centerLeft,
+            },
+          ),
+        ],
+      ),
+    );
+
+    final dir = await getTemporaryDirectory();
+    final fileName = 'brake_binding_history_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.pdf';
+    final file = File('${dir.path}/$fileName');
+    await file.writeAsBytes(await pdf.save());
+    await OpenFile.open(file.path);
+  }
+
+  Future<void> _downloadFaultsPdf(List<PneumaticFault> faults) async {
+    if (!mounted) return;
+    final state = context.read<BrakeBindingBloc>().state;
+    final generated = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
+    final deviceLabel = _selectedDeviceId == null ? 'All Devices' : _getActualId(_selectedDeviceId);
+    final pdf = pw.Document();
+
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(24),
+        footer: (ctx) => pw.Align(
+          alignment: pw.Alignment.centerRight,
+          child: pw.Text(
+            'Page ${ctx.pageNumber} of ${ctx.pagesCount}',
+            style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey600),
+          ),
+        ),
+        build: (ctx) => [
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(
+                    'Active Faults Report',
+                    style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold, color: PdfColors.red900),
+                  ),
+                  pw.SizedBox(height: 4),
+                  pw.Text('Train: ${_getTrainNo(state)}  |  Location: ${_getLocation(state)}  |  Device: $deviceLabel',
+                      style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700)),
+                ],
+              ),
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.end,
+                children: [
+                  pw.Text('Generated: $generated', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
+                  pw.Text('Total Faults: ${faults.length}',
+                      style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: PdfColors.red900)),
+                ],
+              ),
+            ],
+          ),
+          pw.SizedBox(height: 12),
+          pw.TableHelper.fromTextArray(
+            headers: const ['SR. NO', 'DEVICE ID', 'FAULT TYPE', 'SEVERITY', 'DESCRIPTION', 'TIMESTAMP'],
+            data: List.generate(faults.length, (i) {
+              final fault = faults[i];
+              return [
+                '${i + 1}',
+                _getActualId(fault.deviceId?.toString()),
+                fault.type?.toString() ?? '',
+                fault.severity?.toString() ?? '',
+                fault.description?.toString() ?? '',
+                _formatExportTimestamp(fault.timestamp),
+              ];
+            }),
+            headerStyle: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 8),
+            headerDecoration: const pw.BoxDecoration(color: PdfColors.red900),
+            cellStyle: const pw.TextStyle(fontSize: 7.5),
+            cellHeight: 20,
+            border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
+            cellAlignments: {
+              0: pw.Alignment.center,
+              1: pw.Alignment.center,
+              2: pw.Alignment.centerLeft,
+              3: pw.Alignment.center,
+              4: pw.Alignment.centerLeft,
+              5: pw.Alignment.center,
+            },
+          ),
+        ],
+      ),
+    );
+
+    final dir = await getTemporaryDirectory();
+    final fileName = 'active_faults_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.pdf';
+    final file = File('${dir.path}/$fileName');
+    await file.writeAsBytes(await pdf.save());
     await OpenFile.open(file.path);
   }
 

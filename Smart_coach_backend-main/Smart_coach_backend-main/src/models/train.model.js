@@ -340,16 +340,12 @@ class TrainModel extends BaseModel {
 
       const { data: trains, error } = await supabaseAdmin
         .from('train_master')
-        .select('*, region_master!origination_region_id(name)')
+        .select('*')
         .in('origination_region_id', regionIds)
         .order('train_number');
       if (error) throw error;
 
-      return (trains || []).map(t => ({
-        ...t,
-        region_name: t.region_master ? t.region_master.name : null,
-        region_master: undefined
-      }));
+      return trains || [];
     }
 
     const { data: mappedTrainIds } = await supabaseAdmin
@@ -362,16 +358,12 @@ class TrainModel extends BaseModel {
 
     const { data: rows, error } = await supabaseAdmin
       .from('train_master')
-      .select('*, region_master!origination_region_id(name)')
+      .select('*')
       .in('train_id', allowedIds)
       .order('train_number');
     if (error) throw error;
 
-    return (rows || []).map(t => ({
-      ...t,
-      region_name: t.region_master ? t.region_master.name : null,
-      region_master: undefined
-    }));
+    return rows || [];
   }
 
   async updateTrainUserMapping(userId, trainIds) {

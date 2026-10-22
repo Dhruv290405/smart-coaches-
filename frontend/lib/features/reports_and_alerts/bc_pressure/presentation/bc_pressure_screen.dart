@@ -71,8 +71,7 @@ class _BCPressureScreenState extends State<BCPressureScreen> {
     setState(() {
       _filteredCoaches = _allCoaches.where((coach) {
         final matchesTrain = selectedTrainNumber == 'All Trains' ||
-            coach.trainNumber == selectedTrainNumber ||
-            coach.owningRly == selectedTrainNumber;
+            coach.trainNumber == selectedTrainNumber;
         final matchesType = selectedCoachType == 'All Types' ||
             coach.coachType == selectedCoachType;
         final matchesCoach = selectedCoachNumber == 'All Coach Numbers' ||
@@ -81,7 +80,51 @@ class _BCPressureScreenState extends State<BCPressureScreen> {
             coach.status.toUpperCase() == selectedStatus.toUpperCase();
         return matchesTrain && matchesType && matchesCoach && matchesStatus;
       }).toList();
+      _liveAlerts = _buildAlerts(_filteredCoaches);
     });
+  }
+
+  void _updateFilterLists() {
+    final trains = _allCoaches
+        .map((e) => e.trainNumber)
+        .where((e) => e.isNotEmpty && e != '00000' && e != 'Unknown')
+        .toSet()
+        .toList()
+      ..sort();
+
+    if (selectedTrainNumber != 'All Trains' && !trains.contains(selectedTrainNumber)) {
+      selectedTrainNumber = 'All Trains';
+    }
+
+    final trainScoped = _allCoaches.where((e) =>
+        selectedTrainNumber == 'All Trains' || e.trainNumber == selectedTrainNumber);
+    final types = trainScoped
+        .map((e) => e.coachType)
+        .where((e) => e.isNotEmpty && e != 'Unknown')
+        .toSet()
+        .toList()
+      ..sort();
+
+    if (selectedCoachType != 'All Types' && !types.contains(selectedCoachType)) {
+      selectedCoachType = 'All Types';
+    }
+
+    final typeScoped = trainScoped.where((e) =>
+        selectedCoachType == 'All Types' || e.coachType == selectedCoachType);
+    final coaches = typeScoped
+        .map((e) => e.coachNumber)
+        .where((e) => e.isNotEmpty && e != 'Unknown')
+        .toSet()
+        .toList()
+      ..sort();
+
+    trainNumbers = ['All Trains', ...trains];
+    coachTypes = ['All Types', ...types];
+    coachNumbers = ['All Coach Numbers', ...coaches];
+
+    if (selectedCoachNumber != 'All Coach Numbers' && !coaches.contains(selectedCoachNumber)) {
+      selectedCoachNumber = 'All Coach Numbers';
+    }
   }
 
   BCPressureModel _mapToModel(BcPressureData d) {
@@ -141,18 +184,14 @@ class _BCPressureScreenState extends State<BCPressureScreen> {
     }
 
     try {
-      final String? trainFilter =
-          selectedTrainNumber == 'All Trains' ? null : selectedTrainNumber;
-
       final List<BcPressureData> rawData =
-          await getIt<BcPressureRepository>().getBcPressureData(
-        trainNo: trainFilter,
-      );
+          await getIt<BcPressureRepository>().getBcPressureData();
 
-      // Deduplicate: keep latest entry per coachNumber
+      // Deduplicate: keep latest entry per train + coach so the same coach
+      // number on another train is not dropped from the cascade.
       final Map<String, BcPressureData> latestByCoach = {};
       for (final d in rawData) {
-        final key = d.coachNumber ?? d.deviceId ?? 'unknown';
+        final key = '${d.trainNumber ?? d.trainNo ?? ''}|${d.coachNumber ?? d.deviceId ?? 'unknown'}';
         if (!latestByCoach.containsKey(key)) {
           latestByCoach[key] = d;
         }
@@ -166,18 +205,9 @@ class _BCPressureScreenState extends State<BCPressureScreen> {
           isRefreshing = false;
           lastUpdated = DateFormat('HH:mm:ss').format(DateTime.now());
           _allCoaches = coaches;
-
-          trainNumbers = ['All Trains', ...coaches.map((e) => e.trainNumber).where((e) => e != '00000' && e != 'Unknown').toSet()];
-          coachTypes = ['All Types', ...coaches.map((e) => e.coachType).where((e) => e != 'Unknown').toSet()];
-          coachNumbers = ['All Coach Numbers', ...coaches.map((e) => e.coachNumber).toSet()];
-
-          if (!trainNumbers.contains(selectedTrainNumber)) selectedTrainNumber = 'All Trains';
-          if (!coachTypes.contains(selectedCoachType)) selectedCoachType = 'All Types';
-          if (!coachNumbers.contains(selectedCoachNumber)) selectedCoachNumber = 'All Coach Numbers';
-
-          _liveAlerts = _buildAlerts(coaches);
-          _applyFilters();
+          _updateFilterLists();
         });
+        _applyFilters();
       }
     } catch (e) {
       log('BC Pressure error: $e');
@@ -198,7 +228,7 @@ class _BCPressureScreenState extends State<BCPressureScreen> {
   }
 
   void _sendAlerts() {
-    final critical = _allCoaches.where((c) => c.status == 'Critical').toList();
+    final critical = _filteredCoaches.where((c) => c.status == 'Critical').toList();
     if (critical.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No critical BC pressure issues detected'), behavior: SnackBarBehavior.floating));
       return;
@@ -348,8 +378,9 @@ class _BCPressureScreenState extends State<BCPressureScreen> {
                     selectedTrainNumber = v!;
                     selectedCoachType = 'All Types';
                     selectedCoachNumber = 'All Coach Numbers';
+                    _updateFilterLists();
                   });
-                  _refreshData();
+                  _applyFilters();
                 },
               ),
             ),
@@ -363,6 +394,7 @@ class _BCPressureScreenState extends State<BCPressureScreen> {
                   setState(() {
                     selectedCoachType = v!;
                     selectedCoachNumber = 'All Coach Numbers';
+                    _updateFilterLists();
                   });
                   _applyFilters();
                 },

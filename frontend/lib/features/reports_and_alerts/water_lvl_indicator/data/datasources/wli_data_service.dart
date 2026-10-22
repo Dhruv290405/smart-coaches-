@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'package:get_it/get_it.dart';
 import 'package:http/http.dart' as http;
 import 'package:smart_coach_new/core/network/api_constants.dart';
+import 'package:smart_coach_new/core/utils/prefs.dart';
 import '../models/water_tank_model.dart';
 
 class WliDataService {
@@ -10,7 +12,10 @@ class WliDataService {
 
   Future<List<WaterTankModel>> fetchWliCoaches() async {
     final uri = Uri.parse('$baseUrl${ApiConstants.wliCoachesApiEndpoint}');
-    final response = await http.get(uri);
+    final token = GetIt.I<Prefs>().token;
+    final response = await http.get(uri, headers: {
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+    });
 
     if (response.statusCode == 200) {
       final body = json.decode(response.body);

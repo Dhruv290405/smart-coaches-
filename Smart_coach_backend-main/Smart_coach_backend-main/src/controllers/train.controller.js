@@ -273,15 +273,26 @@ const trainController = {
     try {
       let trains = await trainModel.getTrainsForUsers();
 
-      const scopedRegionIds = await rbac.getScopedRegionIds(req.user);
-      if (scopedRegionIds) {
-        if (scopedRegionIds.length === 0) {
-          trains = [];
+      // Explicit per-user train assignments (e.g. Train Operator) take
+      // precedence over location scoping. Many assigned trains have no region
+      // metadata, so region-only filtering would hide them entirely.
+      if (!rbac.isAdmin(req.user)) {
+        const mappedTrains = await trainModel.getTrainsMappedToUser(req.user.user_id);
+        if (mappedTrains.length > 0) {
+          const mappedIds = new Set(mappedTrains.map(t => t.train_id));
+          trains = trains.filter(t => mappedIds.has(t.train_id));
         } else {
-          const trainMap = await rbac.getTrainRegionMap();
-          trains = trains.filter(t =>
-            rbac.trainBelongsToRegions(trainMap, t.train_id, scopedRegionIds) === true
-          );
+          const scopedRegionIds = await rbac.getScopedRegionIds(req.user);
+          if (scopedRegionIds) {
+            if (scopedRegionIds.length === 0) {
+              trains = [];
+            } else {
+              const trainMap = await rbac.getTrainRegionMap();
+              trains = trains.filter(t =>
+                rbac.trainBelongsToRegions(trainMap, t.train_id, scopedRegionIds) === true
+              );
+            }
+          }
         }
       }
 

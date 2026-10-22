@@ -8,7 +8,6 @@ import '../../../../core/utils/app_strings.dart';
 import '../../../../core/utils/app_text_styles.dart';
 import '../../../../core/utils/color_constants.dart';
 import '../../../../core/repositories/chart_repository.dart';
-import '../../../../core/widgets/chart_data_helper.dart';
 import '../../../../core/widgets/period_filter.dart';
 
 class AcpChartView extends StatefulWidget {
@@ -56,8 +55,8 @@ class _AcpChartViewState extends State<AcpChartView> {
   int get total => filteredCoaches.length;
 
   // Dynamic Time Series data based on period
-  List<FlSpot> _spots = [];
-  bool _loading = true;
+  List<DateTime> _allTimes = [];
+  List<int> _allValues = [];
 
   @override
   void initState() {
@@ -68,17 +67,52 @@ class _AcpChartViewState extends State<AcpChartView> {
   Future<void> _loadChartData() async {
     try {
       final raw = await ChartRepository.getAcpData();
-      _spots = ChartDataHelper.fromTimestampValues(raw);
+      final points = raw
+          .map((e) => (
+                time: e['timestamp'] as DateTime,
+                value: (e['value'] as num).toInt(),
+              ))
+          .toList()
+        ..sort((a, b) => a.time.compareTo(b.time));
+      _allTimes = points.map((e) => e.time).toList();
+      _allValues = points.map((e) => e.value).toList();
     } catch (e) {
       // ignore errors for now, keep empty list
     } finally {
-      setState(() {
-        _loading = false;
-      });
+      if (mounted) {
+        setState(() {});
+      }
     }
   }
 
-  List<FlSpot> get timeSeriesData => _spots;
+  List<int> get _visibleIndices {
+    final now = DateTime.now();
+    if (selectedPeriod == '7 Days' || selectedPeriod == '30 Days') {
+      final days = selectedPeriod == '7 Days' ? 7 : 30;
+      final start = now.subtract(Duration(days: days));
+      return [
+        for (var i = 0; i < _allTimes.length; i++)
+          if (!_allTimes[i].isBefore(start)) i
+      ];
+    }
+    if (selectedPeriod == 'Custom' && customRange != null) {
+      final start = DateTime(customRange!.start.year, customRange!.start.month, customRange!.start.day);
+      final end = DateTime(customRange!.end.year, customRange!.end.month, customRange!.end.day, 23, 59, 59);
+      return [
+        for (var i = 0; i < _allTimes.length; i++)
+          if (!_allTimes[i].isBefore(start) && !_allTimes[i].isAfter(end)) i
+      ];
+    }
+    return [for (var i = 0; i < _allTimes.length; i++) i];
+  }
+
+  List<FlSpot> get timeSeriesData {
+    final visible = _visibleIndices;
+    return [
+      for (var i = 0; i < visible.length; i++)
+        FlSpot(i.toDouble(), _allValues[visible[i]].toDouble())
+    ];
+  }
 
 
   // Keep existing custom range picker unchanged
@@ -283,6 +317,9 @@ class _AcpChartViewState extends State<AcpChartView> {
 
   Widget _buildTimeSeriesChart() {
     final spots = timeSeriesData;
+    final visibleIndices = _visibleIndices;
+    final labelInterval = spots.length <= 7 ? 1.0 : (spots.length / 5).ceilToDouble();
+    final lastX = spots.length > 1 ? (spots.length - 1).toDouble() : 1.0;
     return Container(
       padding: const EdgeInsets.only(top: 24, right: 24, bottom: 12, left: 12),
       decoration: BoxDecoration(
@@ -298,7 +335,7 @@ class _AcpChartViewState extends State<AcpChartView> {
               show: true,
               drawVerticalLine: true,
               horizontalInterval: 1,
-              verticalInterval: selectedPeriod == 'Live' ? 1 : (selectedPeriod == '7 Days' ? 1 : 5),
+              verticalInterval: labelInterval,
               getDrawingHorizontalLine: (value) => FlLine(color: ColorConstants.divider, strokeWidth: 1),
               getDrawingVerticalLine: (value) => FlLine(color: ColorConstants.divider, strokeWidth: 1),
             ),
@@ -310,26 +347,25 @@ class _AcpChartViewState extends State<AcpChartView> {
                 sideTitles: SideTitles(
                   showTitles: true,
                   reservedSize: 30,
-                  interval: selectedPeriod == 'Live' ? 1 : (selectedPeriod == '7 Days' ? 1 : 5),
+                  interval: labelInterval,
                   getTitlesWidget: (value, meta) {
-                    if (selectedPeriod == 'Live') {
-                      final hour = (DateTime.now().hour - (7 - value.toInt())) % 24;
-                      return Padding(
-                        padding: const EdgeInsets.only(top: 8.0),
-                        child: Text(
-                          '${hour.toString().padLeft(2, '0')}:00',
-                          style: GoogleFonts.poppins(fontSize: 9, color: ColorConstants.textSecondary),
-                        ),
-                      );
-                    } else {
-                      return Padding(
-                        padding: const EdgeInsets.only(top: 8.0),
-                        child: Text(
-                          'Day ${value.toInt()}',
-                          style: GoogleFonts.poppins(fontSize: 9, color: ColorConstants.textSecondary),
-                        ),
-                      );
+                    final index = value.round();
+                    if ((value - index).abs() > 0.01 ||
+                        index < 0 ||
+                        index >= visibleIndices.length) {
+                      return const SizedBox.shrink();
                     }
+                    final time = _allTimes[visibleIndices[index]];
+                    final label = selectedPeriod == 'Live'
+                        ? DateFormat('HH:mm').format(time)
+                        : DateFormat('dd/MM').format(time);
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: Text(
+                        label,
+                        style: GoogleFonts.poppins(fontSize: 9, color: ColorConstants.textSecondary),
+                      ),
+                    );
                   },
                 ),
               ),
@@ -352,7 +388,7 @@ class _AcpChartViewState extends State<AcpChartView> {
               border: Border.all(color: ColorConstants.divider, width: 1),
             ),
             minX: 0,
-            maxX: selectedPeriod == 'Live' ? 7 : (selectedPeriod == '7 Days' ? 7 : 30),
+            maxX: lastX,
             minY: 0,
             maxY: (spots.isEmpty ? 5 : (spots.map((e) => e.y).reduce((a, b) => a > b ? a : b) + 1).toDouble().clamp(5, 100)),
             lineBarsData: [

@@ -21,7 +21,6 @@ import 'package:smart_coach_new/features/reports_and_alerts/hot_axle/presentatio
 import 'package:smart_coach_new/features/reports_and_alerts/hot_axle/presentation/hot_axle_chart_view.dart';
 import 'package:smart_coach_new/features/reports_and_alerts/hot_axle/presentation/widgets/hams_device_card.dart';
 import 'package:smart_coach_new/features/reports_and_alerts/hot_axle/presentation/widgets/hot_axle_device_card.dart';
-import 'package:smart_coach_new/features/reports_and_alerts/hot_axle/presentation/widgets/hot_axle_modal.dart';
 import 'package:smart_coach_new/features/reports_and_alerts/hot_axle/presentation/widgets/hot_axle_report_generator.dart';
 import 'package:smart_coach_new/features/reports_and_alerts/hot_axle/presentation/hot_axle_detail_screen.dart';
 import '../data/models/hot_axle_model.dart';
@@ -53,7 +52,6 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
   List<HotAxleCoachModel> _filteredCoaches = [];
   List<HotAxleCoachModel> _allHamsCoaches = [];
   List<HotAxleCoachModel> _filteredHamsCoaches = [];
-  List<HamsDataModel> _newCompanyData = [];
   final Set<String> _expandedSections = {'our', 'ecr'};
 
   String get _location => (getIt<Prefs>().getUser()?.divisionName ??
@@ -119,36 +117,39 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
     final showNewData = _showSection1 && (selectedCompany == 'All' || selectedCompany == 'Section 1');
     final showOldData = _showSection2 && (selectedCompany == 'All' || selectedCompany == 'Section 2');
 
-    final Set<String> trains = {};
-    final Set<String> types = {};
-    final Set<String> coaches = {};
+    final visible = <HotAxleCoachModel>[
+      if (showOldData) ..._allCoaches,
+      if (showNewData) ..._allHamsCoaches,
+    ];
 
-    if (showOldData) {
-      trains.addAll(_allCoaches.map((e) => e.trainNo).where((e) => e.isNotEmpty));
-      types.addAll(_allCoaches.map((e) => e.coachType).where((e) => e.isNotEmpty));
-      coaches.addAll(_allCoaches.map((e) => e.coachNumber).where((e) => e.isNotEmpty));
-    }
-
-    if (showNewData) {
-      trains.addAll(_allHamsCoaches.map((e) => e.trainNo).where((e) => e.isNotEmpty));
-      types.addAll(_allHamsCoaches.map((e) => e.coachType).where((e) => e.isNotEmpty));
-      coaches.addAll(_allHamsCoaches.map((e) => e.coachNumber).where((e) => e.isNotEmpty));
-    }
-
-    final sortedTrains = trains.toList()..sort();
-    final sortedTypes = types.toList()..sort();
-    final sortedCoaches = coaches.toList()..sort();
-
-    trainNumbers = ['All Trains', ...sortedTrains];
-    coachTypes = ['All Types', ...sortedTypes];
-    coachNumbers = ['All Coach Numbers', ...sortedCoaches];
+    final trains = visible.map((e) => e.trainNo).where((e) => e.isNotEmpty).toSet().toList()..sort();
 
     if (selectedTrainNumber != 'All Trains' && !trains.contains(selectedTrainNumber)) {
       selectedTrainNumber = 'All Trains';
     }
+    if (selectedCoachType != 'All Types' &&
+        !visible.any((e) =>
+            (selectedTrainNumber == 'All Trains' || e.trainNo == selectedTrainNumber) &&
+            e.coachType == selectedCoachType)) {
+      selectedCoachType = 'All Types';
+    }
+
+    final trainScoped = visible.where((e) =>
+        selectedTrainNumber == 'All Trains' || e.trainNo == selectedTrainNumber);
+    final types = trainScoped.map((e) => e.coachType).where((e) => e.isNotEmpty).toSet().toList()..sort();
+
     if (selectedCoachType != 'All Types' && !types.contains(selectedCoachType)) {
       selectedCoachType = 'All Types';
     }
+
+    final typeScoped = trainScoped.where((e) =>
+        selectedCoachType == 'All Types' || e.coachType == selectedCoachType);
+    final coaches = typeScoped.map((e) => e.coachNumber).where((e) => e.isNotEmpty).toSet().toList()..sort();
+
+    trainNumbers = ['All Trains', ...trains];
+    coachTypes = ['All Types', ...types];
+    coachNumbers = ['All Coach Numbers', ...coaches];
+
     if (selectedCoachNumber != 'All Coach Numbers' && !coaches.contains(selectedCoachNumber)) {
       selectedCoachNumber = 'All Coach Numbers';
     }
@@ -161,14 +162,7 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
         final matchesCoachType = selectedCoachType == 'All Types' || coach.coachType == selectedCoachType;
         final matchesCoachNumber = selectedCoachNumber == 'All Coach Numbers' || coach.coachNumber == selectedCoachNumber;
         final matchesStatus = selectedStatus == 'All' || coach.status.toUpperCase() == selectedStatus.toUpperCase();
-        bool matchesCompany;
-        if (selectedCompany == 'All') {
-          matchesCompany = true;
-        } else if (selectedCompany == 'Section 2') {
-          matchesCompany = coach.owningRly == 'ECR';
-        } else {
-          matchesCompany = coach.owningRly != 'ECR';
-        }
+        final matchesCompany = selectedCompany == 'All' || selectedCompany == 'Section 2';
         return matchesTrain && matchesCoachType && matchesCoachNumber && matchesStatus && matchesCompany;
       }).toList();
 
@@ -231,22 +225,19 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
     }
 
     try {
-      final String? trainFilter = selectedTrainNumber == 'All Trains' ? null : selectedTrainNumber;
-      final String? coachTypeFilter = selectedCoachType == 'All Types' ? null : selectedCoachType;
-      final List<HotAxleData> rawData = await getIt<HotAxleRepository>().getHotAxleDashboard(
-        trainNo: trainFilter,
-        coachType: coachTypeFilter,
-      );
+      final List<HotAxleData> rawData = await getIt<HotAxleRepository>().getHotAxleDashboard();
       final List<HotAxleCoachModel> coaches = rawData.map(_mapDataToModel).toList();
 
       List<HamsDataModel> newData = [];
-      try {
-        final resp = await getIt<ApiClient>().get('/hot-axle/new-company-data');
-        if (resp is Map && resp['success'] == true && resp['data'] is List) {
-          newData = (resp['data'] as List).map((e) => HamsDataModel.fromJson(e as Map<String, dynamic>)).toList();
+      if (_showSection1) {
+        try {
+          final resp = await getIt<ApiClient>().get('/hot-axle/new-company-data');
+          if (resp is Map && resp['success'] == true && resp['data'] is List) {
+            newData = (resp['data'] as List).map((e) => HamsDataModel.fromJson(e as Map<String, dynamic>)).toList();
+          }
+        } catch (e) {
+          log('New company data fetch error: $e');
         }
-      } catch (e) {
-        log('New company data fetch error: $e');
       }
 
       if (mounted) {
@@ -255,7 +246,6 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
           _isInitialLoad = false;
           lastUpdated = DateFormat('HH:mm:ss').format(DateTime.now());
           _allCoaches = coaches;
-          _newCompanyData = newData;
 
           final Map<String, List<HamsDataModel>> grouped = {};
           for (final d in newData) {
@@ -430,8 +420,13 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
                 value: selectedTrainNumber,
                 items: trainNumbers,
                 onChanged: (value) {
-                  setState(() => selectedTrainNumber = value!);
-                  _refreshData();
+                  setState(() {
+                    selectedTrainNumber = value!;
+                    selectedCoachType = 'All Types';
+                    selectedCoachNumber = 'All Coach Numbers';
+                    _updateFilterLists();
+                  });
+                  _applyFilters();
                 },
               ),
             ),
@@ -442,8 +437,12 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
                 value: selectedCoachType,
                 items: coachTypes,
                 onChanged: (value) {
-                  setState(() => selectedCoachType = value!);
-                  _refreshData();
+                  setState(() {
+                    selectedCoachType = value!;
+                    selectedCoachNumber = 'All Coach Numbers';
+                    _updateFilterLists();
+                  });
+                  _applyFilters();
                 },
               ),
             ),

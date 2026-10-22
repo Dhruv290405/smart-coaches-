@@ -52,7 +52,10 @@ const fsdsController = {
 
     getData: async (req, res) => {
         try {
-            if (!rbac.isModuleAuthorized(req.user, 'fsds')) {
+            // FSDS telemetry currently contains tester-hardware data only.
+            // Keep it visible to the tester account and return an empty dataset
+            // for every other user until live production data is available.
+            if (!rbac.isTester(req.user)) {
                 return res.json({ success: true, data: [] });
             }
             const { limit, offset, locName, trainNo } = req.query;

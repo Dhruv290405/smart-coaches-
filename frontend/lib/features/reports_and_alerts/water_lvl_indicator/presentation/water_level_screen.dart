@@ -123,10 +123,11 @@ class _WaterLevelScreenState extends State<WaterLevelScreen> {
       log('Error refreshing data from API: $e');
       if (mounted) {
         final userEmail = GetIt.I<Prefs>().getUser()?.email;
-        if (userEmail == 'tester@example.com') _loadMockData();
+        final isTester = userEmail == 'tester@example.com';
+        if (isTester) _loadMockData();
         setState(() {
           _isLoading = false;
-          _errorMessage = null;
+          _errorMessage = isTester ? null : 'Unable to load water level data. Please try again.';
           isRefreshing = false;
         });
       }
