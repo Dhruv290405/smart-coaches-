@@ -3,6 +3,7 @@ const supabase = require('../config/supabaseOld');
 const supabaseAdmin = require('../config/supabaseAdmin');
 const { dualInsert } = require('../config/dualWrite');
 const { saveInAppNotificationForAllUsers } = require('../utils/notificationService');
+const pneumaticExport = require('../services/pneumaticExport.service');
 
 // Tracks last CR-overcharge state per device to only notify on a green->red change.
 const _crOverchargeState = {};
@@ -442,6 +443,47 @@ exports.getBreakBindingData = async (req, res) => {
     } catch (err) {
         console.error("Controller Error:", err);
         res.status(500).json({ success: false, error: err.message });
+    }
+};
+
+exports.exportHistory = async (req, res) => {
+    if (!rbac.isModuleAuthorized(req.user, 'brake_binding')) {
+        return res.status(403).json({
+            success: false,
+            message: "Access restricted for your location"
+        });
+    }
+
+    const format = String(req.query.format || 'excel').trim().toLowerCase();
+    if (format !== 'excel' && format !== 'pdf') {
+        return res.status(400).json({ success: false, message: "format must be 'excel' or 'pdf'" });
+    }
+
+    const fromDate = req.query.from_date ? String(req.query.from_date).trim() : null;
+    const toDate = req.query.to_date ? String(req.query.to_date).trim() : null;
+    if (!fromDate || !toDate) {
+        return res.status(400).json({ success: false, message: 'from_date and to_date are required' });
+    }
+
+    try {
+        const result = await pneumaticExport.streamHistoryExport({
+            response: res,
+            format,
+            deviceId: req.query.deviceId || null,
+            user: req.user,
+            fromDate,
+            toDate,
+        });
+
+        if (result.empty && !res.headersSent) {
+            return res.status(404).json({ success: false, message: 'No data found for selected date range' });
+        }
+    } catch (err) {
+        console.error('Pneumatic export error:', err);
+        if (!res.headersSent) {
+            return res.status(500).json({ success: false, message: 'Export failed', error: err.message });
+        }
+        res.destroy(err);
     }
 };
 

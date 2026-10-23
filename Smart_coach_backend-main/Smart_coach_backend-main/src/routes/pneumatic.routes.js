@@ -9,6 +9,8 @@ router.all('/receive-data', pneumaticController.receiveData);
 
 router.get('/status', authenticate, pneumaticController.getBreakBindingData);
 
+router.get('/export', authenticate, pneumaticController.exportHistory);
+
 router.get('/coaches-by-location', authenticate, pneumaticController.getCoachesByLocation);
 
 module.exports = router;

@@ -13,6 +13,8 @@ function normalizeRow(row) {
 }
 
 const HISTORY_PAGE_SIZE = 1000;
+const HISTORY_PARALLEL_THRESHOLD = 5000;
+const HISTORY_PAGE_CONCURRENCY = 6;
 const MAX_HISTORY_ROWS = 50000;
 
 function getDateBounds(fromDate, toDate) {
@@ -43,7 +45,7 @@ function getDateBounds(fromDate, toDate) {
     return { start, endInclusive, endExclusive };
 }
 
-async function fetchPagedRows(buildQuery, rowLimit) {
+async function fetchSequentialRows(buildQuery, rowLimit) {
     const rows = [];
     for (let offset = 0; offset < rowLimit; offset += HISTORY_PAGE_SIZE) {
         const end = Math.min(offset + HISTORY_PAGE_SIZE - 1, rowLimit - 1);
@@ -55,6 +57,56 @@ async function fetchPagedRows(buildQuery, rowLimit) {
         if (page.length < end - offset + 1) break;
     }
     return { data: rows, error: null };
+}
+
+async function fetchParallelRows(buildQuery, rowLimit) {
+    const pageCount = Math.ceil(rowLimit / HISTORY_PAGE_SIZE);
+    const pages = new Array(pageCount);
+    let nextPage = 0;
+    let stop = false;
+    let firstError = null;
+
+    const worker = async () => {
+        while (!stop) {
+            const pageIndex = nextPage++;
+            if (pageIndex >= pageCount) return;
+
+            const offset = pageIndex * HISTORY_PAGE_SIZE;
+            const end = Math.min(offset + HISTORY_PAGE_SIZE - 1, rowLimit - 1);
+            const { data, error } = await buildQuery().range(offset, end);
+
+            if (error) {
+                firstError = error;
+                stop = true;
+                return;
+            }
+
+            const page = data || [];
+            pages[pageIndex] = page;
+            if (page.length < end - offset + 1) stop = true;
+        }
+    };
+
+    const workerCount = Math.min(HISTORY_PAGE_CONCURRENCY, pageCount);
+    await Promise.all(Array.from({ length: workerCount }, () => worker()));
+
+    if (firstError) return { data: null, error: firstError };
+
+    const rows = [];
+    for (let index = 0; index < pageCount; index += 1) {
+        const page = pages[index];
+        if (!page || page.length === 0) break;
+        rows.push(...page);
+        if (page.length < HISTORY_PAGE_SIZE) break;
+    }
+    return { data: rows, error: null };
+}
+
+async function fetchPagedRows(buildQuery, rowLimit) {
+    if (rowLimit >= HISTORY_PARALLEL_THRESHOLD) {
+        return fetchParallelRows(buildQuery, rowLimit);
+    }
+    return fetchSequentialRows(buildQuery, rowLimit);
 }
 
 const Pneumatic = {
