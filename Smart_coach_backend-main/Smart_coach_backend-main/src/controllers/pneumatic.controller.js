@@ -77,14 +77,19 @@ exports.getBreakBindingData = async (req, res) => {
     }
     try {
         let filterDeviceId = req.query.deviceId || null; 
-        const historyLimit = Math.min(parseInt(req.query.limit) || 10000, 10000); 
-        const historyOffset = parseInt(req.query.offset) || 0;
-        
         const fromDate = req.query.from_date || null;
         const toDate = req.query.to_date || null;
 
-        const limit = parseInt(req.query.limit) || 10;
-        const offset = parseInt(req.query.offset) || 0;
+        const requestedLimit = Math.max(parseInt(req.query.limit, 10) || 10, 1);
+        // The app requests 10,000 rows for date-range exports. Some coaches
+        // produce more than 10,000 readings in a day, so allow a larger
+        // bounded result only for those bulk date-range requests.
+        const isBulkDateExport = Boolean(fromDate && toDate && requestedLimit >= 10000);
+        const historyLimit = isBulkDateExport
+            ? 50000
+            : Math.min(parseInt(req.query.limit, 10) || 10000, 10000);
+        const limit = isBulkDateExport ? 50000 : Math.min(requestedLimit, 10000);
+        const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
 
         const readings = await Pneumatic.getLatestReading(filterDeviceId, req.user, limit, offset, fromDate, toDate);
 
