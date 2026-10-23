@@ -3,6 +3,7 @@ const supabase = require('../config/supabaseOld');
 const supabaseAdmin = require('../config/supabaseAdmin');
 const { dualInsert } = require('../config/dualWrite');
 const { saveInAppNotificationForAllUsers } = require('../utils/notificationService');
+const { generatePneumaticHistoryPdf, generatePneumaticFaultsPdf } = require('../utils/pneumaticPdfGenerator');
 
 // Tracks last CR-overcharge state per device to only notify on a green->red change.
 const _crOverchargeState = {};
@@ -604,5 +605,93 @@ exports.getCoachesByLocation = async (req, res) => {
             success: false, 
             error: err.message 
         });
+    }
+};
+
+exports.exportHistoryPdf = async (req, res) => {
+    if (!rbac.isModuleAuthorized(req.user, 'brake_binding')) {
+        return res.status(403).json({ success: false, message: 'Access restricted' });
+    }
+    try {
+        const fromDate = req.query.from_date || null;
+        const toDate   = req.query.to_date   || null;
+        const deviceId = req.query.deviceId  || null;
+        const reqLimit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50000, 1), 50000);
+        const rows = await Pneumatic.getLatestReading(deviceId, req.user, reqLimit, 0, fromDate, toDate);
+        if (!rows || rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'No data found for selected range' });
+        }
+        const fmtDate = (d) => {
+            if (!d) return '';
+            try {
+                const dt = new Date(d);
+                const p = (n) => String(n).padStart(2, '0');
+                return `${p(dt.getDate())}/${p(dt.getMonth() + 1)}/${dt.getFullYear()}`;
+            } catch (_) { return String(d); }
+        };
+        const now = new Date();
+        const p = (n) => String(n).padStart(2, '0');
+        const ts = `${now.getFullYear()}${p(now.getMonth()+1)}${p(now.getDate())}_${p(now.getHours())}${p(now.getMinutes())}${p(now.getSeconds())}`;
+        generatePneumaticHistoryPdf(res, {
+            rows,
+            meta: {
+                title:     'Brake Binding History Report',
+                period:    fromDate && toDate ? `Period: ${fmtDate(fromDate)} to ${fmtDate(toDate)}` : `Period: Latest ${rows.length} records`,
+                metadata:  `Train: ${rows[0]?.train_no || rows[0]?.Train_no || 'N/A'}  |  Location: ${rows[0]?.location || rows[0]?.Location || 'N/A'}  |  Device: ${deviceId || 'All Devices'}`,
+                generated: `Generated: ${p(now.getDate())}/${p(now.getMonth()+1)}/${now.getFullYear()} ${p(now.getHours())}:${p(now.getMinutes())}  |  Total Records: ${rows.length}`,
+                filename:  `brake_binding_history_${ts}.pdf`,
+            },
+        });
+    } catch (err) {
+        console.error('exportHistoryPdf error:', err.message);
+        if (!res.headersSent) res.status(500).json({ success: false, error: err.message });
+    }
+};
+
+exports.exportFaultsPdf = async (req, res) => {
+    if (!rbac.isModuleAuthorized(req.user, 'brake_binding')) {
+        return res.status(403).json({ success: false, message: 'Access restricted' });
+    }
+    try {
+        const fromDate = req.query.from_date || null;
+        const toDate   = req.query.to_date   || null;
+        const deviceId = req.query.deviceId  || null;
+        const reqLimit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50000, 1), 50000);
+        if (!supabase && !supabaseAdmin) return res.status(503).json({ success: false, message: 'Database unavailable' });
+        const db = supabase || supabaseAdmin;
+        let faultQuery = db.from('brake_fault_event')
+            .select('device_id, fault_name, timestamp, event_message')
+            .order('timestamp', { ascending: false })
+            .limit(reqLimit);
+        if (deviceId) faultQuery = faultQuery.eq('device_id', deviceId);
+        if (fromDate)  faultQuery = faultQuery.gte('timestamp', `${fromDate}T00:00:00`);
+        if (toDate)    faultQuery = faultQuery.lte('timestamp', `${toDate}T23:59:59`);
+        if (req.user && req.user.role_id !== 1) {
+            const userLoc = rbac.getUserLocation(req.user);
+            if (!userLoc) return res.status(403).json({ success: false, message: 'No location mapped' });
+            const { data: devRows } = await (supabase || supabaseAdmin).from('coaches_railway').select('device_id').ilike('Location', userLoc);
+            const allowedIds = (devRows || []).map((d) => d.device_id).filter(Boolean);
+            if (allowedIds.length === 0) return res.status(404).json({ success: false, message: 'No data for your location' });
+            faultQuery = faultQuery.in('device_id', allowedIds);
+        }
+        const { data: faults, error } = await faultQuery;
+        if (error) throw error;
+        if (!faults || faults.length === 0) return res.status(404).json({ success: false, message: 'No fault data found' });
+        const now = new Date();
+        const p = (n) => String(n).padStart(2, '0');
+        const ts = `${now.getFullYear()}${p(now.getMonth()+1)}${p(now.getDate())}_${p(now.getHours())}${p(now.getMinutes())}${p(now.getSeconds())}`;
+        generatePneumaticFaultsPdf(res, {
+            faults,
+            meta: {
+                title:     'Active Faults Report',
+                period:    fromDate && toDate ? `Period: ${fromDate} to ${toDate}` : 'Latest faults',
+                metadata:  `Device: ${deviceId || 'All'}`,
+                generated: `Generated: ${p(now.getDate())}/${p(now.getMonth()+1)}/${now.getFullYear()} ${p(now.getHours())}:${p(now.getMinutes())}  |  Total Faults: ${faults.length}`,
+                filename:  `active_faults_${ts}.pdf`,
+            },
+        });
+    } catch (err) {
+        console.error('exportFaultsPdf error:', err.message);
+        if (!res.headersSent) res.status(500).json({ success: false, error: err.message });
     }
 };
