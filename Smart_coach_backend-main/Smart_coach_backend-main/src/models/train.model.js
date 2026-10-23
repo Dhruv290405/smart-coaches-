@@ -313,8 +313,16 @@ class TrainModel extends BaseModel {
       for (const r of regions || []) regionMap[r.region_id] = r;
     }
 
+    const normalizeRegionId = (value) => {
+      if (value === null || value === undefined || value === '') return null;
+      const numericValue = Number(value);
+      return Number.isFinite(numericValue) ? numericValue : null;
+    };
+
     return trains.map(t => ({
       ...t,
+      origination_region_id: normalizeRegionId(t.origination_region_id),
+      region_id: normalizeRegionId(t.region_id),
       origination_region_name: t.origination_region_id ? (regionMap[t.origination_region_id] ? regionMap[t.origination_region_id].name : null) : null,
       region_name: t.region_id ? (regionMap[t.region_id] ? regionMap[t.region_id].name : null) : null,
       departure_station_name: t.departure_station_id ? (regionMap[t.departure_station_id] ? regionMap[t.departure_station_id].name : null) : null,
