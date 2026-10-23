@@ -66,7 +66,7 @@ function isTester(user) {
  * another location's telemetry.
  */
 function isUnrestrictedUser(user) {
-  return isTester(user);
+  return isMasterUser(user) || isTester(user);
 }
 
 function _normaliseLocation(value) {
@@ -204,7 +204,7 @@ const DIVISION_MODULE_MAP = {
  * Check if a user's location is authorized to access a specific module.
  */
 function isModuleAuthorized(user, moduleKey) {
-  if (isUnrestrictedUser(user)) return true;
+  if (isAdmin(user)) return true;
   const loc = getUserLocation(user);
   if (!loc) return false;
   
@@ -222,7 +222,7 @@ function isModuleAuthorized(user, moduleKey) {
  * Guard: returns true if the user can proceed.
  */
 function requireLocation(user, res) {
-  if (isUnrestrictedUser(user)) return true;
+  if (isAdmin(user)) return true;
   const loc = getUserLocation(user);
   if (!loc) {
     if (!res.headersSent) {
@@ -240,7 +240,7 @@ function requireLocation(user, res) {
  * Apply location filter to a Supabase query on a table that has a 'Location' column.
  */
 async function applyCoachLocationFilter(query, user, locationColumn = 'Location') {
-  if (!query || isUnrestrictedUser(user)) return query;
+  if (!query || isAdmin(user)) return query;
   const loc = getUserLocation(user);
   if (loc) query = query.ilike(locationColumn, loc);
   return query;
@@ -250,7 +250,7 @@ async function applyCoachLocationFilter(query, user, locationColumn = 'Location'
  * Build a filter condition object for in-memory filtering.
  */
 function buildLocationCondition(user, locationColumn = 'location') {
-  if (isUnrestrictedUser(user)) return {};
+  if (isAdmin(user)) return {};
   const loc = getUserLocation(user);
   if (loc) return { column: locationColumn, value: loc.toLowerCase() };
   return {};
@@ -260,7 +260,7 @@ function buildLocationCondition(user, locationColumn = 'location') {
  * Filter an array of records in-memory by comparing a field against the user's location.
  */
 function filterByLocation(records, user, fieldName) {
-  if (isUnrestrictedUser(user) || !records || records.length === 0) return records;
+  if (isAdmin(user) || !records || records.length === 0) return records;
   const loc = getUserLocation(user);
   if (!loc) return [];
   return records.filter(r => {
@@ -273,7 +273,7 @@ function filterByLocation(records, user, fieldName) {
  * Get authorized device IDs for the user's location (case-insensitive).
  */
 async function getAuthorizedDeviceIdsForLocation(user) {
-  if (isUnrestrictedUser(user)) return null;
+  if (isAdmin(user)) return null;
   const loc = getUserLocation(user);
   if (!loc) return [];
   const { data } = await supabaseAdmin
@@ -287,7 +287,7 @@ async function getAuthorizedDeviceIdsForLocation(user) {
  * Get coach numbers that belong to the user's location from coaches_railway.
  */
 async function getAuthorizedCoachNumbers(user) {
-  if (isUnrestrictedUser(user)) return null;
+  if (isAdmin(user)) return null;
   const loc = getUserLocation(user);
   if (!loc) return [];
   const { data } = await supabaseAdmin
@@ -301,7 +301,7 @@ async function getAuthorizedCoachNumbers(user) {
  * Get device_ids that belong to the user's location.
  */
 async function getAuthorizedDeviceIds(user) {
-  if (isUnrestrictedUser(user)) return null;
+  if (isAdmin(user)) return null;
   const loc = getUserLocation(user);
   if (!loc) return [];
   const { data } = await supabaseAdmin
@@ -315,7 +315,7 @@ async function getAuthorizedDeviceIds(user) {
  * Get train numbers that belong to the user's location.
  */
 async function getAuthorizedTrainNumbers(user) {
-  if (isUnrestrictedUser(user)) return null;
+  if (isAdmin(user)) return null;
   const loc = getUserLocation(user);
   if (!loc) return [];
   const { data } = await supabaseAdmin
