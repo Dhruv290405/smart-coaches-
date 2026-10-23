@@ -53,10 +53,26 @@ function rollDay() {
   }
 }
 
-async function sendTransactionalEmail(to, subject, html) {
+async function sendTransactionalEmail(to, subject, html, options = {}) {
   if (!isConfigured()) throw new Error('Brevo email is not configured');
 
   const senderName = process.env.BREVO_SENDER_NAME || 'Smart Coach';
+  const payload = {
+    sender: { name: senderName, email: process.env.BREVO_SENDER_EMAIL },
+    to: [{ email: to }],
+    subject,
+    htmlContent: html,
+  };
+
+  if (Array.isArray(options.attachments) && options.attachments.length > 0) {
+    payload.attachment = options.attachments.map((attachment) => ({
+      name: attachment.name,
+      content: Buffer.isBuffer(attachment.content)
+        ? attachment.content.toString('base64')
+        : String(attachment.content),
+    }));
+  }
+
   const response = await fetch(BREVO_API_URL, {
     method: 'POST',
     headers: {
@@ -64,12 +80,7 @@ async function sendTransactionalEmail(to, subject, html) {
       'api-key': process.env.BREVO_API_KEY,
       'content-type': 'application/json',
     },
-    body: JSON.stringify({
-      sender: { name: senderName, email: process.env.BREVO_SENDER_EMAIL },
-      to: [{ email: to }],
-      subject,
-      htmlContent: html,
-    }),
+    body: JSON.stringify(payload),
   });
 
   if (!response.ok) {

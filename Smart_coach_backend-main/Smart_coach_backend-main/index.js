@@ -79,6 +79,7 @@ app.use('/smart_coach_api/api/notifications', notificationRoutes);
 app.use('/smart_coach_api/api/diesel', require('./src/routes/diesel.routes'));
 app.use('/smart_coach_api/api/service-requests', require('./src/routes/serviceRequest.routes'));
 app.use('/smart_coach_api/api/hardware-issues', require('./src/routes/hardwareIssue.routes'));
+app.use('/smart_coach_api/api/reports', require('./src/routes/reports.routes'));
 
 app.get('/smart_coach_api/api', (req, res) => {
   res.json({
@@ -305,6 +306,8 @@ const startServer = async () => {
     }
 
     startSupabaseListener();
+    const { startWeeklyReportScheduler } = require('./src/services/weeklyReport.service');
+    startWeeklyReportScheduler();
 
     const server = httpServer.listen(PORT, () => {
       console.log(`\nServer live: http://localhost:${PORT}`);
