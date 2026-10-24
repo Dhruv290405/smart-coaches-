@@ -85,18 +85,11 @@ exports.getBreakBindingData = async (req, res) => {
 
         // Bulk date-range export: app requests limit >= 10000 with from_date+to_date.
         // This is the PDF/Excel export workload. Cap rows to protect the mobile
-        // client from OOM when it deserializes JSON and renders the PDF locally
-        // using Flutter `package:pdf` (which builds ALL pages in memory).
-        //
-        // The live APK cannot be changed, so it always requests limit=10000 and
-        // builds the PDF client-side from every row returned. Even 5000 rows
-        // creates ~70 PdfPage objects in Dart heap and crashes on many devices.
-        // A safe client-side rendering ceiling is roughly 500 rows (~7 pages).
-        //
-        // Controlled by PNEUMATIC_MAX_EXPORT_ROWS env var (default 500).
-        // Set to 50000 to restore pre-fix behavior (not recommended — crashes).
+        // client from OOM when it deserializes and renders the PDF locally.
+        // Controlled by PNEUMATIC_MAX_EXPORT_ROWS env var (default 5000).
+        // Set to 50000 to restore pre-fix behavior.
         const PNEUMATIC_MAX_EXPORT_ROWS = Math.max(
-            parseInt(process.env.PNEUMATIC_MAX_EXPORT_ROWS, 10) || 500,
+            parseInt(process.env.PNEUMATIC_MAX_EXPORT_ROWS, 10) || 5000,
             1,
         );
         const isBulkDateExport = Boolean(fromDate && toDate && requestedLimit >= 10000);
