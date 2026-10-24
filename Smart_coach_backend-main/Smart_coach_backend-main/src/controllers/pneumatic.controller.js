@@ -82,14 +82,30 @@ exports.getBreakBindingData = async (req, res) => {
         const toDate = req.query.to_date || null;
 
         const requestedLimit = Math.max(parseInt(req.query.limit, 10) || 10, 1);
-        // The app requests 10,000 rows for date-range exports. Some coaches
-        // produce more than 10,000 readings in a day, so allow a larger
-        // bounded result only for those bulk date-range requests.
+
+        // Bulk date-range export: app requests limit >= 10000 with from_date+to_date.
+        // This is the PDF/Excel export workload. Cap rows to protect the mobile
+        // client from OOM when it deserializes and renders the PDF locally.
+        // Controlled by PNEUMATIC_MAX_EXPORT_ROWS env var (default 5000).
+        // Set to 50000 to restore pre-fix behavior.
+        const PNEUMATIC_MAX_EXPORT_ROWS = Math.max(
+            parseInt(process.env.PNEUMATIC_MAX_EXPORT_ROWS, 10) || 5000,
+            1,
+        );
         const isBulkDateExport = Boolean(fromDate && toDate && requestedLimit >= 10000);
         const historyLimit = isBulkDateExport
-            ? 50000
+            ? Math.min(requestedLimit, PNEUMATIC_MAX_EXPORT_ROWS)
             : Math.min(parseInt(req.query.limit, 10) || 10000, 10000);
-        const limit = isBulkDateExport ? 50000 : Math.min(requestedLimit, 10000);
+        const limit = historyLimit;
+
+        if (
+            isBulkDateExport &&
+            requestedLimit > PNEUMATIC_MAX_EXPORT_ROWS
+        ) {
+            console.log(
+                `[PNEUMATIC_EXPORT_LIMIT] deviceId=${filterDeviceId} from=${fromDate} to=${toDate} requested=${requestedLimit} limited=${limit} userId=${req.user?.user_id || 'anonymous'} roleId=${req.user?.role_id || 'N/A'}`,
+            );
+        }
         const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
 
         const readings = await Pneumatic.getLatestReading(filterDeviceId, req.user, limit, offset, fromDate, toDate);
