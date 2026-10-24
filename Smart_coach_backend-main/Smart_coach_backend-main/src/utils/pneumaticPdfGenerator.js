@@ -90,6 +90,21 @@ function clipText(doc, text, maxWidth, fontSize) {
     return t + '…';
 }
 
+// ─── Fast monospace clipping (Courier glyph width = 0.6 em) ──────────────────
+// Avoids calling doc.widthOfString for every cell (the main CPU hot-spot).
+const COURIER_CHAR_W = 0.6 * ROW_FONT_SIZE;
+
+function maxCharsFor(width) {
+    return Math.max(1, Math.floor(width / COURIER_CHAR_W));
+}
+
+function clipMono(text, maxChars) {
+    if (text.length <= maxChars) return text;
+    return maxChars > 1 ? text.slice(0, maxChars - 1) + '…' : text.slice(0, 1);
+}
+
+COL_META.forEach(col => { col.maxChars = maxCharsFor(col.w - 2); });
+
 // ─── Column-header band ───────────────────────────────────────────────────────
 
 function drawColumnHeaders(doc, y) {
@@ -101,12 +116,17 @@ function drawColumnHeaders(doc, y) {
 
     doc.font('Helvetica-Bold').fontSize(HEADER_FONT_SIZE).fillColor('#FFFFFF');
     COL_META.forEach(col => {
-        const text = clipText(doc, col.label, col.w - 2, HEADER_FONT_SIZE);
-        doc.text(text, col.x + 1, y + 3, { width: col.w - 2, align: col.align, lineBreak: false });
+        if (col.headerText === undefined) {
+            col.headerText = clipText(doc, col.label, col.w - 2, HEADER_FONT_SIZE);
+        }
+        doc.text(col.headerText, col.x + 1, y + 3, { width: col.w - 2, align: col.align, lineBreak: false });
     });
+    // Restore row font once per page (not once per row)
+    doc.font('Courier').fontSize(ROW_FONT_SIZE).fillColor('#1a1a2e');
 }
 
 // ─── Single data row ──────────────────────────────────────────────────────────
+// Caller guarantees Courier / ROW_FONT_SIZE / row colour are already set.
 
 function drawDataRow(doc, cells, y, isEven) {
     if (isEven) {
@@ -114,13 +134,14 @@ function drawDataRow(doc, cells, y, isEven) {
            .rect(MARGIN, y, CONTENT_W, ROW_H)
            .fill('#F5F7FA')
            .restore();
+        doc.fillColor('#1a1a2e');
     }
-    doc.font('Courier').fontSize(ROW_FONT_SIZE).fillColor('#1a1a2e');
-    COL_META.forEach((col, idx) => {
+    for (let idx = 0; idx < COL_META.length; idx++) {
+        const col = COL_META[idx];
         const raw = idx < cells.length ? safeStr(cells[idx]) : '';
-        const text = clipText(doc, raw, col.w - 2, ROW_FONT_SIZE);
-        doc.text(text, col.x + 1, y + 2, { width: col.w - 2, align: col.align, lineBreak: false });
-    });
+        if (raw === '') continue;
+        doc.text(clipMono(raw, col.maxChars), col.x + 1, y + 2, { width: col.w - 2, align: col.align, lineBreak: false });
+    }
 }
 
 // ─── Page header / metadata block (first page only) ──────────────────────────
@@ -188,8 +209,11 @@ function generatePneumaticHistoryPdf(res, { rows, meta }) {
     // Pipe directly to response — client starts downloading immediately
     doc.pipe(res);
 
-    const USABLE_H = PAGE_H - MARGIN * 2;
     const BOTTOM_LIMIT = PAGE_H - MARGIN - ROW_H;  // don't draw below this
+
+    // Stop work if the client disconnects (prevents wasted CPU / memory)
+    let aborted = false;
+    res.on('close', () => { if (!res.writableEnded) aborted = true; });
 
     // ── First page ──────────────────────────────────────────────────────────
     doc.addPage();
@@ -198,55 +222,62 @@ function generatePneumaticHistoryPdf(res, { rows, meta }) {
     y += HEADER_ROW_H;
 
     let pageNum = 1;
-    // We'll track pages for footer; we add footer when page flips
-    // pdfkit fires 'pageAdded' but we manage manually for performance
-    const pageStarts = [pageNum]; // page index tracking
 
-    for (let i = 0; i < rows.length; i++) {
-        const row = rows[i];
+    // Render in chunks and yield to the event loop between chunks so a huge
+    // report never freezes the server, and respect stream backpressure so
+    // memory stays flat.
+    const CHUNK_ROWS = 1500;
+    let i = 0;
 
-        // ── Page break ────────────────────────────────────────────────────────
-        if (y + ROW_H > BOTTOM_LIMIT) {
-            // Footer on current page
-            addPageFooter(doc, pageNum, '?'); // we'll add total later via buffered pages
-            doc.addPage();
-            pageNum++;
-            y = MARGIN;
-            drawColumnHeaders(doc, y);
-            y += HEADER_ROW_H;
+    const renderChunk = () => {
+        if (aborted) { try { doc.end(); } catch (_) {} return; }
+        const stop = Math.min(i + CHUNK_ROWS, rows.length);
+        for (; i < stop; i++) {
+            const row = rows[i];
+
+            // ── Page break ────────────────────────────────────────────────────
+            if (y + ROW_H > BOTTOM_LIMIT) {
+                addPageFooter(doc, pageNum, '?');
+                doc.addPage();
+                pageNum++;
+                y = MARGIN;
+                drawColumnHeaders(doc, y);
+                y += HEADER_ROW_H;
+            }
+
+            const cells = [
+                String(i + 1),
+                formatTimestamp(row.timestamp),
+                safeStr(row.device_id),
+                safeStr(row.train_no),
+                safeStr(row.location),
+                safeStr(row.bp),
+                safeStr(row.fp),
+                safeStr(row.cr),
+                safeStr(row.bc),
+                safeStr(row.brake_status),
+                `${safeStr(row.brake_applied_time)}s`,
+                `${safeStr(row.brake_released_time)}s`,
+                `${safeStr(row.brake_duration)}s`,
+                row.brake_fault ? safeStr(row.brake_fault) : 'OK',
+            ];
+
+            drawDataRow(doc, cells, y, i % 2 === 0);
+            y += ROW_H;
         }
 
-        const cells = [
-            String(i + 1),
-            formatTimestamp(row.timestamp),
-            safeStr(row.device_id),
-            safeStr(row.train_no),
-            safeStr(row.location),
-            safeStr(row.bp),
-            safeStr(row.fp),
-            safeStr(row.cr),
-            safeStr(row.bc),
-            safeStr(row.brake_status),
-            `${safeStr(row.brake_applied_time)}s`,
-            `${safeStr(row.brake_released_time)}s`,
-            `${safeStr(row.brake_duration)}s`,
-            row.brake_fault ? safeStr(row.brake_fault) : 'OK',
-        ];
+        if (i < rows.length) {
+            // Yield to the event loop; if the response buffer is full wait for drain.
+            if (res.writableNeedDrain) res.once('drain', () => setImmediate(renderChunk));
+            else setImmediate(renderChunk);
+            return;
+        }
 
-        drawDataRow(doc, cells, y, i % 2 === 0);
-        y += ROW_H;
-    }
+        addPageFooter(doc, pageNum, pageNum);
+        doc.end();
+    };
 
-    // Footer on last page (we now know total pages)
-    for (let p = 1; p <= pageNum; p++) {
-        // pdfkit with bufferPages:false can't go back, so we only write last page footer now.
-        // For accurate total pages we'd need bufferPages:true, but that buffers entire doc in
-        // memory defeating our streaming goal.  We write 'Page N of N' only for last page,
-        // and 'Page N' for others (already written above without total).
-    }
-    addPageFooter(doc, pageNum, pageNum);
-
-    doc.end();
+    renderChunk();
 }
 
 // ─── PUBLIC: Faults PDF ────────────────────────────────────────────────────────
