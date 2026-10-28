@@ -142,7 +142,6 @@ class _BrakeBindingScreenState extends State<BrakeBindingScreen> {
           await Future.delayed(const Duration(milliseconds: 800));
         },
         child: SingleChildScrollView(
-          return SingleChildScrollView(
             child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
