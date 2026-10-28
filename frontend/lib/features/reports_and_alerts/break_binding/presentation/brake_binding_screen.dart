@@ -45,6 +45,14 @@ class _BrakeBindingScreenState extends State<BrakeBindingScreen> {
           icon: const Icon(Icons.arrow_back, color: Color(0xFF111111)),
           onPressed: () => Navigator.pop(context),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Color(0xFF1A9DF8)),
+            onPressed: () {
+              context.read<BrakeBindingBloc>().add(LoadInitData());
+            },
+          ),
+        ],
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
