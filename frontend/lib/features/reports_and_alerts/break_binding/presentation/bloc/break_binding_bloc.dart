@@ -77,20 +77,25 @@ class BrakeBindingBloc extends Bloc<BrakeBindingEvent, BrakeBindingState> {
     final cache = BrakeBindingCache.instance;
 
     // Reset device ID so stale status fetches don't fire during refresh
-    _currentDeviceId = null;
+    // _currentDeviceId = null;
 
     // Serve from cache immediately for instant display
     final cachedCoaches = cache.coaches;
     if (cachedCoaches != null && cachedCoaches.isNotEmpty) {
-      final firstCoach = cachedCoaches.first;
+      CoachByLocationItem selectedCoach = cachedCoaches.first;
+      final currentId = state.selectedDeviceId;
+      if (currentId != null) {
+        final match = cachedCoaches.where((c) => c.deviceId?.toString() == currentId).toList();
+        if (match.isNotEmpty) selectedCoach = match.first;
+      }
       emit(state.copyWith(
         coachList: cachedCoaches,
-        selectedCoach: firstCoach,
-        selectedDeviceId: firstCoach.deviceId?.toString(),
+        selectedCoach: selectedCoach,
+        selectedDeviceId: selectedCoach.deviceId?.toString(),
         isLoadingCoaches: false,
       ));
-      if (firstCoach.deviceId != null) {
-        final cachedStatus = cache.getStatus(firstCoach.deviceId.toString());
+      if (selectedCoach.deviceId != null) {
+        final cachedStatus = cache.getStatus(selectedCoach.deviceId.toString());
         if (cachedStatus != null) {
           _applyPneumaticResponse(cachedStatus, emit);
         }
