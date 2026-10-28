@@ -48,27 +48,22 @@ class BrakeBindingBloc extends Bloc<BrakeBindingEvent, BrakeBindingState> {
   void _startAutoRefresh() {
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      // Live status: fires every second but _onFetchPneumaticStatus
-      // returns instantly from cache (5s TTL) — API only hit when cache expires
+      // Live status: refresh every 1s
       if (state.timeFilter != "RANGE" && !state.isLoadingHistory && state.historyPneumaticStatus == null) {
         add(FetchPneumaticStatus(deviceId: _currentDeviceId));
       }
 
-      // History background refresh every 10s
+      // History background refresh every 1s
       if (state.historyPneumaticStatus != null && state.historyDateRange == null && !state.isLoadingHistory) {
-        if (timer.tick % 10 == 0) {
-          add(FetchHistoryData(
-            deviceId: state.historyDeviceId,
-            isBackground: true,
-            limit: state.historyLimit,
-          ));
-        }
+        add(FetchHistoryData(
+          deviceId: state.historyDeviceId,
+          isBackground: true,
+          limit: state.historyLimit,
+        ));
       }
 
-      // Coaches list: re-fetch silently every 5 min when cache expires
-      if (timer.tick % 300 == 0 && !BrakeBindingCache.instance.hasValidCoaches) {
-        add(LoadInitData());
-      }
+      // Coaches list: re-fetch every 1s
+      add(LoadInitData());
     });
   }
 
