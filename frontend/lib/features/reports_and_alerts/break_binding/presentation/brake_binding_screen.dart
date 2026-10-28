@@ -134,7 +134,14 @@ class _BrakeBindingScreenState extends State<BrakeBindingScreen> {
               ),
             );
           }
-          return SingleChildScrollView(
+          return RefreshIndicator(
+            onRefresh: () async {
+              if (!state.isLoadingCoaches) {
+                context.read<BrakeBindingBloc>().add(LoadInitData());
+              }
+              await Future.delayed(const Duration(milliseconds: 800));
+            },
+            child: SingleChildScrollView(
             child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
@@ -193,7 +200,8 @@ class _BrakeBindingScreenState extends State<BrakeBindingScreen> {
                 ],
               ),
             ),
-          );
+          ),
+          ),
         },
       ),
     );
