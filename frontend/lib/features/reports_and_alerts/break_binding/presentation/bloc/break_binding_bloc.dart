@@ -105,15 +105,22 @@ class BrakeBindingBloc extends Bloc<BrakeBindingEvent, BrakeBindingState> {
       final List<CoachByLocationItem> coaches = await breakBindingUsecases.getCoachesByLocation();
       cache.setCoaches(coaches);
       if (coaches.isNotEmpty) {
-        final firstCoach = coaches.first;
-        _currentDeviceId = firstCoach.deviceId?.toString();
+        // Preserve the currently selected coach instead of always resetting to first
+        CoachByLocationItem selectedCoach = coaches.first;
+        final currentId = _currentDeviceId ?? state.selectedDeviceId;
+        if (currentId != null) {
+          final match = coaches.where((c) => c.deviceId?.toString() == currentId).toList();
+          if (match.isNotEmpty) selectedCoach = match.first;
+        }
+        _currentDeviceId = selectedCoach.deviceId?.toString();
         emit(state.copyWith(
           coachList: coaches,
-          selectedCoach: firstCoach,
-          selectedDeviceId: firstCoach.deviceId?.toString(),
+          selectedCoach: selectedCoach,
+          selectedDeviceId: selectedCoach.deviceId?.toString(),
           isLoadingCoaches: false,
         ));
-        add(FetchPneumaticStatus(deviceId: firstCoach.deviceId?.toString()));
+        // Only fetch status if device changed/not already loaded
+        add(FetchPneumaticStatus(deviceId: selectedCoach.deviceId?.toString()));
       } else {
         emit(state.copyWith(coachList: [], isLoadingCoaches: false));
       }
