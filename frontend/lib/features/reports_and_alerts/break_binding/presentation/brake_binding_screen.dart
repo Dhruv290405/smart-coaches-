@@ -200,7 +200,7 @@ class _BrakeBindingScreenState extends State<BrakeBindingScreen> {
                 ],
               ),
             ),
-          );
+          ),
         ),
         },
       ),
