@@ -6,7 +6,7 @@ class BrakeBindingCache {
   static final BrakeBindingCache instance = BrakeBindingCache._();
 
   static const Duration _coachesTtl = Duration(minutes: 5);
-  static const Duration _statusTtl = Duration(seconds: 5);
+  static const Duration _statusTtl = Duration(seconds: 1);
 
   // Coaches cache
   List<CoachByLocationItem>? _coaches;
