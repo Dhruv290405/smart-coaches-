@@ -53,17 +53,21 @@ class BrakeBindingBloc extends Bloc<BrakeBindingEvent, BrakeBindingState> {
         add(FetchPneumaticStatus(deviceId: _currentDeviceId));
       }
 
-      // History background refresh every 1s
+      // History background refresh every 30s
       if (state.historyPneumaticStatus != null && state.historyDateRange == null && !state.isLoadingHistory) {
-        add(FetchHistoryData(
-          deviceId: state.historyDeviceId,
-          isBackground: true,
-          limit: state.historyLimit,
-        ));
+        if (timer.tick % 30 == 0) {
+          add(FetchHistoryData(
+            deviceId: state.historyDeviceId,
+            isBackground: true,
+            limit: state.historyLimit,
+          ));
+        }
       }
 
-      // Coaches list: re-fetch every 1s
-      add(LoadInitData());
+      // Coaches list: re-fetch every 30s
+      if (timer.tick % 30 == 0) {
+        add(LoadInitData());
+      }
     });
   }
 
