@@ -1,6 +1,5 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'condition_block_request.dart';
-import 'sub_condition_request.dart';
 
 part 'rule_configuration_request.freezed.dart';
 part 'rule_configuration_request.g.dart';

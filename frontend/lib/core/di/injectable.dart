@@ -134,13 +134,13 @@ abstract class RegisterModule {
       ),
     );
 
-    bool _dnsChecked = false;
+    bool dnsChecked = false;
 
     dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
-          if (!_dnsChecked) {
-            _dnsChecked = true;
+          if (!dnsChecked) {
+            dnsChecked = true;
             if (_resolvedIp.isEmpty) {
               final ip = await _resolveHostname(_apiHost);
               _resolvedIp = ip;

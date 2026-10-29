@@ -147,7 +147,7 @@ class _CoachGroupCardState extends State<_CoachGroupCard> {
               ),
               const SizedBox(height: 2),
               Text(
-                '${widget.group.trainName}',
+                widget.group.trainName,
                 style: GoogleFonts.poppins(
                   fontSize: 10,
                   color: ColorConstants.textSecondary,

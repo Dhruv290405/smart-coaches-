@@ -245,7 +245,9 @@ class _HotAxleHistoryScreenState extends State<HotAxleHistoryScreen> {
 
     if (_isParticularAxle) {
       final headers = ['Timestamp', 'Axle Temperature (°C)', 'Temperature Status', 'Battery Voltage (V)', 'Battery Status'];
-      for (var i = 0; i < headers.length; i++) col(4, i, headers[i]);
+      for (var i = 0; i < headers.length; i++) {
+        col(4, i, headers[i]);
+      }
       for (var r = 0; r < _items.length; r++) {
         final item = _items[r];
         final axleTemp = item.maxTemp;
@@ -256,12 +258,16 @@ class _HotAxleHistoryScreenState extends State<HotAxleHistoryScreen> {
         cell(5 + r, 3, '${item.batteryVoltage.toStringAsFixed(2)} V');
         cell(5 + r, 4, item.batteryStatus);
       }
-      for (var c = 0; c < 5; c++) sheet.setColumnWidth(c, 24);
+      for (var c = 0; c < 5; c++) {
+        sheet.setColumnWidth(c, 24);
+      }
     } else {
       final headers = ['Timestamp', 'Device/Coach', 'Status', 'Max Temp (°C)',
           'A1-1', 'A1-2', 'A2-1', 'A2-2', 'A3-1', 'A3-2', 'A4-1', 'A4-2',
           'Battery %', 'Signal'];
-      for (var i = 0; i < headers.length; i++) col(4, i, headers[i]);
+      for (var i = 0; i < headers.length; i++) {
+        col(4, i, headers[i]);
+      }
       for (var r = 0; r < _items.length; r++) {
         final item = _items[r];
         final sc = item.status == 'Critical' ? 'D32F2F' : item.status == 'Warning' ? 'BE8B22' : null;
@@ -269,18 +275,20 @@ class _HotAxleHistoryScreenState extends State<HotAxleHistoryScreen> {
         cell(5 + r, 1, item.deviceId ?? item.coachNumber ?? '');
         cell(5 + r, 2, item.status, color: sc);
         cell(5 + r, 3, '${item.maxTemp.toStringAsFixed(1)}°C', color: sc);
-        cell(5 + r, 4, '${item.a11Temp.toStringAsFixed(1)}');
-        cell(5 + r, 5, '${item.a12Temp.toStringAsFixed(1)}');
-        cell(5 + r, 6, '${item.a21Temp.toStringAsFixed(1)}');
-        cell(5 + r, 7, '${item.a22Temp.toStringAsFixed(1)}');
-        cell(5 + r, 8, '${item.a31Temp.toStringAsFixed(1)}');
-        cell(5 + r, 9, '${item.a32Temp.toStringAsFixed(1)}');
-        cell(5 + r, 10, '${item.a41Temp.toStringAsFixed(1)}');
-        cell(5 + r, 11, '${item.a42Temp.toStringAsFixed(1)}');
+        cell(5 + r, 4, item.a11Temp.toStringAsFixed(1));
+        cell(5 + r, 5, item.a12Temp.toStringAsFixed(1));
+        cell(5 + r, 6, item.a21Temp.toStringAsFixed(1));
+        cell(5 + r, 7, item.a22Temp.toStringAsFixed(1));
+        cell(5 + r, 8, item.a31Temp.toStringAsFixed(1));
+        cell(5 + r, 9, item.a32Temp.toStringAsFixed(1));
+        cell(5 + r, 10, item.a41Temp.toStringAsFixed(1));
+        cell(5 + r, 11, item.a42Temp.toStringAsFixed(1));
         cell(5 + r, 12, '${item.batteryPercentage}%');
         cell(5 + r, 13, '${item.signalStrength} dBm');
       }
-      for (var c = 0; c < 14; c++) sheet.setColumnWidth(c, 18);
+      for (var c = 0; c < 14; c++) {
+        sheet.setColumnWidth(c, 18);
+      }
     }
 
     final dir = await getApplicationDocumentsDirectory();
@@ -332,14 +340,14 @@ class _HotAxleHistoryScreenState extends State<HotAxleHistoryScreen> {
                 item.deviceId ?? item.coachNumber ?? '',
                 item.status,
                 '${item.maxTemp.toStringAsFixed(1)}°C',
-                '${item.a11Temp.toStringAsFixed(1)}',
-                '${item.a12Temp.toStringAsFixed(1)}',
-                '${item.a21Temp.toStringAsFixed(1)}',
-                '${item.a22Temp.toStringAsFixed(1)}',
-                '${item.a31Temp.toStringAsFixed(1)}',
-                '${item.a32Temp.toStringAsFixed(1)}',
-                '${item.a41Temp.toStringAsFixed(1)}',
-                '${item.a42Temp.toStringAsFixed(1)}',
+                (item.a11Temp.toStringAsFixed(1)),
+                (item.a12Temp.toStringAsFixed(1)),
+                (item.a21Temp.toStringAsFixed(1)),
+                (item.a22Temp.toStringAsFixed(1)),
+                (item.a31Temp.toStringAsFixed(1)),
+                (item.a32Temp.toStringAsFixed(1)),
+                (item.a41Temp.toStringAsFixed(1)),
+                (item.a42Temp.toStringAsFixed(1)),
                 '${item.batteryPercentage}%',
               ]).toList(),
               headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: PdfColors.white, fontSize: 8),

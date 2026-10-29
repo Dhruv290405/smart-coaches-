@@ -98,58 +98,58 @@ class OdourRepository {
     Map<String, dynamic> data, [
     String section = 'Section 1',
   ]) {
-    double _d(dynamic v, [double def = 0.0]) => v == null
+    double d(dynamic v, [double def = 0.0]) => v == null
         ? def
         : (v is num ? v.toDouble() : (double.tryParse(v.toString()) ?? def));
-    int _i(dynamic v, [int def = 0]) => v == null
+    int i(dynamic v, [int def = 0]) => v == null
         ? def
         : (v is num ? v.toInt() : (int.tryParse(v.toString()) ?? def));
-    String _s(dynamic v, [String def = 'N/A']) => v?.toString() ?? def;
+    String s(dynamic v, [String def = 'N/A']) => v?.toString() ?? def;
 
-    final vocVal = _d(data['voc_index'] ?? data['voc']);
-    final h2sVal = _d(data['h2s_ppm'] ?? data['h2s']);
-    final nh3Val = _d(data['nh3_ppm'] ?? data['nh3']);
+    final vocVal = d(data['voc_index'] ?? data['voc']);
+    final h2sVal = d(data['h2s_ppm'] ?? data['h2s']);
+    final nh3Val = d(data['nh3_ppm'] ?? data['nh3']);
 
     return OdourCoachModel(
-      coachNumber: _s(data['coach_number'] ?? data['device_id']),
+      coachNumber: s(data['coach_number'] ?? data['device_id']),
       section: section,
-      coachType: _s(data['coach_type'], 'Unknown'),
-      toiletPosition: _s(data['toilet_position']),
-      status: _s(data['status'], 'Active'),
+      coachType: s(data['coach_type'], 'Unknown'),
+      toiletPosition: s(data['toilet_position']),
+      status: s(data['status'], 'Active'),
       reading: vocVal,
-      timestamp: _s(
+      timestamp: s(
         data['timestamp_device'] ??
             data['created_at'] ??
             data['last_updated'] ??
             data['timestamp'],
         DateTime.now().toIso8601String(),
       ),
-      sensorId: _s(data['sensor_id'], 'SENS-??'),
-      deviceId: _s(data['device_id'], 'OMD-??'),
-      trainNumber: _s(data['train_number'], '--'),
-      trainName: _s(data['train_name'], '--'),
-      route: _s(data['route'], '--'),
+      sensorId: s(data['sensor_id'], 'SENS-??'),
+      deviceId: s(data['device_id'], 'OMD-??'),
+      trainNumber: s(data['train_number'], '--'),
+      trainName: s(data['train_name'], '--'),
+      route: s(data['route'], '--'),
       isRecent: true,
       voc: vocVal,
       h2s: h2sVal,
       nh3: nh3Val,
-      smoke: _d(data['smoke']),
-      temperature: _d(data['temperature']),
-      humidity: _d(data['humidity']),
-      address: _s(data['address'], 'Unknown'),
-      doorStatus: _s(data['door_status'], 'Closed'),
-      doorOpenEventsToday: _i(
+      smoke: d(data['smoke']),
+      temperature: d(data['temperature']),
+      humidity: d(data['humidity']),
+      address: s(data['address'], 'Unknown'),
+      doorStatus: s(data['door_status'], 'Closed'),
+      doorOpenEventsToday: i(
         data['door_open_events_today'] ?? data['long_lock_count'],
       ),
-      uCount: _i(data['u_count']),
-      fCount: _i(data['f_count']),
-      lastOpenedTime: _s(data['last_opened_time'], 'N/A'),
-      lastClosedTime: _s(data['last_closed_time'], 'N/A'),
-      totalDoorCyclesToday: _i(data['total_door_cycles_today']),
-      averageOpenDuration: _s(data['average_open_duration'], 'N/A'),
-      longestOpenDuration: _s(data['longest_open_duration'], 'N/A'),
+      uCount: i(data['u_count']),
+      fCount: i(data['f_count']),
+      lastOpenedTime: s(data['last_opened_time'], 'N/A'),
+      lastClosedTime: s(data['last_closed_time'], 'N/A'),
+      totalDoorCyclesToday: i(data['total_door_cycles_today']),
+      averageOpenDuration: s(data['average_open_duration'], 'N/A'),
+      longestOpenDuration: s(data['longest_open_duration'], 'N/A'),
       serverHygieneScore: data['hygiene_score'] != null
-          ? _d(data['hygiene_score'])
+          ? d(data['hygiene_score'])
           : null,
       serverVocStatus: data['voc_status']?.toString(),
       serverNh3Status: data['nh3_status']?.toString(),

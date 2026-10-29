@@ -162,7 +162,7 @@ class _WashroomCardState extends State<_WashroomCard> {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text('VOC', style: GoogleFonts.poppins(fontSize: 9, color: ColorConstants.textSecondary)),
-                      Text('${widget.toilet.voc.toStringAsFixed(2)}', style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600, color: ColorConstants.textPrimary)),
+                      Text(widget.toilet.voc.toStringAsFixed(2), style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600, color: ColorConstants.textPrimary)),
                     ],
                   ),
                 ],

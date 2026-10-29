@@ -8,8 +8,6 @@ import 'package:smart_coach_new/core/utils/color_constants.dart';
 import 'package:smart_coach_new/features/reports_and_alerts/odour_management/data/models/odour_model.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
-import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 
 class OdourReportGenerator {

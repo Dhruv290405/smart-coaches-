@@ -7,7 +7,6 @@ import 'package:open_file/open_file.dart';
 import 'package:smart_coach_new/core/utils/color_constants.dart';
 import 'package:smart_coach_new/features/reports_and_alerts/hot_axle/data/models/hot_axle_model.dart';
 
-import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';

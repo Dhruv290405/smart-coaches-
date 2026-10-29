@@ -111,8 +111,9 @@ class HotAxleHistoryItem {
     // Derive battery status from percentage or explicit field
     String batStatus = json['battery_status']?.toString() ?? '';
     if (batStatus.isEmpty) {
-      if (batPct <= 20) batStatus = 'Low';
-      else if (batPct >= 80) batStatus = 'High';
+      if (batPct <= 20) {
+        batStatus = 'Low';
+      } else if (batPct >= 80) batStatus = 'High';
       else batStatus = 'Moderate';
     }
 

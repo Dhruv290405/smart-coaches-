@@ -176,7 +176,7 @@ class _CoachDashboardScreenState extends State<CoachDashboardScreen> {
         Text(label, style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w500, color: Colors.grey.shade600)),
         const SizedBox(height: 4),
         DropdownButtonFormField<String>(
-          value: items.contains(value) ? value : items.first,
+          initialValue: items.contains(value) ? value : items.first,
           isExpanded: true,
           decoration: InputDecoration(
             contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
@@ -271,8 +271,9 @@ class _CoachDashboardScreenState extends State<CoachDashboardScreen> {
 
     // Map device name to status from fullConfig if possible
     if (fullConfig != null) {
-      if (deviceName.contains("Water Level")) status = fullConfig.wliSensor;
-      else if (deviceName.contains("FSDS")) status = fullConfig.fsdsSensor;
+      if (deviceName.contains("Water Level")) {
+        status = fullConfig.wliSensor;
+      } else if (deviceName.contains("FSDS")) status = fullConfig.fsdsSensor;
       else if (deviceName.contains("Hot Axle")) status = fullConfig.hotAxleDetector;
       else if (deviceName.contains("Bad Odour")) status = fullConfig.badOdourAlert;
       else if (deviceName.contains("BC Pressure")) status = fullConfig.bcPressure;

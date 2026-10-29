@@ -25,10 +25,10 @@ class PneumaticGauge extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.withOpacity(0.3)),
+        border: Border.all(color: Colors.grey.withValues(alpha: 0.3)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -40,7 +40,7 @@ class PneumaticGauge extends StatelessWidget {
           Text(
             label,
             style: GoogleFonts.poppins(
-              color: Colors.black.withOpacity(0.7),
+              color: Colors.black.withValues(alpha: 0.7),
               fontSize: 12,
               fontWeight: FontWeight.w600,
               letterSpacing: 1.1,
@@ -64,7 +64,7 @@ class PneumaticGauge extends StatelessWidget {
             label == "FP" ? "FEED PIPE" :
             label == "BC" ? "BRAKE CYLINDER" : "CONTROL RES.",
             style: GoogleFonts.poppins(
-              color: Colors.black.withOpacity(0.4),
+              color: Colors.black.withValues(alpha: 0.4),
               fontSize: 9,
               fontWeight: FontWeight.w500,
             ),
@@ -88,7 +88,7 @@ class PneumaticGauge extends StatelessWidget {
               Text(
                 unit,
                 style: GoogleFonts.poppins(
-                  color: Colors.black.withOpacity(0.5),
+                  color: Colors.black.withValues(alpha: 0.5),
                   fontSize: 7,
                   fontWeight: FontWeight.w500,
                 ),
@@ -120,7 +120,7 @@ class GaugePainter extends CustomPainter {
 
     // Background Arc
     final bgPaint = Paint()
-      ..color = Colors.grey.withOpacity(0.1)
+      ..color = Colors.grey.withValues(alpha: 0.1)
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round;
@@ -137,7 +137,7 @@ class GaugePainter extends CustomPainter {
     final valuePaint = Paint()
       ..shader = SweepGradient(
         colors: [
-          accentColor.withOpacity(0.5),
+          accentColor.withValues(alpha: 0.5),
           accentColor,
         ],
         startAngle: pi * 0.75,
@@ -158,7 +158,7 @@ class GaugePainter extends CustomPainter {
 
     // Ticks
     final tickPaint = Paint()
-      ..color = Colors.black.withOpacity(0.1)
+      ..color = Colors.black.withValues(alpha: 0.1)
       ..strokeWidth = 1.0;
 
     for (int i = 0; i <= 6; i++) {

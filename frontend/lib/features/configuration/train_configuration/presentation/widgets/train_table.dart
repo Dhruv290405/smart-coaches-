@@ -88,7 +88,7 @@ class _TrainTableState extends State<TrainTable> {
     }
 
     // Whitelist of user-facing columns; internal IDs are excluded
-    const _visibleColumns = {
+    const visibleColumns = {
       'train_number', 'train_name',
       'origination_region_name', 'region_name',
       'departure_station_name', 'destination_station_name',
@@ -102,7 +102,7 @@ class _TrainTableState extends State<TrainTable> {
     for (var item in filteredItems) {
       if (item.rawJson != null) {
         for (var key in item.rawJson!.keys) {
-          if (_visibleColumns.contains(key) && !orderedKeys.contains(key)) {
+          if (visibleColumns.contains(key) && !orderedKeys.contains(key)) {
             orderedKeys.add(key);
           }
         }
@@ -145,9 +145,7 @@ class _TrainTableState extends State<TrainTable> {
 
     // Get columns from data source if initialized
     List<String> columnsToShow = [];
-    if (_dataSource is TableDataSource) {
-       columnsToShow = (_dataSource as TableDataSource).columnNames;
-    }
+     columnsToShow = (_dataSource as TableDataSource).columnNames;
 
     return Column(
       children: [

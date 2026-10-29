@@ -85,17 +85,21 @@ class OdourCoachModel {
   double get hygieneScore {
     if (serverHygieneScore != null) return serverHygieneScore!;
     double score = 100.0;
-    if (nh3 > 1.0) score -= 40;
-    else if (nh3 > 0.2) score -= 20;
+    if (nh3 > 1.0) {
+      score -= 40;
+    } else if (nh3 > 0.2) score -= 20;
 
-    if (h2s > 0.1) score -= 30;
-    else if (h2s > 0.05) score -= 15;
+    if (h2s > 0.1) {
+      score -= 30;
+    } else if (h2s > 0.05) score -= 15;
 
-    if (voc > 1000) score -= 20;
-    else if (voc > 800) score -= 10;
+    if (voc > 1000) {
+      score -= 20;
+    } else if (voc > 800) score -= 10;
 
-    if (smoke > 10) score -= 10;
-    else if (smoke > 5) score -= 5;
+    if (smoke > 10) {
+      score -= 10;
+    } else if (smoke > 5) score -= 5;
 
     return score.clamp(0.0, 100.0);
   }

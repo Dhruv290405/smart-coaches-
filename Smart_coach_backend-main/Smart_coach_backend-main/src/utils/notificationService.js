@@ -2,6 +2,7 @@ const admin = require("../config/firebase");
 const supabaseAdmin = require("../config/supabaseAdmin");
 const rbac = require("./rbac");
 const emailService = require("./emailService");
+const smsAlertService = require("../services/smsAlert.service");
 
 /**
  * Map an in-app notification `type` to an RBAC module key. Types that are not
@@ -165,6 +166,7 @@ async function broadcastPushNotification(title, body, type, data = {}, scope = {
     const location = scope.location || data.location || data.train_location || null;
 
     const { tokens, userIds } = await resolveRecipients(moduleKey, location);
+    console.log(`[push] module=${moduleKey} location=${location} tokens=${tokens.length} users=${userIds.length}`);
 
     for (const token of tokens) {
       await sendPushNotification(token, title, body, data);
@@ -175,8 +177,16 @@ async function broadcastPushNotification(title, body, type, data = {}, scope = {
     // Email channel (Brevo) — only for allow-listed alert types, throttled.
     // When a location is known, email only users whose data scope matches it.
     await emailService.sendAlertEmails(userIds, title, body, type, { location });
-  } catch (err) {
-    console.error("❌ broadcastPushNotification error:", err.message);
+
+    // SMS channel — location-scoped, severity-based recipient filtering.
+    const severity = (data && data.severity) ? String(data.severity).toLowerCase() : 'warning';
+    if (location) {
+      try {
+        await smsAlertService.sendLocationAlert(location, severity, `Alert: ${title} - ${body}. Check dashboard. -SmartCoaches`.slice(0, 160));
+      } catch (smsErr) {
+        console.error('❌ SMS alert error:', smsErr.message);
+      }
+    }
   }
 }
 
@@ -238,14 +248,27 @@ async function saveInAppNotificationForAllUsers(title, body, type, scope = {}) {
   try {
     const moduleKey = scope.module || resolveModuleKey(type, {});
     const location = scope.location || null;
-    const { userIds } = await resolveRecipients(moduleKey, location);
+    const { tokens, userIds } = await resolveRecipients(moduleKey, location);
     await saveInAppNotifications(title, body, type, userIds);
+
+    // Push channel (FCM)
+    for (const token of tokens) {
+      await sendPushNotification(token, title, body, { type, ...scope });
+    }
 
     // Email channel (Brevo) — only for allow-listed alert types, throttled.
     // When a location is known, email only users whose data scope matches it.
     await emailService.sendAlertEmails(userIds, title, body, type, { location });
-  } catch (err) {
-    console.error("❌ saveInAppNotificationForAllUsers error:", err.message);
+
+    // SMS channel — location-scoped, severity-based recipient filtering.
+    const severity = (scope && scope.severity) ? String(scope.severity).toLowerCase() : 'warning';
+    if (location) {
+      try {
+        await smsAlertService.sendLocationAlert(location, severity, `Alert: ${title} - ${body}. Check dashboard. -SmartCoaches`.slice(0, 160));
+      } catch (smsErr) {
+        console.error('❌ SMS alert error:', smsErr.message);
+      }
+    }
   }
 }
 

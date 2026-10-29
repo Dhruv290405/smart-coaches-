@@ -118,8 +118,9 @@ class OdourChartView extends StatelessWidget {
     int warning = 0;
     int critical = 0;
     for (var r in records) {
-      if (r.hygieneScore >= 70) good++;
-      else if (r.hygieneScore >= 50) warning++;
+      if (r.hygieneScore >= 70) {
+        good++;
+      } else if (r.hygieneScore >= 50) warning++;
       else critical++;
     }
     

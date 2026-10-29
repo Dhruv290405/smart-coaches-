@@ -139,7 +139,7 @@ class HardwareIssueReportGenerator {
       _cell(details, r + 1, 1, '${req['coach_no'] ?? ''}');
       _cell(details, r + 1, 2, '${req['compartment_no'] ?? ''}');
       _cell(details, r + 1, 3, _formatType('${req['issue_type'] ?? ''}'));
-      _cell(details, r + 1, 4, '${req['status'] == 'closed' ? 'Closed' : 'Open'}',
+      _cell(details, r + 1, 4, req['status'] == 'closed' ? 'Closed' : 'Open',
           color: req['status'] == 'closed' ? '2E7D32' : 'DE980A');
       _cell(details, r + 1, 5, _fmtDateTime('${req['opened_at'] ?? ''}'));
       _cell(details, r + 1, 6, _fmtDateTime('${req['closed_at'] ?? ''}'));

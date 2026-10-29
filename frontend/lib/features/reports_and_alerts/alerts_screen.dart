@@ -141,7 +141,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
           borderRadius: BorderRadius.circular(3.w),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -152,7 +152,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
             Container(
               padding: EdgeInsets.all(2.5.w),
               decoration: BoxDecoration(
-                color: (isCritical ? Colors.red : Colors.orange).withOpacity(0.1),
+                color: (isCritical ? Colors.red : Colors.orange).withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -181,7 +181,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
             Container(
               padding: EdgeInsets.symmetric(horizontal: 3.w, vertical: 0.8.h),
               decoration: BoxDecoration(
-                color: (isCritical ? Colors.red : Colors.orange).withOpacity(0.1),
+                color: (isCritical ? Colors.red : Colors.orange).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(2.w),
               ),
               child: Text(

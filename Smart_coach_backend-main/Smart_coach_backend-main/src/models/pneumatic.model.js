@@ -1,8 +1,8 @@
 const supabase = require('../config/supabaseOld');
 const supabaseAdmin = require('../config/supabaseAdmin');
 
-const PNEUMATIC_COLUMNS_BP = `timestamp, bp, fp, cr, bc, brake_status, brake_duration, brake_fault, coach_no, device_id, brake_applied_time, brake_released_time`;
-const PRESSURE_COLUMNS_PL = `timestamp, bp, fp, cr, bc, brake_status, brake_duration, brake_fault, coach_number as coach_no, device_id, brake_applied_time, brake_released_time`;
+const PNEUMATIC_COLUMNS_BP = `timestamp, brake_pressure as bp, fp, cr, bc, brake_status, brake_duration, brake_fault, coach_no, device_id, brake_applied_time, brake_released_time`;
+const PRESSURE_COLUMNS_PL = `timestamp, brake_pressure as bp, fp, cr, bc, brake_status, brake_duration, brake_fault, coach_number as coach_no, device_id, brake_applied_time, brake_released_time`;
 
 function normalizeRow(row) {
     if (!row) return row;
@@ -217,7 +217,7 @@ const Pneumatic = {
             }
 
             if (!data && usedFallback && supabaseAdmin) {
-                const { data: fbData, error: fbErr } = await supabaseAdmin.from('pressure_logs').select(`timestamp, bp, fp, cr, bc, brake_status, device_id, coach_number as coach_no`);
+                const { data: fbData, error: fbErr } = await supabaseAdmin.from('pressure_logs').select(`timestamp, brake_pressure as bp, fp, cr, bc, brake_status, device_id, coach_number as coach_no`);
                 if (fbErr) console.warn("pressure_logs fallback error:", fbErr.message);
                 data = (fbData || []).map(normalizeRow);
             }

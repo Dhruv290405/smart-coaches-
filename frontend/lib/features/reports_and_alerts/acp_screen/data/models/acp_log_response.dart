@@ -76,28 +76,28 @@ class AcpLogData {
   });
 
   factory AcpLogData.fromJson(Map<String, dynamic> json) {
-    String? _safeString(dynamic val) {
+    String? safeString(dynamic val) {
       if (val == null || val == 'null') return null;
       return val.toString();
     }
     return AcpLogData(
       logId: json['log_id'] as int?,
-      lastHeartbeat: _safeString(json['last_heartbeat']),
-      lastTrigger: _safeString(json['last_trigger']),
-      statusText: _safeString(json['status']),
+      lastHeartbeat: safeString(json['last_heartbeat']),
+      lastTrigger: safeString(json['last_trigger']),
+      statusText: safeString(json['status']),
       rawAssetName: json['raw_asset_name'] as String?,
-      acpStatus: _safeString(json['acp_status']),
-      trainNo: _safeString(json['train_no']),
+      acpStatus: safeString(json['acp_status']),
+      trainNo: safeString(json['train_no']),
       todayCount: (json['today_count'] as num?)?.toInt(),
-      commCoachNo: _safeString(json['comm_coach_no']),
-      techCoachNo: _safeString(json['tech_coach_no']),
+      commCoachNo: safeString(json['comm_coach_no']),
+      techCoachNo: safeString(json['tech_coach_no']),
       trainLocation: json['train_location'] as String?,
-      powerCarNo: _safeString(json['power_car_no']),
+      powerCarNo: safeString(json['power_car_no']),
       totalCount: (json['total_count'] as num?)?.toInt(),
-      deviceId: _safeString(json['device_id']),
+      deviceId: safeString(json['device_id']),
       totalizedCount: (json['totalized_count'] as num?)?.toInt(),
       fsdsStatus: json['fsds_status']?.toString(),
-      fsdsTimestamp: _safeString(json['fsds_timestamp']),
+      fsdsTimestamp: safeString(json['fsds_timestamp']),
     );
   }
 

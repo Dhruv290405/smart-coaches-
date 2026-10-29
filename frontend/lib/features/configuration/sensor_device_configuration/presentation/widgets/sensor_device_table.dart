@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:sizer/sizer.dart';
-import 'package:smart_coach_new/core/utils/enums.dart';
 import 'package:smart_coach_new/core/utils/utils.dart';
 import 'package:smart_coach_new/core/widgets/custom_text_field.dart';
 import 'package:smart_coach_new/features/configuration/sensor_device_configuration/domain/entities/sensor_device_entity.dart';

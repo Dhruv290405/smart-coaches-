@@ -511,7 +511,7 @@ async function buildBcPressure(ctx) {
     safeRows(
       supabaseAdmin,
       'pressure_logs',
-      'timestamp,coach_number,train_number,brake_status,brake_fault,bp',
+      'timestamp,coach_number,train_number,brake_status,brake_fault,brake_pressure as bp',
       apply,
       'timestamp',
       25

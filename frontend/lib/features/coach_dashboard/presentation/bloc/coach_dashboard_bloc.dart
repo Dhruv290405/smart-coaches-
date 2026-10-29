@@ -59,7 +59,7 @@ class CoachDashboardBloc extends Bloc<CoachDashboardEvent, CoachDashboardState> 
         filteredDevices: filtered,
         coachNotFound: false,
       ));
-    } catch (e, stack) {
+    } catch (e) {
       emit(state.copyWith(
         isLoading: false,
         coachNotFound: true,

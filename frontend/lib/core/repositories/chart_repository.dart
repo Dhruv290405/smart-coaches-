@@ -15,7 +15,7 @@ class ChartRepository {
   static Future<List<Map<String, dynamic>>> getAcpData() async {
     final client = _client();
     final response = await client.getAcpLogs();
-    final logs = response?.data ?? [];
+    final logs = response.data ?? [];
     return logs.map((log) {
       final timestamp = log.lastHeartbeat != null
           ? DateFormat('yyyy-MM-dd HH:mm:ss').tryParse(log.lastHeartbeat!)

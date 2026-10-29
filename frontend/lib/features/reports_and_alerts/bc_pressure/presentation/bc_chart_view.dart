@@ -3,7 +3,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:smart_coach_new/core/utils/app_dimensions.dart';
 import 'package:smart_coach_new/core/utils/app_text_styles.dart';
 import 'package:smart_coach_new/core/utils/color_constants.dart';
-import 'package:smart_coach_new/core/widgets/period_filter.dart';
 import '../data/models/bc_pressure_model.dart';
 
 class BCChartView extends StatefulWidget {

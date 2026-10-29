@@ -626,16 +626,18 @@ class _HotAxleDashboardState extends State<HotAxleDashboard> {
     int batteryPct = 50;
     if (firstDev != null) {
       final bat = firstDev.batteryStatus.toLowerCase();
-      if (bat == 'low') batteryPct = 15;
-      else if (bat == 'moderate') batteryPct = 40;
+      if (bat == 'low') {
+        batteryPct = 15;
+      } else if (bat == 'moderate') batteryPct = 40;
       else if (bat == 'high') batteryPct = 80;
     }
 
     for (final d in devices) {
       final temp = d.temperature;
       final idx = _getHamsAxleIndex(d.deviceId);
-      if (idx == 0) a11 = temp;
-      else if (idx == 1) a12 = temp;
+      if (idx == 0) {
+        a11 = temp;
+      } else if (idx == 1) a12 = temp;
       else if (idx == 2) a21 = temp;
       else if (idx == 3) a22 = temp;
       else if (idx == 4) a31 = temp;

@@ -131,7 +131,7 @@ class _BCCoachDetailState extends State<BCCoachDetail> {
       Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(color: ColorConstants.cardBackground, borderRadius: BorderRadius.circular(4)),
-        child: Text('${widget.coach.getFormattedLastUpdated()}', style: AppTextStyles.bodySmall),
+        child: Text(widget.coach.getFormattedLastUpdated(), style: AppTextStyles.bodySmall),
       ),
     ]),
   );

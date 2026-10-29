@@ -9,6 +9,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:open_file/open_file.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:get_it/get_it.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
 import 'package:smart_coach_new/core/network/api_constants.dart';
 import 'package:smart_coach_new/core/utils/prefs.dart';
 import 'package:smart_coach_new/core/utils/device_id_mapper.dart';
@@ -271,8 +273,7 @@ class _BrakeBindingHistoryScreenState extends State<BrakeBindingHistoryScreen> w
   Future<(DateTimeRange, List<PneumaticHistoryData>)?> _pickHistoryForExport() async {
     DateTimeRange? range = _selectedDateRange;
 
-    if (range == null) {
-      range = await showDateRangePicker(
+    range ??= await showDateRangePicker(
         context: context,
         firstDate: DateTime(2024),
         lastDate: DateTime.now().add(const Duration(days: 1)),
@@ -290,7 +291,6 @@ class _BrakeBindingHistoryScreenState extends State<BrakeBindingHistoryScreen> w
           );
         },
       );
-    }
 
     if (range == null) return null;
 
@@ -961,7 +961,7 @@ class _BrakeBindingHistoryScreenState extends State<BrakeBindingHistoryScreen> w
         ),
         if (state.isLoadingHistory)
           Container(
-            color: Colors.white.withOpacity(0.5),
+            color: Colors.white.withValues(alpha: 0.5),
             child: const Center(
               child: CircularProgressIndicator(
                 color: Color(0xFF1A9DF8),
@@ -1216,4 +1216,3 @@ class _BrakeBindingHistoryScreenState extends State<BrakeBindingHistoryScreen> w
     return (l == null || l.toString() == "NULL") ? "N/A" : l.toString();
   }
 }
-

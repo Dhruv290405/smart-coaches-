@@ -134,7 +134,7 @@ class CountsDataView extends StatelessWidget {
                     padding: EdgeInsets.all(1.5.w),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: items[index].color.withOpacity(0.13),
+                      color: items[index].color.withValues(alpha: 0.13),
                     ),
                     child: Icon(items[index].icon,
                         color: items[index].color, size: 13.sp),
