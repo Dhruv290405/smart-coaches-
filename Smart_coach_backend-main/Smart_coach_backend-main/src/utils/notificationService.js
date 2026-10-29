@@ -187,6 +187,8 @@ async function broadcastPushNotification(title, body, type, data = {}, scope = {
         console.error('❌ SMS alert error:', smsErr.message);
       }
     }
+  } catch (err) {
+    console.error("ERR", err.message);
   }
 }
 
@@ -269,7 +271,9 @@ async function saveInAppNotificationForAllUsers(title, body, type, scope = {}) {
         console.error('❌ SMS alert error:', smsErr.message);
       }
     }
-  }
+    } catch (err) {
+      console.error("ERR", err.message);
+    }
 }
 
 module.exports = {
