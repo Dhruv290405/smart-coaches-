@@ -32,8 +32,11 @@ const NotificationService = {
 
                     notification: {
 
+                        channelId: 'high_importance_channel',
                         sound: 'default',
-
+                        priority: 'high',
+                        defaultSound: true,
+                        defaultVibrateTimings: true,
                         clickAction: 'FLUTTER_NOTIFICATION_CLICK',
 
                     },

@@ -38,7 +38,7 @@ exports.receiveData = async (req, res) => {
             device_id: payload.device_id || null,
             coach_no: payload.coach_no || payload.coach_number || null,
             coach_number: payload.coach_no || payload.coach_number || null,
-            bp: payload.bp != null ? parseFloat(payload.bp) : 0,
+            brake_pressure: payload.bp != null ? parseFloat(payload.bp) : 0,
             fp: payload.fp != null ? parseFloat(payload.fp) : 0,
             bc: payload.bc != null ? parseFloat(payload.bc) : 0,
             cr: payload.cr != null ? parseFloat(payload.cr) : 0,
@@ -54,6 +54,10 @@ exports.receiveData = async (req, res) => {
         };
 
         const inserted = await dualInsert('pressure_logs', [dataToSave]);
+        if (!inserted || inserted.length === 0) {
+            console.error("Pneumatic Insert returned no data:", inserted);
+            return res.status(500).json({ success: false, error: "Insert failed - no data returned" });
+        }
 
         if (global._io) {
             global._io.emit('pneumatic:update', { ...dataToSave, id: inserted?.[0]?.id });
@@ -237,10 +241,12 @@ exports.getBreakBindingData = async (req, res) => {
                 'SCBB NP001': { technical_id: 'NP001', coach_no: 'NP1', Train_no: 'NAGPUR01', Location: 'Nagpur' },
                 'SCBB NP002': { technical_id: 'NP002', coach_no: 'NP2', Train_no: 'NAGPUR01', Location: 'Nagpur' },
                 'SCBB NP003': { technical_id: 'NP003', coach_no: 'NP3', Train_no: 'NAGPUR01', Location: 'Nagpur' },
-                'Raspberry4_4': { technical_id: '231035', coach_no: 'M3', Train_no: '13071', Location: 'Kolkatta' },
+                'Raspberry4_5': { technical_id: '19771', coach_no: 'B2', Train_no: '12345', Location: 'Nagpur' },
+                'Raspberry4_6': { technical_id: '226965', coach_no: 'C3', Train_no: '12069', Location: 'Nagpur' },
+                'Raspberry4_4': { technical_id: '231035', coach_no: 'M3', Train_no: '13071', Location: 'Kolkata' },
                 'Raspberry4_1': { technical_id: '231545', coach_no: 'S4', Train_no: '13277', Location: 'Jaipur' },
-                'Raspberry4_2': { technical_id: '234534', coach_no: 'S3', Train_no: '12578', Location: 'Jaipur' },
-                'Raspberry4_3': { technical_id: '211245', coach_no: 'S2', Train_no: '65214', Location: 'Jaipur' }
+                'Raspberry4_2': { technical_id: '193431', coach_no: 'S3', Train_no: '12578', Location: 'Howrah' },
+                'Raspberry4_3': { technical_id: '197832', coach_no: 'D3', Train_no: '65214', Location: 'Howrah' }
             };
             dbCoach = deviceMapping[activeDeviceId] || null;
         }
@@ -278,10 +284,12 @@ exports.getBreakBindingData = async (req, res) => {
             'SCBB NP001': { technical_id: 'NP001', coach_no: 'NP1', Train_no: 'NAGPUR01', Location: 'Nagpur' },
             'SCBB NP002': { technical_id: 'NP002', coach_no: 'NP2', Train_no: 'NAGPUR01', Location: 'Nagpur' },
             'SCBB NP003': { technical_id: 'NP003', coach_no: 'NP3', Train_no: 'NAGPUR01', Location: 'Nagpur' },
-            'Raspberry4_4': { technical_id: '231035', coach_no: 'M3', Train_no: '13071', Location: 'Kolkatta' },
+            'Raspberry4_5': { technical_id: '19771', coach_no: 'B2', Train_no: '12345', Location: 'Nagpur' },
+            'Raspberry4_6': { technical_id: '226965', coach_no: 'C3', Train_no: '12069', Location: 'Nagpur' },
+            'Raspberry4_4': { technical_id: '231035', coach_no: 'M3', Train_no: '13071', Location: 'Kolkata' },
             'Raspberry4_1': { technical_id: '231545', coach_no: 'S4', Train_no: '13277', Location: 'Jaipur' },
-            'Raspberry4_2': { technical_id: '234534', coach_no: 'S3', Train_no: '12578', Location: 'Jaipur' },
-            'Raspberry4_3': { technical_id: '211245', coach_no: 'S2', Train_no: '65214', Location: 'Jaipur' }
+            'Raspberry4_2': { technical_id: '193431', coach_no: 'S3', Train_no: '12578', Location: 'Howrah' },
+            'Raspberry4_3': { technical_id: '197832', coach_no: 'D3', Train_no: '65214', Location: 'Howrah' }
         };
         const fallback = deviceMapping[activeDeviceId] || {};
 
@@ -360,7 +368,12 @@ exports.getBreakBindingData = async (req, res) => {
 
         if (newAlerts.cr_overcharge === 'red') {
             const crKey = String(activeDeviceId || finalCoachInfo.coach_no);
-            if (_crOverchargeState[crKey] !== 'red') {
+            const lastState = _crOverchargeState[crKey];
+            const lastTime = (typeof lastState === 'object' && lastState) ? lastState.time : 0;
+            const currentState = (typeof lastState === 'object' && lastState) ? lastState.state : lastState;
+            const nowTime = Date.now();
+
+            if (currentState !== 'red' || (nowTime - lastTime) > 60000) {
                 const crTitle = `CR Overcharge Alert: Coach ${finalCoachInfo.coach_no}`;
                 const crBody = `Coach ${finalCoachInfo.coach_no} on train ${finalCoachInfo.Train_no} reported CR overcharge (CR: ${cr}).`;
                 const crData = {
@@ -379,10 +392,10 @@ exports.getBreakBindingData = async (req, res) => {
                     location,
                 });
             }
-            _crOverchargeState[crKey] = 'red';
+            _crOverchargeState[crKey] = { state: 'red', time: nowTime };
         } else {
             const crKey = String(activeDeviceId || finalCoachInfo.coach_no);
-            _crOverchargeState[crKey] = 'green';
+            _crOverchargeState[crKey] = { state: 'green', time: Date.now() };
         }
 
         res.status(200).json({

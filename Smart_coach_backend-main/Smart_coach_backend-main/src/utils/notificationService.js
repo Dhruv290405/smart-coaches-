@@ -44,26 +44,39 @@ function resolveModuleKey(type, data = {}) {
  * Admins always receive. Users whose division is not in the module map keep the
  * legacy "receive everything" behaviour.
  */
+function normaliseLocationAlias(str) {
+  if (!str) return '';
+  let s = String(str).trim().toLowerCase();
+  s = s.replace(/[\(\)\-_]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (s.includes('kolkatta') || s.includes('kolkata') || s.includes('howrah')) {
+    return 'kolkata_howrah';
+  }
+  return s;
+}
+
+function locationMatchesScope(userLocations, targetLocation) {
+  if (!targetLocation || targetLocation === 'unknown' || targetLocation === 'all') return true;
+
+  const normTarget = normaliseLocationAlias(targetLocation);
+
+  return userLocations.some((loc) => {
+    const normUserLoc = normaliseLocationAlias(loc);
+    if (!normUserLoc) return false;
+    if (normUserLoc === normTarget) return true;
+    return rbac.locationMatches(normUserLoc, normTarget);
+  });
+}
+
 function userMatchesScope(user, moduleKey, location) {
-  // Only role 1 (Master) and the tester bypass location ownership. Role 2
-  // (Super Admin) is location-scoped for notifications, otherwise users such
-  // as Jabalpur receive alerts for modules they cannot see in the app.
   if (rbac.isUnrestrictedUser(user)) return true;
 
   if (!rbac.getUserLocation(user)) return false;
 
-  // Strict module ownership: unmapped divisions must not receive a module's
-  // telemetry alerts. This mirrors the module location guard used by the APIs.
   if (moduleKey && !rbac.isModuleLocationOwner(user, moduleKey)) return false;
 
   if (location) {
-    // Suffix-aware match: a "Jaipur" user should match "Jaipur_N1"/"Jaipur_N2".
-    const target = String(location).trim().toLowerCase();
-    const locs = rbac.getUserLocations(user).map((l) => String(l).trim().toLowerCase());
-    const matches = locs.some(
-      (l) => target === l || target.startsWith(`${l}_`) || target.startsWith(`${l} `)
-    );
-    if (!matches) return false;
+    const locs = rbac.getUserLocations(user);
+    if (!locationMatchesScope(locs, location)) return false;
   }
   return true;
 }
@@ -75,7 +88,8 @@ function userMatchesScope(user, moduleKey, location) {
 async function resolveRecipients(moduleKey, location = null) {
   const { data: rows, error } = await supabaseAdmin
     .from('user_fcm_tokens')
-    .select('fcm_token, user_id');
+    .select('id, fcm_token, user_id')
+    .order('id', { ascending: false });
 
   if (error) {
     console.error("❌ Failed to fetch FCM tokens:", error.message);
@@ -89,14 +103,20 @@ async function resolveRecipients(moduleKey, location = null) {
   // No scoping needed — behave exactly like before.
   if (!moduleKey) {
     const tokens = [];
-    for (const row of (rows || [])) if (row.fcm_token) tokens.push(row.fcm_token);
+    const seen = new Set();
+    for (const row of (rows || [])) {
+      if (row.fcm_token && !seen.has(row.fcm_token)) {
+        seen.add(row.fcm_token);
+        tokens.push(row.fcm_token);
+      }
+    }
     return { tokens, userIds };
   }
 
   const { data: users, error: userErr } = await supabaseAdmin
     .from('user_master')
     .select(`
-      user_id, role_id,
+      user_id, email, role_id,
       zone_master!left(name),
       division_master!left(name),
       region_master!left(name)
@@ -111,6 +131,8 @@ async function resolveRecipients(moduleKey, location = null) {
   const allowedUserIds = new Set();
   for (const u of (users || [])) {
     const pseudo = {
+      user_id: u.user_id,
+      email: u.email,
       role_id: u.role_id,
       zone_name: Array.isArray(u.zone_master) ? u.zone_master[0]?.name : u.zone_master?.name || null,
       division_name: Array.isArray(u.division_master) ? u.division_master[0]?.name : u.division_master?.name || null,
@@ -119,11 +141,25 @@ async function resolveRecipients(moduleKey, location = null) {
     if (userMatchesScope(pseudo, moduleKey, location)) allowedUserIds.add(u.user_id);
   }
 
-  console.log("[push-debug] allowedUserIds=" + allowedUserIds.size + " finalTokens=" + (rows||[]).filter(r => allowedUserIds.has(r.user_id) && r.fcm_token).length);
+  // Pick the most recent active tokens per allowed user (up to 3 per user) to avoid
+  // slow broadcasts to dozens of expired tokens.
+  const userTokenCount = {};
   const tokens = [];
+  const seenTokens = new Set();
   for (const row of (rows || [])) {
-    if (row.fcm_token && allowedUserIds.has(row.user_id)) tokens.push(row.fcm_token);
+    if (row.fcm_token && allowedUserIds.has(row.user_id)) {
+      if (!seenTokens.has(row.fcm_token)) {
+        seenTokens.add(row.fcm_token);
+        const count = userTokenCount[row.user_id] || 0;
+        if (count < 3) {
+          userTokenCount[row.user_id] = count + 1;
+          tokens.push(row.fcm_token);
+        }
+      }
+    }
   }
+
+  console.log("[push-debug] allowedUserIds=" + allowedUserIds.size + " finalTokens=" + tokens.length);
   return { tokens, userIds: [...allowedUserIds] };
 }
 
@@ -133,25 +169,44 @@ async function resolveRecipients(moduleKey, location = null) {
 async function sendPushNotification(fcmToken, title, body, data = {}) {
   const message = {
     token: fcmToken,
-    notification: { title, body },
+    notification: {
+      title,
+      body,
+    },
     android: {
-      notification: {
-        sound: 'default',
-        clickAction: 'FLUTTER_NOTIFICATION_CLICK',
-      },
       priority: 'high',
+      notification: {
+        channelId: 'high_importance_channel',
+        sound: 'default',
+        priority: 'high',
+        clickAction: 'FLUTTER_NOTIFICATION_CLICK',
+        defaultSound: true,
+        defaultVibrateTimings: true,
+      },
     },
     data: Object.fromEntries(
-      Object.entries(data).map(([k, v]) => [k, String(v)])
+      Object.entries(data || {}).map(([k, v]) => [k, String(v != null ? v : '')])
     ),
   };
 
   try {
     const response = await admin.messaging().send(message);
-    console.log("✅ Notification sent:", response);
+    console.log(`✅ [FCM] Notification sent to ${fcmToken.slice(0, 10)}...: ${response}`);
     return response;
   } catch (error) {
-    console.error("❌ FCM error:", error);
+    console.error(`❌ [FCM] Error for token ${fcmToken.slice(0, 10)}...:`, error.code || error.message);
+    if (
+      error.code === 'messaging/registration-token-not-registered' ||
+      error.code === 'messaging/invalid-registration-token' ||
+      (error.message && error.message.includes('Requested entity was not found'))
+    ) {
+      supabaseAdmin
+        .from('user_fcm_tokens')
+        .delete()
+        .eq('fcm_token', fcmToken)
+        .then(() => console.log(`🧹 [FCM] Cleaned stale token ${fcmToken.slice(0, 10)}... from DB`))
+        .catch(() => {});
+    }
   }
 }
 
@@ -170,9 +225,7 @@ async function broadcastPushNotification(title, body, type, data = {}, scope = {
     const { tokens, userIds } = await resolveRecipients(moduleKey, location);
     console.log(`[push] module=${moduleKey} location=${location} tokens=${tokens.length} users=${userIds.length}`);
 
-    for (const token of tokens) {
-      await sendPushNotification(token, title, body, data);
-    }
+    await Promise.allSettled(tokens.map((token) => sendPushNotification(token, title, body, data)));
 
     await saveInAppNotifications(title, body, type, userIds);
 
@@ -256,9 +309,7 @@ async function saveInAppNotificationForAllUsers(title, body, type, scope = {}) {
     await saveInAppNotifications(title, body, type, userIds);
 
     // Push channel (FCM)
-    for (const token of tokens) {
-      await sendPushNotification(token, title, body, { type, ...scope });
-    }
+    await Promise.allSettled(tokens.map((token) => sendPushNotification(token, title, body, { type, ...scope })));
 
     // Email channel (Brevo) — only for allow-listed alert types, throttled.
     // When a location is known, email only users whose data scope matches it.
