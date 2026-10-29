@@ -182,7 +182,7 @@ async function broadcastPushNotification(title, body, type, data = {}, scope = {
     const severity = (data && data.severity) ? String(data.severity).toLowerCase() : 'warning';
     if (location) {
       try {
-        await smsAlertService.sendLocationAlert(location, severity, `SmartCoaches Railway Coach Safety Monitoring Service: Railway coach safety monitoring event detected for ${title}. Immediate operational attention is required for train safety. Please check the SmartCoaches dashboard for event details. -SmartCoaches`.slice(0, 160), process.env.DLT_TEMPLATE_ID);
+        await smsAlertService.sendLocationAlert(location, severity, `SmartCoaches Railway Coach Monitoring Alert: ${title}. Immediate action required for train safety. Check dashboard now. -SmartCoaches`.slice(0, 160), process.env.DLT_TEMPLATE_ID);
       } catch (smsErr) {
         console.error('❌ SMS alert error:', smsErr.message);
       }
@@ -266,7 +266,7 @@ async function saveInAppNotificationForAllUsers(title, body, type, scope = {}) {
     const severity = (scope && scope.severity) ? String(scope.severity).toLowerCase() : 'warning';
     if (location) {
       try {
-        await smsAlertService.sendLocationAlert(location, severity, `SmartCoaches Railway Coach Safety Monitoring Service: Railway coach safety monitoring event detected for ${title}. Immediate operational attention is required for train safety. Please check the SmartCoaches dashboard for event details. -SmartCoaches`.slice(0, 160), process.env.DLT_TEMPLATE_ID);
+        await smsAlertService.sendLocationAlert(location, severity, `SmartCoaches Railway Coach Monitoring Alert: ${title}. Immediate action required for train safety. Check dashboard now. -SmartCoaches`.slice(0, 160), process.env.DLT_TEMPLATE_ID);
       } catch (smsErr) {
         console.error('❌ SMS alert error:', smsErr.message);
       }
