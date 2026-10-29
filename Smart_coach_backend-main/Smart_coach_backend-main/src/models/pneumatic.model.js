@@ -1,13 +1,16 @@
 const supabase = require('../config/supabaseOld');
 const supabaseAdmin = require('../config/supabaseAdmin');
 
-const PNEUMATIC_COLUMNS_BP = `timestamp, brake_pressure as bp, fp, cr, bc, brake_status, brake_duration, brake_fault, coach_no, device_id, brake_applied_time, brake_released_time`;
-const PRESSURE_COLUMNS_PL = `timestamp, brake_pressure as bp, fp, cr, bc, brake_status, brake_duration, brake_fault, coach_number as coach_no, device_id, brake_applied_time, brake_released_time`;
+const PNEUMATIC_COLUMNS_BP = `timestamp, bp, fp, cr, bc, brake_status, brake_duration, brake_fault, coach_no, device_id, brake_applied_time, brake_released_time`;
+const PRESSURE_COLUMNS_PL = `timestamp, bp_pressure, coach_number, device_id, brake_applied_time, brake_released_time`;
 
 function normalizeRow(row) {
     if (!row) return row;
     if (row.coach_number && !row.coach_no) {
         row.coach_no = row.coach_number;
+    }
+    if (row.bp_pressure != null && row.bp == null) {
+        row.bp = row.bp_pressure;
     }
     return row;
 }
@@ -131,22 +134,42 @@ const Pneumatic = {
             let usedFallback = false;
             let authorizedDeviceIds = null;
 
-            if (user && user.role_id !== 1) {
-                const userLoc = user.division_name || user.region_name;
+            const rbac = require('../utils/rbac');
+            if (user && !rbac.isUnrestrictedUser(user)) {
+                const userLoc = rbac.getUserLocation(user);
                 if (!userLoc) return [];
 
-                let { data: allowedDevices } = supabase
-                    ? await supabase.from('coaches_railway').select('device_id').ilike('Location', userLoc)
-                    : { data: null };
-
-                authorizedDeviceIds = (allowedDevices || []).map(d => d.device_id).filter(Boolean);
-                if (authorizedDeviceIds.length === 0 && supabaseAdmin) {
-                    const fallbackDevices = await supabaseAdmin
-                        .from('coaches_railway')
-                        .select('device_id')
-                        .ilike('Location', userLoc);
-                    authorizedDeviceIds = (fallbackDevices.data || []).map(d => d.device_id).filter(Boolean);
+                let allowedCoachRows = [];
+                if (supabase) {
+                    const { data: rows } = await supabase.from('coaches_railway').select('device_id, Location');
+                    if (rows && rows.length > 0) allowedCoachRows = rows;
                 }
+                if (allowedCoachRows.length === 0 && supabaseAdmin) {
+                    const { data: rows } = await supabaseAdmin.from('coaches_railway').select('device_id, Location');
+                    if (rows && rows.length > 0) allowedCoachRows = rows;
+                }
+
+                const normUserLoc = String(userLoc).trim().toLowerCase();
+                const matchesLoc = (loc) => {
+                    if (!loc) return false;
+                    const normLoc = String(loc).trim().toLowerCase();
+                    if (
+                        (normLoc.includes('kolkata') || normLoc.includes('kolkatta') || normLoc.includes('howrah')) &&
+                        (normUserLoc.includes('kolkata') || normUserLoc.includes('kolkatta') || normUserLoc.includes('howrah'))
+                    ) return true;
+                    return (
+                        normLoc === normUserLoc ||
+                        normLoc.startsWith(`${normUserLoc}_`) ||
+                        normLoc.startsWith(`${normUserLoc} `) ||
+                        normUserLoc.startsWith(`${normLoc}_`) ||
+                        normUserLoc.startsWith(`${normLoc} `)
+                    );
+                };
+
+                authorizedDeviceIds = allowedCoachRows
+                    .filter(c => matchesLoc(c.Location))
+                    .map(c => c.device_id)
+                    .filter(Boolean);
 
                 if (authorizedDeviceIds.length === 0) return [];
                 if (deviceId && !authorizedDeviceIds.includes(deviceId)) return [];
@@ -217,7 +240,7 @@ const Pneumatic = {
             }
 
             if (!data && usedFallback && supabaseAdmin) {
-                const { data: fbData, error: fbErr } = await supabaseAdmin.from('pressure_logs').select(`timestamp, brake_pressure as bp, fp, cr, bc, brake_status, device_id, coach_number as coach_no`);
+                const { data: fbData, error: fbErr } = await supabaseAdmin.from('pressure_logs').select(`timestamp, bp_pressure, device_id, coach_number as coach_no`);
                 if (fbErr) console.warn("pressure_logs fallback error:", fbErr.message);
                 data = (fbData || []).map(normalizeRow);
             }

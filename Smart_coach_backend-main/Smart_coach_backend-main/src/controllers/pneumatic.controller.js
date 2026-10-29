@@ -34,11 +34,10 @@ exports.receiveData = async (req, res) => {
         const formattedTime = (payload.timestamp || new Date().toISOString())
             .replace('T', ' ').replace(/\..*Z|Z/, '');
 
-        const dataToSave = {
+        const bpcRow = {
             device_id: payload.device_id || null,
             coach_no: payload.coach_no || payload.coach_number || null,
-            coach_number: payload.coach_no || payload.coach_number || null,
-            brake_pressure: payload.bp != null ? parseFloat(payload.bp) : 0,
+            bp: payload.bp != null ? parseFloat(payload.bp) : 0,
             fp: payload.fp != null ? parseFloat(payload.fp) : 0,
             bc: payload.bc != null ? parseFloat(payload.bc) : 0,
             cr: payload.cr != null ? parseFloat(payload.cr) : 0,
@@ -47,27 +46,43 @@ exports.receiveData = async (req, res) => {
             brake_applied_time: payload.brake_applied_time || 0,
             brake_released_time: payload.brake_released_time || 0,
             brake_fault: payload.brake_fault || null,
+            timestamp: formattedTime
+        };
+
+        const pressureLogsRow = {
+            device_id: payload.device_id || null,
+            coach_number: payload.coach_no || payload.coach_number || null,
+            bp_pressure: payload.bp != null ? parseFloat(payload.bp) : 0,
+            current_pressure: payload.bc != null ? parseFloat(payload.bc) : 0,
+            brake_applied_time: payload.brake_applied_time || null,
+            brake_released_time: payload.brake_released_time || null,
             timestamp: formattedTime,
             train_no: payload.train_no || payload.train_number || null,
             coach_type: payload.coach_type || null,
             owning_rly: payload.owning_rly || null
         };
 
-        const inserted = await dualInsert('pressure_logs', [dataToSave]);
-        if (!inserted || inserted.length === 0) {
-            console.error("Pneumatic Insert returned no data:", inserted);
-            return res.status(500).json({ success: false, error: "Insert failed - no data returned" });
+        let insertedId = null;
+        if (supabase) {
+            const { data: insOld, error: errOld } = await supabase.from('bpc_pressure').insert([bpcRow]).select();
+            if (errOld) console.error("[bpc_pressure insert error]:", errOld.message);
+            else if (insOld?.[0]?.id) insertedId = insOld[0].id;
+        }
+
+        if (supabaseAdmin) {
+            const { data: insNew, error: errNew } = await supabaseAdmin.from('pressure_logs').insert([pressureLogsRow]).select();
+            if (errNew) console.error("[pressure_logs insert error]:", errNew.message);
+            else if (!insertedId && insNew?.[0]?.id) insertedId = insNew[0].id;
         }
 
         if (global._io) {
             global._io.emit('pneumatic:update', { 
-                ...dataToSave, 
-                bp: dataToSave.brake_pressure, 
-                id: inserted?.[0]?.id 
+                ...bpcRow, 
+                id: insertedId 
             });
         }
 
-        return res.status(201).json({ success: true, message: "Pneumatic data stored", id: inserted?.[0]?.id });
+        return res.status(201).json({ success: true, message: "Pneumatic data stored", id: insertedId });
     } catch (error) {
         console.error("Pneumatic Receive Error:", error.message);
         res.status(500).json({ success: false, error: error.message });
@@ -221,21 +236,12 @@ exports.getBreakBindingData = async (req, res) => {
             .select('technical_id, coach_no, Train_no, Location')
             .eq('device_id', activeDeviceId);
 
-        if (req.user && req.user.role_id !== 1) {
-            const userLoc = rbac.getUserLocation(req.user);
-            if (userLoc) coachQuery = coachQuery.ilike('Location', userLoc);
-        }
-
         let { data: dbCoach } = await coachQuery.maybeSingle();
 
         if (!dbCoach && supabaseAdmin) {
             let fbCoachQuery = supabaseAdmin.from('coaches_railway')
                 .select('technical_id, coach_no, Train_no, Location')
                 .eq('device_id', activeDeviceId);
-            if (req.user && req.user.role_id !== 1) {
-                const userLoc = rbac.getUserLocation(req.user);
-                if (userLoc) fbCoachQuery = fbCoachQuery.ilike('Location', userLoc);
-            }
             const { data: fbCoach } = await fbCoachQuery.maybeSingle();
             if (fbCoach) dbCoach = fbCoach;
         }
@@ -520,16 +526,24 @@ exports.getCoachesByLocation = async (req, res) => {
             });
         }
 
-        // Case-insensitive location match that also accepts suffixed locations,
-        // e.g. a "Jaipur" user matches rows stored as "Jaipur_N1" / "Jaipur_N2".
+        // Case-insensitive location match that also accepts suffixed locations (e.g. Jaipur_N1)
+        // and Eastern Railway clusters (Kolkata / Howrah).
         const matchesLocation = (location) => {
             if (!location || !userLocation) return false;
             const rowLoc = String(location).trim().toLowerCase();
             const userLoc = String(userLocation).trim().toLowerCase();
+            if (
+                (rowLoc.includes('kolkata') || rowLoc.includes('kolkatta') || rowLoc.includes('howrah')) &&
+                (userLoc.includes('kolkata') || userLoc.includes('kolkatta') || userLoc.includes('howrah'))
+            ) {
+                return true;
+            }
             return (
                 rowLoc === userLoc ||
                 rowLoc.startsWith(`${userLoc}_`) ||
-                rowLoc.startsWith(`${userLoc} `)
+                rowLoc.startsWith(`${userLoc} `) ||
+                userLoc.startsWith(`${rowLoc}_`) ||
+                userLoc.startsWith(`${rowLoc} `)
             );
         };
 
@@ -565,13 +579,16 @@ exports.getCoachesByLocation = async (req, res) => {
         if (!coaches || coaches.length === 0) {
             // Last resort: hardcoded device mapping
             const deviceMapping = {
+                'Raspberry4_3': { technical_id: '197832', coach_no: 'D3', Train_no: '13009', Location: 'Howrah' },
+                'Raspberry4_2': { technical_id: '193431', coach_no: 'S3', Train_no: '12273', Location: 'Howrah' },
+                'Raspberry5_5': { technical_id: '231035', coach_no: 'S5', Train_no: '12273', Location: 'Howrah' },
+                'Raspberry4_5': { technical_id: '19771', coach_no: 'B2', Train_no: '12345', Location: 'Jaipur_N1' },
+                'Raspberry4_6': { technical_id: '232620', coach_no: 'S3', Train_no: '19711', Location: 'Jaipur_N2' },
+                'Raspberry4_7': { technical_id: '226965', coach_no: 'LWSCZ-AC', Train_no: '1207069', Location: 'Nagpur' },
+                'Raspberry4_8': { technical_id: '135784', coach_no: 'B2', Train_no: '240697', Location: 'Mumbai' },
                 'SCBB NP001': { technical_id: 'NP001', coach_no: 'NP1', Train_no: 'NAGPUR01', Location: 'Nagpur' },
                 'SCBB NP002': { technical_id: 'NP002', coach_no: 'NP2', Train_no: 'NAGPUR01', Location: 'Nagpur' },
                 'SCBB NP003': { technical_id: 'NP003', coach_no: 'NP3', Train_no: 'NAGPUR01', Location: 'Nagpur' },
-                'Raspberry4_4': { technical_id: '231035', coach_no: 'M3', Train_no: '13071', Location: 'Kolkatta' },
-                'Raspberry4_1': { technical_id: '231545', coach_no: 'S4', Train_no: '13277', Location: 'Jaipur' },
-                'Raspberry4_2': { technical_id: '234534', coach_no: 'S3', Train_no: '12578', Location: 'Jaipur' },
-                'Raspberry4_3': { technical_id: '211245', coach_no: 'S2', Train_no: '65214', Location: 'Jaipur' }
             };
             if (role_id !== 1) {
                 const filtered = Object.entries(deviceMapping).filter(([_, info]) =>
