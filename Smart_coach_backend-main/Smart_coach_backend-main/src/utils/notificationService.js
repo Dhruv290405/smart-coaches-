@@ -83,6 +83,7 @@ async function resolveRecipients(moduleKey, location = null) {
   }
 
   const userIds = [...new Set((rows || []).map((r) => r.user_id).filter((id) => id != null))];
+  console.log("[push-debug] moduleKey=" + moduleKey + " location=" + location + " totalRows=" + (rows||[]).length + " userIds=" + userIds.length);
   if (userIds.length === 0) return { tokens: [], userIds: [] };
 
   // No scoping needed — behave exactly like before.
@@ -118,6 +119,7 @@ async function resolveRecipients(moduleKey, location = null) {
     if (userMatchesScope(pseudo, moduleKey, location)) allowedUserIds.add(u.user_id);
   }
 
+  console.log("[push-debug] allowedUserIds=" + allowedUserIds.size + " finalTokens=" + (rows||[]).filter(r => allowedUserIds.has(r.user_id) && r.fcm_token).length);
   const tokens = [];
   for (const row of (rows || [])) {
     if (row.fcm_token && allowedUserIds.has(row.user_id)) tokens.push(row.fcm_token);
