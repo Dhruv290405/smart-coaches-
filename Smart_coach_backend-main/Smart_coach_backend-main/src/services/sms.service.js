@@ -68,4 +68,3 @@ async function sendAlert(phone, message, templateId) {
 }
 
 module.exports = { sendOtp, verifyOtp, sendAlert };
-PY

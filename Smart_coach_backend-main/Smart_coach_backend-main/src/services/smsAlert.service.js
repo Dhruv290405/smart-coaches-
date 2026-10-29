@@ -44,4 +44,3 @@ async function sendLocationAlert(location, severity, message, templateId) {
 }
 
 module.exports = { getRecipients, sendLocationAlert };
-PY
