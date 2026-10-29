@@ -60,7 +60,11 @@ exports.receiveData = async (req, res) => {
         }
 
         if (global._io) {
-            global._io.emit('pneumatic:update', { ...dataToSave, id: inserted?.[0]?.id });
+            global._io.emit('pneumatic:update', { 
+                ...dataToSave, 
+                bp: dataToSave.brake_pressure, 
+                id: inserted?.[0]?.id 
+            });
         }
 
         return res.status(201).json({ success: true, message: "Pneumatic data stored", id: inserted?.[0]?.id });
