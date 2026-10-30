@@ -87,16 +87,28 @@ const receiveAcpData = async (req, res) => {
             if (currentCount > 0) {
                 await AcpModel.saveCriticalEvent(assetData);
                 await AcpModel.updateLiveStatus(assetData, 'TRIGGER');
+                const now = new Date();
+                const pad = (n) => String(n).padStart(2, '0');
+                const formattedTime = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+                const coachNo = techCoachNo || rawAssetName || 'Unknown';
+                const trainNo = assetData.train_no || 'Unknown';
+                const deviceId = rawAssetName || techCoachNo || 'Unknown';
+                const alertText = `Alert: ACP Obstruction in Train ${trainNo}, Coach_Unique Id ${coachNo}, Device ${deviceId} | ${formattedTime}`;
+
                 await broadcastPushNotification(
-                    'ACP Obstruction Alert',
-                    `Coach ${techCoachNo} on train ${assetData.train_no} reported an ACP obstruction (count: ${currentCount}).`,
+                    alertText,
+                    alertText,
                     'ACP',
                     {
                         module: 'acp',
-                        coach_no: techCoachNo,
-                        train_no: assetData.train_no,
+                        coach_no: coachNo,
+                        train_no: trainNo,
                         count: currentCount,
                         location: assetData.train_location,
+                    },
+                    {
+                        location: assetData.train_location,
+                        division: assetData.train_location,
                     }
                 );
             } else {

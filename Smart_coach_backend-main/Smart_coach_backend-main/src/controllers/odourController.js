@@ -43,11 +43,13 @@ const odourController = {
             const deviceKey = dataToSave.device_id || dataToSave.coach_number || 'unknown';
             const wasAlert = _odourAlertState[deviceKey];
             if (isAlert && !wasAlert) {
-                const coachNo = dataToSave.coach_number || 'Unknown coach';
-                const trainNo = dataToSave.train_number || 'Unknown train';
+                const coachNo = dataToSave.coach_number || 'Unknown';
+                const trainNo = dataToSave.train_number || 'Unknown';
+                const deviceId = deviceKey || 'Unknown';
+                const alertText = `Alert: Bad Odour in Train ${trainNo}, Coach_Unique Id ${coachNo}, Device ${deviceId} | ${formattedTime}`;
                 await broadcastPushNotification(
-                    'Bad Odour Alert',
-                    `Coach ${coachNo} on train ${trainNo} reported poor air quality (VOC: ${dataToSave.voc_index}, H₂S: ${dataToSave.h2s_ppm}, NH₃: ${dataToSave.nh3_ppm}).`,
+                    alertText,
+                    alertText,
                     'ODOUR',
                     {
                         module: 'odour',
@@ -55,6 +57,10 @@ const odourController = {
                         train_no: trainNo,
                         device_id: deviceKey,
                         location: dataToSave.location || dataToSave.train_location || dataToSave.locName || dataToSave.division,
+                    },
+                    {
+                        location: dataToSave.location || dataToSave.train_location || dataToSave.locName || dataToSave.division,
+                        division: dataToSave.division || dataToSave.location
                     }
                 );
             }

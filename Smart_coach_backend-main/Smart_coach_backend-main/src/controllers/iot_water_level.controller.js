@@ -93,17 +93,23 @@ exports.addIoTData = async (req, res) => {
 
       const userTokens = await getUserFcmTokens(sensor_id);
 
+      const now = new Date();
+      const pad = (n) => String(n).padStart(2, '0');
+      const formattedTime = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+
       for (const alert of alerts) {
+        const alertName = alert.alert_type_name || 'Water Level Alert';
+        const alertText = `Alert: ${alertName} (${water_level}%) in Train Unknown, Coach_Unique Id Unknown, Device ${sensor_id} | ${formattedTime}`;
         for (const token of userTokens) {
           await sendPushNotification(
             token.fcm_token,
-            alert.alert_type_name,
-            `${alert.description} (Sensor ID: ${sensor_id})`,
+            alertText,
+            alertText,
             { sensor_id, water_level });
         }
         await saveInAppNotificationForAllUsers(
-          alert.alert_type_name,
-          `${alert.description} (Sensor ID: ${sensor_id})`,
+          alertText,
+          alertText,
           'WATER');
       }
     }

@@ -35,13 +35,19 @@ exports.getDieselReadings = async (req, res) => {
       const prevStatus = _dieselAlertState[sensor.sensor_id];
       const isAlert = status === 'Warning' || status === 'Critical';
       if (isAlert && prevStatus !== status && prevStatus !== 'Warning' && prevStatus !== 'Critical') {
-        const coachNo = sensor.coach_id || 'Unknown coach';
-        const trainNo = sensor.train_number || 'Unknown train';
+        const coachNo = sensor.coach_id || 'Unknown';
+        const trainNo = sensor.train_number || 'Unknown';
+        const deviceId = sensor.sensor_id || 'Unknown';
+        const now = new Date();
+        const pad = (n) => String(n).padStart(2, '0');
+        const formattedTime = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+        const alertText = `Alert: Diesel Level (${status}) in Train ${trainNo}, Coach_Unique Id ${coachNo}, Device ${deviceId} | ${formattedTime}`;
         broadcastPushNotification(
-          `Diesel Level Alert (${status})`,
-          `Loco ${coachNo} on train ${trainNo} fuel level at ${percentage}% (${status}).`,
+          alertText,
+          alertText,
           'DIESEL',
-          { module: 'diesel', coach_no: coachNo, train_no: trainNo, percentage, status }
+          { module: 'diesel', coach_no: coachNo, train_no: trainNo, percentage, status },
+          { location: sensor.location || sensor.division }
         ).catch(() => {});
       }
       _dieselAlertState[sensor.sensor_id] = status;
