@@ -102,6 +102,10 @@ function normalizeLocation(value) {
 }
 
 function userMatchesLocation(user, location) {
+  // Unrestricted users (Admins, SuperAdmins, Testers) always receive alert emails
+  if (user.role_id === 1 || user.role_id === 2 || String(user.email || '').toLowerCase() === 'tester@example.com') {
+    return true;
+  }
   const target = normalizeLocation(location);
   // Fail closed: without a concrete alert location we cannot prove the user
   // should see this data, so do not send a cross-location email.
@@ -133,7 +137,7 @@ async function getEmailsForUsers(userIds, location = null) {
   const { data, error } = await supabaseAdmin
     .from('user_master')
     .select(`
-      user_id, email, first_name,
+      user_id, email, first_name, role_id,
       zone_master!left(name),
       division_master!left(name),
       region_master!left(name)
