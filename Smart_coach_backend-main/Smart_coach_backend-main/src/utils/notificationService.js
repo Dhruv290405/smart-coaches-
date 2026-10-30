@@ -4,6 +4,35 @@ const rbac = require("./rbac");
 const emailService = require("./emailService");
 const smsAlertService = require("../services/smsAlert.service");
 
+const DLT_TEMPLATE_ID = process.env.DLT_TEMPLATE_ID || '1077537860081116008';
+const DLT_CONTENT_TEMPLATE = 'SmartCoaches Railway Coach Monitoring Alert: [alphanumeric]. Immediate action required for train safety. Check dashboard now. - Mirtha technology.';
+
+/**
+ * Builds the exact SMS message fitting the approved DLT content template:
+ * SmartCoaches Railway Coach Monitoring Alert: [alphanumeric]. Immediate action required for train safety. Check dashboard now. - Mirtha technology.
+ */
+function buildDltSmsMessage(title, data = {}) {
+  let variableText = '';
+  if (typeof title === 'string' && title.startsWith('Alert:')) {
+    variableText = title.trim();
+  } else {
+    const faultName = data.fault_name || data.status || title || 'Fault Alert';
+    const trainNo = data.train_no || data.Train_no || 'Unknown';
+    const coachNo = data.coach_no || data.coach_number || 'Unknown';
+    const deviceId = data.device_id || data.deviceId || 'Device';
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const timestamp = data.timestamp || `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    variableText = `Alert: ${faultName} in Train ${trainNo}, Coach_Unique Id ${coachNo}, Device ${deviceId} | ${timestamp}`;
+  }
+
+  // Remove any trailing period from variableText so it doesn't create duplicate dots before ". Immediate action"
+  variableText = variableText.replace(/\.+$/, '');
+
+  // Wrap inside the exact registered DLT template
+  return `SmartCoaches Railway Coach Monitoring Alert: ${variableText}. Immediate action required for train safety. Check dashboard now. - Mirtha technology.`;
+}
+
 /**
  * Map an in-app notification `type` to an RBAC module key. Types that are not
  * tied to a division-scoped telemetry module map to null (never scoped).
@@ -335,4 +364,7 @@ module.exports = {
   saveInAppNotificationForAllUsers,
   saveInAppNotifications,
   resolveRecipients,
+  DLT_TEMPLATE_ID,
+  DLT_CONTENT_TEMPLATE,
+  buildDltSmsMessage,
 };

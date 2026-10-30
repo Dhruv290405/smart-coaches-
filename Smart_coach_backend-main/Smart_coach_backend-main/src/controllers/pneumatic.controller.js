@@ -353,8 +353,9 @@ exports.getBreakBindingData = async (req, res) => {
             const timeDifferenceInSeconds = (now - faultTime) / 1000;
 
             if (timeDifferenceInSeconds <= 120) {
-                const title = ` New Brake Fault: Coach ${finalCoachInfo.coach_no}`;
-                const body = `${latestFault.fault_name || 'Brake Binding Issue'}: ${latestFault.event_message || 'Active fault logged.'}`;
+                const nowStr = new Date().toISOString().replace('T', ' ').slice(0, 19);
+                const title = `Alert: ${latestFault.fault_name || 'Brake Binding'} in Train ${finalCoachInfo.Train_no}, Coach_Unique Id ${finalCoachInfo.coach_no}, Device ${activeDeviceId} | ${nowStr}`;
+                const body = title;
                 
                 const extraData = {
                     type: 'BRAKE_BINDING',
@@ -384,8 +385,9 @@ exports.getBreakBindingData = async (req, res) => {
             const nowTime = Date.now();
 
             if (currentState !== 'red' || (nowTime - lastTime) > 60000) {
-                const crTitle = `CR Overcharge Alert: Coach ${finalCoachInfo.coach_no}`;
-                const crBody = `Coach ${finalCoachInfo.coach_no} on train ${finalCoachInfo.Train_no} reported CR overcharge (CR: ${cr}).`;
+                const nowStr = new Date().toISOString().replace('T', ' ').slice(0, 19);
+                const crTitle = `Alert: CR Overcharge in Train ${finalCoachInfo.Train_no}, Coach_Unique Id ${finalCoachInfo.coach_no}, Device ${activeDeviceId} | ${nowStr}`;
+                const crBody = crTitle;
                 const crData = {
                     type: 'CR_OVERCHARGE',
                     device_id: String(activeDeviceId),

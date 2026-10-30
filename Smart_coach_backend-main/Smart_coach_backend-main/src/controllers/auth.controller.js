@@ -82,7 +82,7 @@ const authController = {
 
       const { password_hash, ...userData } = fullUserData;
 
-      return successResponse(res, 'Login successful! Please ensure phone notifications are ON in your device settings to receive coach alerts.', {
+      return successResponse(res, 'Login successful!', {
         user: userData,
         token
       });
