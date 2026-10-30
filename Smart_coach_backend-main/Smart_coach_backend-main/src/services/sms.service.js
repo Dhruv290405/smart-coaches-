@@ -1,6 +1,5 @@
 const axios = require('axios');
 
-const API_KEY = process.env.TWO_FACTOR_API_KEY || process.env.AIRTEL_SMS_KEY || '';
 const BASE = process.env.TWO_FACTOR_BASE_URL || 'https://2factor.in/API/V1';
 
 /**
@@ -9,10 +8,11 @@ const BASE = process.env.TWO_FACTOR_BASE_URL || 'https://2factor.in/API/V1';
  * @returns {Promise<{success:boolean, sessionId:string|null, error:string|null}>}
  */
 async function sendOtp(phone) {
-  if (!API_KEY) return { success: false, sessionId: null, error: 'SMS API key not configured' };
+  const apiKey = process.env.TWO_FACTOR_API_KEY || process.env.AIRTEL_SMS_KEY || '';
+  if (!apiKey) return { success: false, sessionId: null, error: 'SMS API key not configured' };
   const clean = String(phone).replace(/\D/g, '').slice(-10);
   try {
-    const url = `${BASE}/${API_KEY}/SMS/${clean}/AUTOGEN`;
+    const url = `${BASE}/${apiKey}/SMS/${clean}/AUTOGEN`;
     const { data } = await axios.get(url, { timeout: 15000 });
     if (data && data.Status === 'Success') {
       return { success: true, sessionId: data.Details, error: null };
@@ -27,9 +27,10 @@ async function sendOtp(phone) {
  * Verify an OTP via 2factor.in
  */
 async function verifyOtp(sessionId, otp) {
-  if (!API_KEY) return { success: false, error: 'SMS API key not configured' };
+  const apiKey = process.env.TWO_FACTOR_API_KEY || process.env.AIRTEL_SMS_KEY || '';
+  if (!apiKey) return { success: false, error: 'SMS API key not configured' };
   try {
-    const url = `${BASE}/${API_KEY}/SMS/VERIFY/${sessionId}/${otp}`;
+    const url = `${BASE}/${apiKey}/SMS/VERIFY/${sessionId}/${otp}`;
     const { data } = await axios.get(url, { timeout: 15000 });
     if (data && data.Status === 'Success') return { success: true, error: null };
     return { success: false, error: data?.Details || 'OTP verify failed' };
@@ -40,30 +41,54 @@ async function verifyOtp(sessionId, otp) {
 
 /**
  * Send a transactional SMS (DLT template) via 2factor.in
- * @param {string} phone
- * @param {string} message
- * @param {string} [templateId] - DLT template id
+ * @param {string} phone - 10-digit mobile number
+ * @param {string} message - Formatted alert message or dynamic variable
+ * @param {string} [templateId] - DLT template id (fallback / reference)
  */
 async function sendAlert(phone, message, templateId) {
-  if (!API_KEY) return { success: false, error: 'SMS API key not configured' };
+  const apiKey = process.env.TWO_FACTOR_API_KEY || process.env.AIRTEL_SMS_KEY || '';
+  if (!apiKey) return { success: false, error: 'SMS API key not configured' };
   const clean = String(phone).replace(/\D/g, '').slice(-10);
+  if (!clean || clean.length < 10) {
+    return { success: false, error: 'Invalid phone number' };
+  }
+
   try {
-    const params = new URLSearchParams();
-    params.append('To', clean);
-    params.append('From', process.env.SMS_SENDER_ID || 'SMRTCH');
-    params.append('Msg', message);
-    if (templateId) params.append('TemplateId', templateId);
-    const url = `${BASE}/${API_KEY}/ADDON_SERVICES/SEND/TSMS`;
-    const { data } = await axios.post(url, params.toString(), {
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    const templateName = process.env.TWO_FACTOR_TEMPLATE_NAME || 'SmartCoaches Railway Coach Monitoring Alert';
+    const senderId = process.env.SMS_SENDER_ID || 'MIRTHA';
+
+    // Extract dynamic variable part if the full wrapped message was provided
+    let var1 = message || '';
+    const prefix = 'SmartCoaches Railway Coach Monitoring Alert:';
+    if (var1.startsWith(prefix)) {
+      var1 = var1.substring(prefix.length).trim();
+    }
+    if (var1.includes('. Immediate action required for train safety')) {
+      var1 = var1.split('. Immediate action required for train safety')[0].trim();
+    }
+    var1 = var1.replace(/\.+$/, '');
+
+    const payload = {
+      From: senderId,
+      To: clean,
+      TemplateName: templateName,
+      VAR1: var1,
+    };
+
+    const url = `${BASE}/${apiKey}/ADDON_SERVICES/SEND/TSMS`;
+    const { data } = await axios.post(url, payload, {
+      headers: { 'Content-Type': 'application/json' },
       timeout: 15000,
     });
+
     if (data && (data.Status === 'Success' || data.status === 'success')) {
-      return { success: true, error: null };
+      console.log(`✅ [SMS] Alert sent successfully to ${clean} (Session: ${data.Details})`);
+      return { success: true, sessionId: data.Details, error: null };
     }
     return { success: false, error: data?.Details || data?.message || 'SMS send failed' };
   } catch (err) {
-    return { success: false, error: err.message };
+    console.error('❌ [SMS] Send error:', err.response?.data || err.message);
+    return { success: false, error: err.response?.data?.Details || err.message };
   }
 }
 
