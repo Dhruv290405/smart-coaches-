@@ -20,6 +20,7 @@ import 'package:smart_coach_new/features/notifications/presentation/bloc/notific
 import 'package:smart_coach_new/features/notifications/presentation/bloc/notification_event.dart';
 import 'package:smart_coach_new/features/notifications/presentation/bloc/notification_state.dart';
 import 'package:smart_coach_new/routes/app_router.dart';
+import 'package:smart_coach_new/core/widgets/notification_permission_dialog.dart';
 
 class DashboardScreen extends StatefulWidget {
   final dynamic user;
@@ -40,6 +41,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _dashboardBloc.add(LoadDashboardData());
     _initializePermissions();
     context.read<NotificationBloc>().add(const LoadNotifications());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      NotificationPermissionDialog.showIfNeeded(context);
+    });
   }
 
   void _initializePermissions() {
@@ -67,9 +71,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         if (state is DashboardNavigateToNotifications) {
           context.push(AppRouter.notificationsRoute);
         } else if (state is DashboardNavigateToSettings) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Settings feature coming soon')),
-          );
+          NotificationPermissionDialog.showIfNeeded(context, force: true);
         } else if (state is DashboardNavigateToProfile) {
           context.push(AppRouter.profileRoute);
         }

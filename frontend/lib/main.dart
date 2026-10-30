@@ -131,6 +131,7 @@ class _AppBootstrapState extends State<_AppBootstrap> {
                   type: message.data['type'] as String? ?? 'info',
                 ),
               );
+          FCMService.showLocalNotification(message);
         },
       );
     } catch (e) {

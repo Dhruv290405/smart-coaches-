@@ -9,6 +9,7 @@ import 'package:smart_coach_new/core/permissions/permission_constants.dart';
 import 'package:smart_coach_new/core/permissions/permission_helper.dart';
 import 'package:smart_coach_new/core/utils/prefs.dart';
 import 'package:smart_coach_new/routes/app_router.dart';
+import 'package:smart_coach_new/core/widgets/notification_permission_dialog.dart';
 
 class CustomDrawer extends StatefulWidget {
   const CustomDrawer({super.key});
@@ -281,6 +282,15 @@ class _CustomDrawerState extends State<CustomDrawer> {
                   },
                 ),
               ],
+            ),
+            const Divider(height: 20),
+            _drawerItem(
+              'Notification Settings',
+              icon: Icons.notifications_active_outlined,
+              onTap: () {
+                Navigator.of(context).pop();
+                NotificationPermissionDialog.showIfNeeded(context, force: true);
+              },
             ),
           ],
         ),

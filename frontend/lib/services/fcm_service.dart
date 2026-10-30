@@ -39,6 +39,8 @@ class FCMService {
 
   }
 
+  static Future<void> showLocalNotification(RemoteMessage message) => _showLocalNotification(message);
+
   static Future<void> _showLocalNotification(RemoteMessage message) async {
     final notification = message.notification;
     if (notification == null) return;
