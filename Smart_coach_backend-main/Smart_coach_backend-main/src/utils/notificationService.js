@@ -5,7 +5,9 @@ const emailService = require("./emailService");
 const smsAlertService = require("../services/smsAlert.service");
 
 const DLT_TEMPLATE_ID = process.env.DLT_TEMPLATE_ID || '1077537860081116008';
-const DLT_CONTENT_TEMPLATE = 'SmartCoaches Railway Coach Monitoring Alert: [alphanumeric]. Immediate action required for train safety. Check dashboard now. - Mirtha technology.';
+const DLT_CONTENT_TEMPLATE = `SmartCoaches Railway Coach Monitoring Alert: [alphanumeric].
+Immediate action required for train safety.
+Check dashboard now. - Mirtha technology`;
 
 /**
  * Builds the exact SMS message fitting the approved DLT content template:
