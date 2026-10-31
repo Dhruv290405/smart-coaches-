@@ -7,6 +7,9 @@ const { generatePneumaticHistoryPdf, generatePneumaticFaultsPdf } = require('../
 
 // Tracks last CR-overcharge state per device to only notify on a green->red change.
 const _crOverchargeState = {};
+// Consecutive fault logs counter to require 3-4 consecutive readings before triggering SMS
+const _faultPersistenceCounter = {};
+const _crOverchargeCounter = {};
 const rbac = require('../utils/rbac');
 const OLD_BACKEND = 'https://smart-coach-api-production.up.railway.app';
 
@@ -347,6 +350,8 @@ exports.getBreakBindingData = async (req, res) => {
             }
         }
 
+        const deviceKey = String(activeDeviceId || finalCoachInfo.coach_no);
+
         if (faultData.data && faultData.data.length > 0) {
             const latestFault = faultData.data[0]; 
             const faultTime = new Date(latestFault.timestamp);
@@ -355,12 +360,18 @@ exports.getBreakBindingData = async (req, res) => {
             if (timeDifferenceInSeconds <= 120) {
                 const faultName = latestFault.fault_name || 'Brake Binding';
                 const fnUpper = faultName.toUpperCase();
-                // Check if fault matches one of the five diagnostic flags
-                const isDiagFlag = fnUpper.includes('BRAKE BINDING')
-                    || fnUpper.includes('CR OVERCHARG')
-                    || fnUpper.includes('EMERGENCY')
-                    || fnUpper.includes('DV BC')
-                    || fnUpper.includes('DEFECT');
+
+                // Track persistence: must have at least 3 consecutive logs before triggering SMS
+                _faultPersistenceCounter[deviceKey] = (_faultPersistenceCounter[deviceKey] || 0) + 1;
+                const hasSufficientLogs = _faultPersistenceCounter[deviceKey] >= 3;
+
+                // Rule: Severe Brake Binding, CR Overcharging, Emergency Brake -> SMS (if 3+ logs)
+                // Minor Brake Warning -> Push Notification only (FREE)
+                const isSevereOrEmergency = fnUpper.includes('SEVERE')
+                    || fnUpper.includes('OVERCHARG')
+                    || fnUpper.includes('EMERGENCY');
+
+                const shouldSms = isSevereOrEmergency && hasSufficientLogs;
 
                 const nowStr = new Date().toISOString().replace('T', ' ').slice(0, 19);
                 const title = `Alert: ${faultName} in Train ${finalCoachInfo.Train_no}, Coach_Unique Id ${finalCoachInfo.coach_no} | ${nowStr}`;
@@ -371,16 +382,22 @@ exports.getBreakBindingData = async (req, res) => {
                     || finalCoachInfo.division
                     || finalCoachInfo.division_name
                     || null;
+
                 saveInAppNotificationForAllUsers(title, body, 'BRAKE_BINDING', {
                     module: 'brake_binding',
                     location,
                     coach_no: finalCoachInfo.coach_no,
                     train_no: finalCoachInfo.Train_no,
                     fault_name: faultName,
-                    is_diagnostic_flag: isDiagFlag,
-                    severity: fnUpper.includes('SEVERE') ? 'critical' : 'warning'
+                    is_diagnostic_flag: true,
+                    severity: isSevereOrEmergency ? 'critical' : 'warning',
+                    send_sms: shouldSms, // SMS only if Severe/Emergency AND 3+ consecutive logs!
                 });
+            } else {
+                _faultPersistenceCounter[deviceKey] = 0;
             }
+        } else {
+            _faultPersistenceCounter[deviceKey] = 0;
         }
 
         if (newAlerts.cr_overcharge === 'red') {
@@ -390,8 +407,11 @@ exports.getBreakBindingData = async (req, res) => {
             const currentState = (typeof lastState === 'object' && lastState) ? lastState.state : lastState;
             const nowTime = Date.now();
 
-            // 30 minutes throttle between duplicate CR overcharge notifications
-            if (currentState !== 'red' || (nowTime - lastTime) > (30 * 60 * 1000)) {
+            _crOverchargeCounter[crKey] = (_crOverchargeCounter[crKey] || 0) + 1;
+            const hasCrLogs = _crOverchargeCounter[crKey] >= 3;
+
+            // 2-hour cooldown between duplicate CR overcharge notifications
+            if (currentState !== 'red' || (nowTime - lastTime) > (2 * 60 * 60 * 1000)) {
                 const nowStr = new Date().toISOString().replace('T', ' ').slice(0, 19);
                 const crTitle = `Alert: CR Overcharging in Train ${finalCoachInfo.Train_no}, Coach_Unique Id ${finalCoachInfo.coach_no} | ${nowStr}`;
                 const crBody = crTitle;
@@ -400,6 +420,7 @@ exports.getBreakBindingData = async (req, res) => {
                     || finalCoachInfo.division
                     || finalCoachInfo.division_name
                     || null;
+
                 saveInAppNotificationForAllUsers(crTitle, crBody, 'CR_OVERCHARGE', {
                     module: 'brake_binding',
                     location,
@@ -407,13 +428,15 @@ exports.getBreakBindingData = async (req, res) => {
                     train_no: finalCoachInfo.Train_no,
                     fault_name: 'CR Overcharging',
                     is_diagnostic_flag: true,
-                    severity: 'warning'
+                    severity: 'critical',
+                    send_sms: hasCrLogs, // Send SMS only if 3+ consecutive logs confirmed
                 });
             }
             _crOverchargeState[crKey] = { state: 'red', time: nowTime };
         } else {
             const crKey = String(activeDeviceId || finalCoachInfo.coach_no);
             _crOverchargeState[crKey] = { state: 'green', time: Date.now() };
+            _crOverchargeCounter[crKey] = 0;
         }
 
         res.status(200).json({

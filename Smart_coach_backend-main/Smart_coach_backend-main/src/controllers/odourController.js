@@ -43,21 +43,21 @@ const odourController = {
             let sendSms = false;
 
             // Odour Index Rules:
-            // 250-499: Moderate (Slight Increase)
-            // 500-949: Moderate (High Level - Investigate)
-            // >=950: Critical Alert (Very High - Take Action)
+            // 250-499: Moderate (Slight Increase) -> Push Notification Only (FREE)
+            // 500-949: Moderate (High Level - Investigate) -> Push Notification Only (FREE)
+            // >=950: Extreme / Toxic Odour -> Send SMS + Push Notification (Critical Alert)
             if (voc >= 950) {
                 odourDesc = 'Very High Odour';
                 severity = 'critical';
-                sendSms = true;
+                sendSms = true; // Extreme/Toxic Odour (> 950): Send SMS
             } else if (voc >= 500) {
                 odourDesc = 'High Odour';
                 severity = 'warning';
-                sendSms = true;
+                sendSms = false; // Moderate: Push only (FREE)
             } else if (voc >= 250) {
                 odourDesc = 'Moderate Odour';
                 severity = 'warning';
-                sendSms = true;
+                sendSms = false; // Slight increase: Push only (FREE)
             }
 
             const deviceKey = dataToSave.device_id || dataToSave.coach_number || 'unknown';

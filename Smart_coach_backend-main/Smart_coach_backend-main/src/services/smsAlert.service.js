@@ -5,9 +5,9 @@ const sms = require('./sms.service');
 
 const DEFAULT_DLT_TEMPLATE_ID = process.env.DLT_TEMPLATE_ID || '1077529980085199915';
 
-// Rate limiting: 30 minutes cooldown per unique coach + fault combination to prevent credit drainage
+// Rate limiting: 2-hour cooldown per unique coach + fault combination to prevent credit drainage
 const _smsCooldown = new Map();
-const SMS_COOLDOWN_MS = 30 * 60 * 1000;
+const SMS_COOLDOWN_MS = 2 * 60 * 60 * 1000; // 2 hours (120 minutes)
 
 function isThrottled(dedupKey) {
   if (!dedupKey) return false;

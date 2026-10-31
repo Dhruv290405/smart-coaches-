@@ -22,9 +22,9 @@ function shouldSendSmsForAlert(type, payload = {}, severity = 'warning') {
     return sev === 'critical' || payload.status === 'Critical';
   }
 
-  // 2. Brake Binding & CR Overcharge: ONLY if one of 5 diagnostic flags is active
+  // 2. Brake Binding & CR Overcharge: ONLY if severe/emergency flag AND 3+ consecutive logs confirmed
   if (t.includes('BRAKE') || t.includes('OVERCHARGE')) {
-    return Boolean(payload.is_diagnostic_flag);
+    return payload.send_sms === true;
   }
 
   // 3. BC Pressure: ONLY if pressure status critical
