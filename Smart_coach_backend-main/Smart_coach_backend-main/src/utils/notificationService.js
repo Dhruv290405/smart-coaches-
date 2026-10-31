@@ -8,27 +8,31 @@ const DLT_TEMPLATE_ID = process.env.DLT_TEMPLATE_ID || '1077529980085199915';
 const DLT_CONTENT_TEMPLATE = `SmartCoaches Railway Coach Monitoring Alert: {#var#}. Immediate action required for coach safety. Please check dashboard immediately. -Mirtha technology`;
 
 /**
+ * Standardize dynamic alert title into a crisp, clean fault label (<= 14 chars)
+ * to guarantee total SMS length <= 160 chars (1 single credit).
+ */
+function getShortFaultLabel(raw, type = '') {
+  const str = `${type} ${raw}`.toUpperCase();
+  if (str.includes('BRAKE') || str.includes('BINDING')) return 'Brake Binding';
+  if (str.includes('OVERCHARGE') || str.includes('CR_OVERCHARGE')) return 'CR Overcharge';
+  if (str.includes('HOT_AXLE') || str.includes('HOT AXLE') || str.includes('AXLE')) return 'Hot Axle';
+  if (str.includes('ACP')) return 'ACP Alert';
+  if (str.includes('ODOUR') || str.includes('ODOR')) return 'Bad Odour';
+  if (str.includes('WATER')) return 'Low Water';
+  if (str.includes('DIESEL') || str.includes('FUEL')) return 'Low Diesel';
+
+  let clean = String(raw || 'Alert').trim().replace(/^Alert:\s*/i, '');
+  if (clean.includes(' in Train')) clean = clean.split(' in Train')[0].trim();
+  if (clean.length > 14) clean = clean.slice(0, 14).trim();
+  return clean || 'Critical Alert';
+}
+
+/**
  * Builds the exact SMS message fitting the approved DLT content template:
  * SmartCoaches Railway Coach Monitoring Alert: {#var#}. Immediate action required for coach safety. Please check dashboard immediately. -Mirtha technology
  */
 function buildDltSmsMessage(title, data = {}) {
-  let variableText = '';
-  const faultName = (data && (data.fault_name || data.status)) || title || 'Fault Alert';
-  
-  if (typeof faultName === 'string') {
-    variableText = faultName.trim().replace(/^Alert:\s*/i, '');
-  }
-
-  // Telecom operators reject DLT SMS when total length > 160 (multi-part).
-  // The fixed DLT template is 146 chars, so variableText must be <= 14 characters to guarantee 100% single-credit delivery.
-  if (variableText.length > 14) {
-    variableText = variableText.slice(0, 14).trim();
-  }
-
-  // Remove any trailing period from variableText so it doesn't create duplicate dots before ". Immediate action"
-  variableText = variableText.replace(/\.+$/, '');
-
-  // Wrap inside the exact registered DLT template
+  const variableText = getShortFaultLabel(title, data.type || data.module || '');
   return `SmartCoaches Railway Coach Monitoring Alert: ${variableText}. Immediate action required for coach safety. Please check dashboard immediately. -Mirtha technology`;
 }
 
@@ -269,7 +273,7 @@ async function broadcastPushNotification(title, body, type, data = {}, scope = {
     const severity = (data && data.severity) ? String(data.severity).toLowerCase() : 'warning';
     if (location) {
       try {
-        const smsMessage = buildDltSmsMessage(title, data);
+        const smsMessage = buildDltSmsMessage(title, { ...data, type });
         await smsAlertService.sendLocationAlert(location, severity, smsMessage, DLT_TEMPLATE_ID);
       } catch (smsErr) {
         console.error('❌ SMS alert error:', smsErr.message);
@@ -352,7 +356,7 @@ async function saveInAppNotificationForAllUsers(title, body, type, scope = {}) {
     const severity = (scope && scope.severity) ? String(scope.severity).toLowerCase() : 'warning';
     if (location) {
       try {
-        const smsMessage = buildDltSmsMessage(title, scope);
+        const smsMessage = buildDltSmsMessage(title, { ...scope, type });
         await smsAlertService.sendLocationAlert(location, severity, smsMessage, DLT_TEMPLATE_ID);
       } catch (smsErr) {
         console.error('❌ SMS alert error:', smsErr.message);
