@@ -198,6 +198,11 @@ async function resolveRecipients(moduleKey, location = null) {
  * Send push notification via FCM
  */
 async function sendPushNotification(fcmToken, title, body, data = {}) {
+  const payloadData = {
+    route: '/notifications',
+    ...data,
+  };
+
   const message = {
     token: fcmToken,
     notification: {
@@ -210,13 +215,12 @@ async function sendPushNotification(fcmToken, title, body, data = {}) {
         channelId: 'high_importance_channel',
         sound: 'default',
         priority: 'high',
-        clickAction: 'FLUTTER_NOTIFICATION_CLICK',
         defaultSound: true,
         defaultVibrateTimings: true,
       },
     },
     data: Object.fromEntries(
-      Object.entries(data || {}).map(([k, v]) => [k, String(v != null ? v : '')])
+      Object.entries(payloadData).map(([k, v]) => [k, String(v != null ? v : '')])
     ),
   };
 
