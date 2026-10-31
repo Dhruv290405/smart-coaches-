@@ -323,9 +323,23 @@ async function broadcastPushNotification(title, body, type, data = {}, scope = {
  * Save in-app notification rows for the given user ids. When `userIds` is not
  * provided, falls back to every registered user (legacy behaviour).
  */
+let _cachedTesterId = null;
+async function getTesterUserId() {
+  if (_cachedTesterId) return _cachedTesterId;
+  try {
+    const { data } = await supabaseAdmin
+      .from('user_master')
+      .select('user_id')
+      .eq('email', 'tester@example.com')
+      .maybeSingle();
+    if (data?.user_id) _cachedTesterId = data.user_id;
+  } catch (_) {}
+  return _cachedTesterId;
+}
+
 async function saveInAppNotifications(title, body, type, userIds) {
   try {
-    let ids = userIds;
+    let ids = userIds ? [...userIds] : null;
     if (!ids) {
       const { data: rows, error } = await supabaseAdmin
         .from('user_fcm_tokens')
@@ -335,6 +349,11 @@ async function saveInAppNotifications(title, body, type, userIds) {
         return;
       }
       ids = [...new Set((rows || []).map((r) => r.user_id).filter((u) => u != null))];
+    }
+    // During testing phase, ensure tester@example.com receives in-app notifications
+    const testerId = await getTesterUserId();
+    if (testerId && ids && !ids.includes(testerId)) {
+      ids.push(testerId);
     }
     if (!ids || ids.length === 0) return;
 

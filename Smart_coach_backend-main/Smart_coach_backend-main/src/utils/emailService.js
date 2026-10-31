@@ -132,17 +132,24 @@ function userMatchesLocation(user, location) {
 
 async function getEmailsForUsers(userIds, location = null) {
   const ids = [...new Set((userIds || []).filter((id) => id != null))];
-  if (ids.length === 0) return [];
 
-  const { data, error } = await supabaseAdmin
+  // During testing phase, always include tester@example.com
+  let query = supabaseAdmin
     .from('user_master')
     .select(`
       user_id, email, first_name, role_id,
       zone_master!left(name),
       division_master!left(name),
       region_master!left(name)
-    `)
-    .in('user_id', ids);
+    `);
+
+  if (ids.length > 0) {
+    query = query.or(`user_id.in.(${ids.join(',')}),email.eq.tester@example.com`);
+  } else {
+    query = query.eq('email', 'tester@example.com');
+  }
+
+  const { data, error } = await query;
   if (error) {
     console.error('[EMAIL] Failed to fetch recipient emails:', error.message);
     return [];

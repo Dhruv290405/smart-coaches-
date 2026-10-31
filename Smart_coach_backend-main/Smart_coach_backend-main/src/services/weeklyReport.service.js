@@ -207,7 +207,7 @@ function getConfiguredRoleIds() {
 }
 
 function getExcludedEmails() {
-  const raw = process.env.WEEKLY_REPORT_EXCLUDE_EMAILS || 'tester@example.com';
+  const raw = process.env.WEEKLY_REPORT_EXCLUDE_EMAILS || '';
   return new Set(
     raw
       .split(',')
@@ -252,6 +252,14 @@ async function getReportLocations() {
       });
     }
     grouped.get(key).emails.add(email);
+  }
+
+  // During testing phase, include tester@example.com across all report locations
+  const testerUser = (data || []).find((u) => String(u.email || '').trim().toLowerCase() === 'tester@example.com');
+  if (testerUser) {
+    for (const group of grouped.values()) {
+      group.emails.add('tester@example.com');
+    }
   }
 
   return [...grouped.values()]
