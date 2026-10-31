@@ -13,16 +13,16 @@ const DLT_CONTENT_TEMPLATE = `SmartCoaches Railway Coach Monitoring Alert: {#var
  */
 function buildDltSmsMessage(title, data = {}) {
   let variableText = '';
-  if (typeof title === 'string' && title.trim()) {
-    variableText = title.trim().replace(/^Alert:\s*/i, '');
-  } else {
-    const faultName = data.fault_name || data.status || title || 'Fault Alert';
-    const trainNo = data.train_no || data.Train_no || 'Unknown';
-    const coachNo = data.coach_no || data.coach_number || 'Unknown';
-    const now = new Date();
-    const pad = (n) => String(n).padStart(2, '0');
-    const timestamp = data.timestamp || `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
-    variableText = `${faultName} in Train ${trainNo}, Coach_Unique Id ${coachNo} | ${timestamp}`;
+  const faultName = (data && (data.fault_name || data.status)) || title || 'Fault Alert';
+  
+  if (typeof faultName === 'string') {
+    variableText = faultName.trim().replace(/^Alert:\s*/i, '');
+  }
+
+  // Telecom operators reject DLT SMS when total length > 160 (multi-part).
+  // The fixed DLT template is 146 chars, so variableText must be <= 14 characters to guarantee 100% single-credit delivery.
+  if (variableText.length > 14) {
+    variableText = variableText.slice(0, 14).trim();
   }
 
   // Remove any trailing period from variableText so it doesn't create duplicate dots before ". Immediate action"
