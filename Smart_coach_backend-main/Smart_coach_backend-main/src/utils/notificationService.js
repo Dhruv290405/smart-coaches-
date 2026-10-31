@@ -274,7 +274,7 @@ async function broadcastPushNotification(title, body, type, data = {}, scope = {
     if (location) {
       try {
         const smsMessage = buildDltSmsMessage(title, { ...data, type });
-        await smsAlertService.sendLocationAlert(location, severity, smsMessage, DLT_TEMPLATE_ID);
+        await smsAlertService.sendLocationAlert(location, severity, smsMessage, DLT_TEMPLATE_ID, userIds);
       } catch (smsErr) {
         console.error('❌ SMS alert error:', smsErr.message);
       }
@@ -357,7 +357,7 @@ async function saveInAppNotificationForAllUsers(title, body, type, scope = {}) {
     if (location) {
       try {
         const smsMessage = buildDltSmsMessage(title, { ...scope, type });
-        await smsAlertService.sendLocationAlert(location, severity, smsMessage, DLT_TEMPLATE_ID);
+        await smsAlertService.sendLocationAlert(location, severity, smsMessage, DLT_TEMPLATE_ID, userIds);
       } catch (smsErr) {
         console.error('❌ SMS alert error:', smsErr.message);
       }
