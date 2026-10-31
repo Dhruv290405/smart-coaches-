@@ -25,14 +25,14 @@ function buildDltSmsMessage(title, data = {}) {
     const now = new Date();
     const pad = (n) => String(n).padStart(2, '0');
     const timestamp = data.timestamp || `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
-    variableText = `Alert: ${faultName} in Train ${trainNo}, Coach_Unique Id ${coachNo}, Device ${deviceId} | ${timestamp}`;
+    variableText = `Alert: ${faultName} in Train ${trainNo}, Coach_Unique Id ${coachNo} | ${timestamp}`;
   }
 
   // Remove any trailing period from variableText so it doesn't create duplicate dots before ". Immediate action"
   variableText = variableText.replace(/\.+$/, '');
 
   // Wrap inside the exact registered DLT template
-  return `SmartCoaches Railway Coach Monitoring Alert: ${variableText}. Immediate action required for train safety. Check dashboard now. - Mirtha technology.`;
+  return `SmartCoaches Railway Coach Monitoring Alert: ${variableText}. Immediate action required for train safety. Check dashboard now. -Mirtha technology`;
 }
 
 /**

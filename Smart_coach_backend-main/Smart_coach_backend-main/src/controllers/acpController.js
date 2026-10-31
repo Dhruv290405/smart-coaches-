@@ -93,7 +93,7 @@ const receiveAcpData = async (req, res) => {
                 const coachNo = techCoachNo || rawAssetName || 'Unknown';
                 const trainNo = assetData.train_no || 'Unknown';
                 const deviceId = rawAssetName || techCoachNo || 'Unknown';
-                const alertText = `Alert: ACP Obstruction in Train ${trainNo}, Coach_Unique Id ${coachNo}, Device ${deviceId} | ${formattedTime}`;
+                const alertText = `Alert: ACP Obstruction in Train ${trainNo}, Coach_Unique Id ${coachNo} | ${formattedTime}`;
 
                 await broadcastPushNotification(
                     alertText,

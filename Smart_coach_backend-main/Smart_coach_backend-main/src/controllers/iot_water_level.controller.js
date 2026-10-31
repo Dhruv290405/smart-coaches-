@@ -99,7 +99,7 @@ exports.addIoTData = async (req, res) => {
 
       for (const alert of alerts) {
         const alertName = alert.alert_type_name || 'Water Level Alert';
-        const alertText = `Alert: ${alertName} (${water_level}%) in Train Unknown, Coach_Unique Id Unknown, Device ${sensor_id} | ${formattedTime}`;
+        const alertText = `Alert: ${alertName} (${water_level}%) in Train Unknown, Coach_Unique Id Unknown | ${formattedTime}`;
         for (const token of userTokens) {
           await sendPushNotification(
             token.fcm_token,

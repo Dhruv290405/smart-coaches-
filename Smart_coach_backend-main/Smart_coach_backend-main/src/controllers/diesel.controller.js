@@ -41,7 +41,7 @@ exports.getDieselReadings = async (req, res) => {
         const now = new Date();
         const pad = (n) => String(n).padStart(2, '0');
         const formattedTime = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
-        const alertText = `Alert: Diesel Level (${status}) in Train ${trainNo}, Coach_Unique Id ${coachNo}, Device ${deviceId} | ${formattedTime}`;
+        const alertText = `Alert: Diesel Level (${status}) in Train ${trainNo}, Coach_Unique Id ${coachNo} | ${formattedTime}`;
         broadcastPushNotification(
           alertText,
           alertText,

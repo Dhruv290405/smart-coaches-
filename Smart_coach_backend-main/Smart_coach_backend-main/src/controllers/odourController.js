@@ -46,7 +46,7 @@ const odourController = {
                 const coachNo = dataToSave.coach_number || 'Unknown';
                 const trainNo = dataToSave.train_number || 'Unknown';
                 const deviceId = deviceKey || 'Unknown';
-                const alertText = `Alert: Bad Odour in Train ${trainNo}, Coach_Unique Id ${coachNo}, Device ${deviceId} | ${formattedTime}`;
+                const alertText = `Alert: Bad Odour in Train ${trainNo}, Coach_Unique Id ${coachNo} | ${formattedTime}`;
                 await broadcastPushNotification(
                     alertText,
                     alertText,

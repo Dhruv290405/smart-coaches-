@@ -91,7 +91,7 @@ const hotAxleController = {
                 const trainNo = dataToSave.train_no || 'Unknown train';
                 const deviceId = dataToSave.device_id || dataToSave.master_id || 'Axle-Device';
                 const nowStr = new Date().toISOString().replace('T', ' ').slice(0, 19);
-                const alertTitle = `Alert: Hot Axle (${status}) in Train ${trainNo}, Coach_Unique Id ${coachNo}, Device ${deviceId} | ${nowStr}`;
+                const alertTitle = `Alert: Hot Axle (${status}) in Train ${trainNo}, Coach_Unique Id ${coachNo} | ${nowStr}`;
                 await broadcastPushNotification(
                     alertTitle,
                     alertTitle,
