@@ -15,7 +15,7 @@ const DEFAULT_DLT_TEMPLATE_ID = process.env.DLT_TEMPLATE_ID || '1077529980085199
 async function getRecipients(location, severity, targetUserIds = null) {
   let query = supabaseAdmin
     .from('user_master')
-    .select('user_id, first_name, mobile_number, role_id, role_master!left(name), division_master!left(name), region_master!left(name), zone_master!left(name)')
+    .select('user_id, first_name, email, mobile_number, role_id, division_name, region_name, zone_name, role_master!left(name), division_master!left(name), region_master!left(name), zone_master!left(name)')
     .not('mobile_number', 'is', null);
 
   if (targetUserIds && Array.isArray(targetUserIds) && targetUserIds.length > 0) {
@@ -39,9 +39,12 @@ async function getRecipients(location, severity, targetUserIds = null) {
   return users.filter(u => {
     if (!u.mobile_number || String(u.mobile_number).trim().length < 8) return false;
 
-    const divName = (Array.isArray(u.division_master) ? u.division_master[0]?.name : u.division_master?.name) || '';
-    const regName = (Array.isArray(u.region_master) ? u.region_master[0]?.name : u.region_master?.name) || '';
-    const zoneName = (Array.isArray(u.zone_master) ? u.zone_master[0]?.name : u.zone_master?.name) || '';
+    // Super Admin or Tester receives all alerts
+    if (u.role_id === 1 || u.email === 'tester@example.com') return true;
+
+    const divName = (Array.isArray(u.division_master) ? u.division_master[0]?.name : u.division_master?.name) || u.division_name || '';
+    const regName = (Array.isArray(u.region_master) ? u.region_master[0]?.name : u.region_master?.name) || u.region_name || '';
+    const zoneName = (Array.isArray(u.zone_master) ? u.zone_master[0]?.name : u.zone_master?.name) || u.zone_name || '';
     const userLoc = (divName || regName || zoneName).toLowerCase();
 
     if (!userLoc) return false;
