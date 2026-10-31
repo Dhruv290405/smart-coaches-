@@ -13,8 +13,8 @@ const DLT_CONTENT_TEMPLATE = `SmartCoaches Railway Coach Monitoring Alert: {#var
  */
 function buildDltSmsMessage(title, data = {}) {
   let variableText = '';
-  if (typeof title === 'string' && title.startsWith('Alert:')) {
-    variableText = title.trim();
+  if (typeof title === 'string' && title.trim()) {
+    variableText = title.trim().replace(/^Alert:\s*/i, '');
   } else {
     const faultName = data.fault_name || data.status || title || 'Fault Alert';
     const trainNo = data.train_no || data.Train_no || 'Unknown';
@@ -22,7 +22,7 @@ function buildDltSmsMessage(title, data = {}) {
     const now = new Date();
     const pad = (n) => String(n).padStart(2, '0');
     const timestamp = data.timestamp || `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
-    variableText = `Alert: ${faultName} in Train ${trainNo}, Coach_Unique Id ${coachNo} | ${timestamp}`;
+    variableText = `${faultName} in Train ${trainNo}, Coach_Unique Id ${coachNo} | ${timestamp}`;
   }
 
   // Remove any trailing period from variableText so it doesn't create duplicate dots before ". Immediate action"
