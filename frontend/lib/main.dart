@@ -118,6 +118,7 @@ class _AppBootstrapState extends State<_AppBootstrap> {
       await FCMService.initializeFCM();
       if (!mounted) return;
 
+      // Foreground messages
       FCMService.listenForeground(
         onMessage: (RemoteMessage message) {
           final notification = message.notification;
@@ -134,6 +135,30 @@ class _AppBootstrapState extends State<_AppBootstrap> {
           FCMService.showLocalNotification(message);
         },
       );
+
+      // Background tap: user tapped notification while app was backgrounded
+      FCMService.listenNotificationTap(
+        onTap: (RemoteMessage message) {
+          final route = message.data['route'] as String? ?? '/notifications';
+          AppRouter.router.go(route);
+        },
+      );
+
+      // Terminated tap: user tapped notification that launched the app
+      final RemoteMessage? initialMessage =
+          await FCMService.getInitialNotification();
+      if (initialMessage != null) {
+        final route =
+            initialMessage.data['route'] as String? ?? '/notifications';
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          AppRouter.router.go(route);
+        });
+      }
+
+      // Foreground local notification tap
+      FCMService.setOnLocalNotificationTap(() {
+        AppRouter.router.go('/notifications');
+      });
     } catch (e) {
       _log.warn('FCM init failed (non-critical)', e);
     }

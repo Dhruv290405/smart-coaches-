@@ -1,5 +1,6 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:smart_coach_new/firebase_options.dart';
 
@@ -22,6 +23,11 @@ class FCMService {
     importance: Importance.high,
   );
 
+  /// Callback invoked when user taps a local (foreground) notification
+  static VoidCallback? _onLocalNotificationTap;
+  static void setOnLocalNotificationTap(VoidCallback cb) =>
+      _onLocalNotificationTap = cb;
+
   static Future<void> initializeFCM() async {
     await _messaging.requestPermission(alert: true, badge: true, sound: true);
 
@@ -33,10 +39,27 @@ class FCMService {
     const InitializationSettings initSettings = InitializationSettings(
       android: AndroidInitializationSettings('@drawable/ic_notification'),
     );
-    await _localNotifications.initialize(initSettings);
+    await _localNotifications.initialize(
+      initSettings,
+      onDidReceiveNotificationResponse: (NotificationResponse response) {
+        // User tapped a local notification shown while app was in foreground
+        _onLocalNotificationTap?.call();
+      },
+    );
 
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  }
 
+  /// Background / terminated tap — subscribe in main.dart
+  static void listenNotificationTap({
+    required void Function(RemoteMessage message) onTap,
+  }) {
+    FirebaseMessaging.onMessageOpenedApp.listen(onTap);
+  }
+
+  /// Returns the notification that launched the app from terminated state.
+  static Future<RemoteMessage?> getInitialNotification() async {
+    return FirebaseMessaging.instance.getInitialMessage();
   }
 
   static Future<void> showLocalNotification(RemoteMessage message) => _showLocalNotification(message);
