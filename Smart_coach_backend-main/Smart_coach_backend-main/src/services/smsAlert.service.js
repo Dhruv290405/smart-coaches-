@@ -3,7 +3,7 @@ const supabaseAdmin = supabaseAdminClient.supabaseAdmin || supabaseAdminClient;
 const rbac = require('../utils/rbac');
 const sms = require('./sms.service');
 
-const DEFAULT_DLT_TEMPLATE_ID = process.env.DLT_TEMPLATE_ID || '1077537860081116008';
+const DEFAULT_DLT_TEMPLATE_ID = process.env.DLT_TEMPLATE_ID || '1077529980085199915';
 
 /**
  * Resolve SMS recipients for an alert based on location + severity or pre-resolved targetUserIds.

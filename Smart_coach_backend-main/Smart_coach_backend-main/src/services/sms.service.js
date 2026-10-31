@@ -54,7 +54,7 @@ async function sendAlert(phone, message, templateId) {
   }
 
   try {
-    const templateName = process.env.TWO_FACTOR_TEMPLATE_NAME || 'SmartCoaches Railway Coach Monitoring Alert';
+    const templateName = process.env.TWO_FACTOR_TEMPLATE_NAME || 'SmartCoaches Railway Live Alerts';
     const senderId = process.env.SMS_SENDER_ID || 'MIRTHA';
 
     // Extract dynamic variable part if the full wrapped message was provided
@@ -63,8 +63,8 @@ async function sendAlert(phone, message, templateId) {
     if (var1.startsWith(prefix)) {
       var1 = var1.substring(prefix.length).trim();
     }
-    if (var1.includes('. Immediate action required for train safety')) {
-      var1 = var1.split('. Immediate action required for train safety')[0].trim();
+    if (var1.includes('. Immediate action required for')) {
+      var1 = var1.split('. Immediate action required for')[0].trim();
     }
     var1 = var1.replace(/\.+$/, '');
 

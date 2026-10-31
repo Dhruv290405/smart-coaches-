@@ -4,14 +4,12 @@ const rbac = require("./rbac");
 const emailService = require("./emailService");
 const smsAlertService = require("../services/smsAlert.service");
 
-const DLT_TEMPLATE_ID = process.env.DLT_TEMPLATE_ID || '1077537860081116008';
-const DLT_CONTENT_TEMPLATE = `SmartCoaches Railway Coach Monitoring Alert: [alphanumeric].
-Immediate action required for train safety.
-Check dashboard now. - Mirtha technology`;
+const DLT_TEMPLATE_ID = process.env.DLT_TEMPLATE_ID || '1077529980085199915';
+const DLT_CONTENT_TEMPLATE = `SmartCoaches Railway Coach Monitoring Alert: {#var#}. Immediate action required for coach safety. Please check dashboard immediately. -Mirtha technology`;
 
 /**
  * Builds the exact SMS message fitting the approved DLT content template:
- * SmartCoaches Railway Coach Monitoring Alert: [alphanumeric]. Immediate action required for train safety. Check dashboard now. - Mirtha technology.
+ * SmartCoaches Railway Coach Monitoring Alert: {#var#}. Immediate action required for coach safety. Please check dashboard immediately. -Mirtha technology
  */
 function buildDltSmsMessage(title, data = {}) {
   let variableText = '';
@@ -21,7 +19,6 @@ function buildDltSmsMessage(title, data = {}) {
     const faultName = data.fault_name || data.status || title || 'Fault Alert';
     const trainNo = data.train_no || data.Train_no || 'Unknown';
     const coachNo = data.coach_no || data.coach_number || 'Unknown';
-    const deviceId = data.device_id || data.deviceId || 'Device';
     const now = new Date();
     const pad = (n) => String(n).padStart(2, '0');
     const timestamp = data.timestamp || `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
@@ -32,7 +29,7 @@ function buildDltSmsMessage(title, data = {}) {
   variableText = variableText.replace(/\.+$/, '');
 
   // Wrap inside the exact registered DLT template
-  return `SmartCoaches Railway Coach Monitoring Alert: ${variableText}. Immediate action required for train safety. Check dashboard now. -Mirtha technology`;
+  return `SmartCoaches Railway Coach Monitoring Alert: ${variableText}. Immediate action required for coach safety. Please check dashboard immediately. -Mirtha technology`;
 }
 
 /**
@@ -272,7 +269,8 @@ async function broadcastPushNotification(title, body, type, data = {}, scope = {
     const severity = (data && data.severity) ? String(data.severity).toLowerCase() : 'warning';
     if (location) {
       try {
-        await smsAlertService.sendLocationAlert(location, severity, `SmartCoaches Railway Coach Monitoring Alert: ${title}. Immediate action required for train safety. Check dashboard now. -SmartCoaches`.slice(0, 160), process.env.DLT_TEMPLATE_ID);
+        const smsMessage = buildDltSmsMessage(title, data);
+        await smsAlertService.sendLocationAlert(location, severity, smsMessage, DLT_TEMPLATE_ID);
       } catch (smsErr) {
         console.error('❌ SMS alert error:', smsErr.message);
       }
@@ -354,7 +352,8 @@ async function saveInAppNotificationForAllUsers(title, body, type, scope = {}) {
     const severity = (scope && scope.severity) ? String(scope.severity).toLowerCase() : 'warning';
     if (location) {
       try {
-        await smsAlertService.sendLocationAlert(location, severity, `SmartCoaches Railway Coach Monitoring Alert: ${title}. Immediate action required for train safety. Check dashboard now. -SmartCoaches`.slice(0, 160), process.env.DLT_TEMPLATE_ID);
+        const smsMessage = buildDltSmsMessage(title, scope);
+        await smsAlertService.sendLocationAlert(location, severity, smsMessage, DLT_TEMPLATE_ID);
       } catch (smsErr) {
         console.error('❌ SMS alert error:', smsErr.message);
       }
