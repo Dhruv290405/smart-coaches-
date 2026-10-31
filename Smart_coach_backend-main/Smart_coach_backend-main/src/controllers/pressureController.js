@@ -1,5 +1,6 @@
 const PressureModel = require("../models/pressure.model");
 const rbac = require('../utils/rbac');
+const { broadcastPushNotification } = require('../utils/notificationService');
 
 const pressureController = {
     // 1. POST API - DEVICE DATA RECEIVER (UNCHANGED)
@@ -31,6 +32,28 @@ const pressureController = {
                 });
 
                 const dataToSave = { ...commonInfo, ...formattedReading };
+
+                // 3. BC Pressure: Send alert ONLY if pressure status is critical
+                const isBcCritical = String(formattedReading.status || formattedReading.pressure_status || '').toLowerCase() === 'critical'
+                    || Number(formattedReading.bc) >= 3.1;
+
+                if (isBcCritical) {
+                    const alertTitle = `Alert: BC Pressure Critical in Train ${commonInfo.train_number || 'Unknown'}, Coach_Unique Id ${commonInfo.coach_number || 'Unknown'} | ${formattedReading.timestamp || ''}`;
+                    broadcastPushNotification(
+                        alertTitle,
+                        alertTitle,
+                        'BC_PRESSURE',
+                        {
+                            module: 'bc_pressure',
+                            coach_no: commonInfo.coach_number,
+                            train_no: commonInfo.train_number,
+                            fault_name: 'BC Pressure Critical',
+                            severity: 'critical',
+                            send_sms: true,
+                            location: payload.location || payload.division || 'Danapur'
+                        }
+                    ).catch(e => console.error('BC Pressure Alert Err:', e.message));
+                }
                 return await PressureModel.saveDynamicLog(dataToSave);
             });
 

@@ -328,7 +328,7 @@ exports.getBreakBindingData = async (req, res) => {
             binding_residual: (bc > 0.1 && bp >= 4.8) ? 'red' : 'green', 
             binding_severe: (bc >= 3.1) ? 'warning' : 'green',
             leakage: (bc <= 0.1 && (bp <= 4.8 || fp <= 5.8)) ? 'warning' : 'green',
-            cr_overcharge: (cr >= 5.0) ? 'red' : 'green',
+            cr_overcharge: (cr >= 5.2) ? 'red' : 'green',
             dv_defect: (bpDropRate >= 0.6 && bc <= 1.2) ? 'warning' : 'green',
             emergency: (bpDropRate >= 0.6) ? 'yellow' : 'green'
         };
@@ -353,17 +353,18 @@ exports.getBreakBindingData = async (req, res) => {
             const timeDifferenceInSeconds = (now - faultTime) / 1000;
 
             if (timeDifferenceInSeconds <= 120) {
+                const faultName = latestFault.fault_name || 'Brake Binding';
+                const fnUpper = faultName.toUpperCase();
+                // Check if fault matches one of the five diagnostic flags
+                const isDiagFlag = fnUpper.includes('BRAKE BINDING')
+                    || fnUpper.includes('CR OVERCHARG')
+                    || fnUpper.includes('EMERGENCY')
+                    || fnUpper.includes('DV BC')
+                    || fnUpper.includes('DEFECT');
+
                 const nowStr = new Date().toISOString().replace('T', ' ').slice(0, 19);
-                const title = `Alert: ${latestFault.fault_name || 'Brake Binding'} in Train ${finalCoachInfo.Train_no}, Coach_Unique Id ${finalCoachInfo.coach_no} | ${nowStr}`;
+                const title = `Alert: ${faultName} in Train ${finalCoachInfo.Train_no}, Coach_Unique Id ${finalCoachInfo.coach_no} | ${nowStr}`;
                 const body = title;
-                
-                const extraData = {
-                    type: 'BRAKE_BINDING',
-                    device_id: String(activeDeviceId),
-                    coach_no: String(finalCoachInfo.coach_no),
-                    train_no: String(finalCoachInfo.Train_no),
-                    click_action: 'OPEN_BRAKE_DASHBOARD'
-                };
 
                 const location = finalCoachInfo.Location
                     || finalCoachInfo.location
@@ -373,6 +374,11 @@ exports.getBreakBindingData = async (req, res) => {
                 saveInAppNotificationForAllUsers(title, body, 'BRAKE_BINDING', {
                     module: 'brake_binding',
                     location,
+                    coach_no: finalCoachInfo.coach_no,
+                    train_no: finalCoachInfo.Train_no,
+                    fault_name: faultName,
+                    is_diagnostic_flag: isDiagFlag,
+                    severity: fnUpper.includes('SEVERE') ? 'critical' : 'warning'
                 });
             }
         }
@@ -384,16 +390,11 @@ exports.getBreakBindingData = async (req, res) => {
             const currentState = (typeof lastState === 'object' && lastState) ? lastState.state : lastState;
             const nowTime = Date.now();
 
-            if (currentState !== 'red' || (nowTime - lastTime) > 60000) {
+            // 30 minutes throttle between duplicate CR overcharge notifications
+            if (currentState !== 'red' || (nowTime - lastTime) > (30 * 60 * 1000)) {
                 const nowStr = new Date().toISOString().replace('T', ' ').slice(0, 19);
-                const crTitle = `Alert: CR Overcharge in Train ${finalCoachInfo.Train_no}, Coach_Unique Id ${finalCoachInfo.coach_no} | ${nowStr}`;
+                const crTitle = `Alert: CR Overcharging in Train ${finalCoachInfo.Train_no}, Coach_Unique Id ${finalCoachInfo.coach_no} | ${nowStr}`;
                 const crBody = crTitle;
-                const crData = {
-                    type: 'CR_OVERCHARGE',
-                    device_id: String(activeDeviceId),
-                    coach_no: String(finalCoachInfo.coach_no),
-                    train_no: String(finalCoachInfo.Train_no)
-                };
                 const location = finalCoachInfo.Location
                     || finalCoachInfo.location
                     || finalCoachInfo.division
@@ -402,6 +403,11 @@ exports.getBreakBindingData = async (req, res) => {
                 saveInAppNotificationForAllUsers(crTitle, crBody, 'CR_OVERCHARGE', {
                     module: 'brake_binding',
                     location,
+                    coach_no: finalCoachInfo.coach_no,
+                    train_no: finalCoachInfo.Train_no,
+                    fault_name: 'CR Overcharging',
+                    is_diagnostic_flag: true,
+                    severity: 'warning'
                 });
             }
             _crOverchargeState[crKey] = { state: 'red', time: nowTime };

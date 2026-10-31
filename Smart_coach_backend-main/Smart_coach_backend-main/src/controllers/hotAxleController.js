@@ -89,9 +89,10 @@ const hotAxleController = {
             if (status !== 'Good') {
                 const coachNo = dataToSave.coach_no || 'Unknown coach';
                 const trainNo = dataToSave.train_no || 'Unknown train';
-                const deviceId = dataToSave.device_id || dataToSave.master_id || 'Axle-Device';
                 const nowStr = new Date().toISOString().replace('T', ' ').slice(0, 19);
-                const alertTitle = `Alert: Hot Axle (${status}) in Train ${trainNo}, Coach_Unique Id ${coachNo} | ${nowStr}`;
+                const isCritical = status === 'Critical';
+                const faultName = isCritical ? 'Critical Hot Axle' : `Hot Axle (${status})`;
+                const alertTitle = `Alert: ${faultName} in Train ${trainNo}, Coach_Unique Id ${coachNo} | ${nowStr}`;
                 await broadcastPushNotification(
                     alertTitle,
                     alertTitle,
@@ -101,6 +102,9 @@ const hotAxleController = {
                         coach_no: coachNo,
                         train_no: trainNo,
                         status,
+                        fault_name: faultName,
+                        severity: isCritical ? 'critical' : 'warning',
+                        send_sms: isCritical, // SMS ONLY for Critical temperature warning
                         location: payload.location || payload.train_location || payload.locName || payload.division,
                     }
                 );

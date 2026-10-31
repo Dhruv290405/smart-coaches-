@@ -37,16 +37,35 @@ const odourController = {
 
             const insertId = await OdourModel.saveLog(dataToSave);
 
-            const isAlert = dataToSave.voc_index >= 800
-                || dataToSave.h2s_ppm > 0.05
-                || dataToSave.nh3_ppm > 0.2;
+            const voc = dataToSave.voc_index;
+            let odourDesc = null;
+            let severity = 'info';
+            let sendSms = false;
+
+            // Odour Index Rules:
+            // 250-499: Moderate (Slight Increase)
+            // 500-949: Moderate (High Level - Investigate)
+            // >=950: Critical Alert (Very High - Take Action)
+            if (voc >= 950) {
+                odourDesc = 'Very High Odour';
+                severity = 'critical';
+                sendSms = true;
+            } else if (voc >= 500) {
+                odourDesc = 'High Odour';
+                severity = 'warning';
+                sendSms = true;
+            } else if (voc >= 250) {
+                odourDesc = 'Moderate Odour';
+                severity = 'warning';
+                sendSms = true;
+            }
+
             const deviceKey = dataToSave.device_id || dataToSave.coach_number || 'unknown';
             const wasAlert = _odourAlertState[deviceKey];
-            if (isAlert && !wasAlert) {
+            if (odourDesc && !wasAlert) {
                 const coachNo = dataToSave.coach_number || 'Unknown';
                 const trainNo = dataToSave.train_number || 'Unknown';
-                const deviceId = deviceKey || 'Unknown';
-                const alertText = `Alert: Bad Odour in Train ${trainNo}, Coach_Unique Id ${coachNo} | ${formattedTime}`;
+                const alertText = `Alert: ${odourDesc} in Train ${trainNo}, Coach_Unique Id ${coachNo} | ${formattedTime}`;
                 await broadcastPushNotification(
                     alertText,
                     alertText,
@@ -55,16 +74,20 @@ const odourController = {
                         module: 'odour',
                         coach_no: coachNo,
                         train_no: trainNo,
-                        device_id: deviceKey,
+                        fault_name: odourDesc,
+                        severity,
+                        send_sms: sendSms,
                         location: dataToSave.location || dataToSave.train_location || dataToSave.locName || dataToSave.division,
                     },
                     {
                         location: dataToSave.location || dataToSave.train_location || dataToSave.locName || dataToSave.division,
-                        division: dataToSave.division || dataToSave.location
+                        division: dataToSave.division || dataToSave.location,
+                        severity,
+                        send_sms: sendSms,
                     }
                 );
             }
-            _odourAlertState[deviceKey] = isAlert;
+            _odourAlertState[deviceKey] = Boolean(odourDesc);
 
             if (global._io) {
                 global._io.emit('odour_data_update', dataToSave);

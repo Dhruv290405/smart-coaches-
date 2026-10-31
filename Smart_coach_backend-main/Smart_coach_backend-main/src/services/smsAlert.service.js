@@ -5,6 +5,28 @@ const sms = require('./sms.service');
 
 const DEFAULT_DLT_TEMPLATE_ID = process.env.DLT_TEMPLATE_ID || '1077529980085199915';
 
+// Rate limiting: 30 minutes cooldown per unique coach + fault combination to prevent credit drainage
+const _smsCooldown = new Map();
+const SMS_COOLDOWN_MS = 30 * 60 * 1000;
+
+function isThrottled(dedupKey) {
+  if (!dedupKey) return false;
+  const lastSent = _smsCooldown.get(dedupKey);
+  const now = Date.now();
+  if (lastSent && (now - lastSent) < SMS_COOLDOWN_MS) {
+    const remainingMins = Math.ceil((SMS_COOLDOWN_MS - (now - lastSent)) / 60000);
+    console.log(`⏳ [SMS Throttled] Cooldown active for "${dedupKey}" (${remainingMins}m remaining). Skipping duplicate SMS.`);
+    return true;
+  }
+  _smsCooldown.set(dedupKey, now);
+  if (_smsCooldown.size > 500) {
+    for (const [k, v] of _smsCooldown.entries()) {
+      if (now - v >= SMS_COOLDOWN_MS) _smsCooldown.delete(k);
+    }
+  }
+  return false;
+}
+
 /**
  * Resolve SMS recipients for an alert based on location + severity or pre-resolved targetUserIds.
  * @param {string} location - division/region/zone name
@@ -56,10 +78,14 @@ async function getRecipients(location, severity, targetUserIds = null) {
  * Send SMS alert to authorized recipients for a location.
  * Uses the approved DLT template ID.
  */
-async function sendLocationAlert(location, severity, message, templateId, targetUserIds = null) {
+async function sendLocationAlert(location, severity, message, templateId, targetUserIds = null, dedupKey = null) {
+  if (dedupKey && isThrottled(dedupKey)) {
+    return [];
+  }
+
   const finalTemplateId = templateId || DEFAULT_DLT_TEMPLATE_ID;
   const recipients = await getRecipients(location, severity, targetUserIds);
-  console.log(`[SMS] Sending alert to ${recipients.length} recipient(s) for location=${location} template=${finalTemplateId}`);
+  console.log(`[SMS] Sending alert to ${recipients.length} recipient(s) for location=${location} dedupKey=${dedupKey || 'none'}`);
   
   const results = [];
   for (const r of recipients) {

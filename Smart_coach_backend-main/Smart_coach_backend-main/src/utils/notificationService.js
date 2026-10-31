@@ -8,31 +8,65 @@ const DLT_TEMPLATE_ID = process.env.DLT_TEMPLATE_ID || '1077529980085199915';
 const DLT_CONTENT_TEMPLATE = `SmartCoaches Railway Coach Monitoring Alert: {#var#}. Immediate action required for coach safety. Please check dashboard immediately. -Mirtha technology`;
 
 /**
- * Standardize dynamic alert title into a crisp, clean fault label (<= 14 chars)
- * to guarantee total SMS length <= 160 chars (1 single credit).
+ * Evaluates whether an alert qualifies for cellular SMS dispatch
+ * based on critical railway safety thresholds.
  */
-function getShortFaultLabel(raw, type = '') {
-  const str = `${type} ${raw}`.toUpperCase();
-  if (str.includes('BRAKE') || str.includes('BINDING')) return 'Brake Binding';
-  if (str.includes('OVERCHARGE') || str.includes('CR_OVERCHARGE')) return 'CR Overcharge';
-  if (str.includes('HOT_AXLE') || str.includes('HOT AXLE') || str.includes('AXLE')) return 'Hot Axle';
-  if (str.includes('ACP')) return 'ACP Alert';
-  if (str.includes('ODOUR') || str.includes('ODOR')) return 'Bad Odour';
-  if (str.includes('WATER')) return 'Low Water';
-  if (str.includes('DIESEL') || str.includes('FUEL')) return 'Low Diesel';
+function shouldSendSmsForAlert(type, payload = {}, severity = 'warning') {
+  if (payload.send_sms === false) return false;
 
-  let clean = String(raw || 'Alert').trim().replace(/^Alert:\s*/i, '');
-  if (clean.includes(' in Train')) clean = clean.split(' in Train')[0].trim();
-  if (clean.length > 14) clean = clean.slice(0, 14).trim();
-  return clean || 'Critical Alert';
+  const t = String(type || '').toUpperCase();
+  const sev = String(severity || '').toLowerCase();
+
+  // 1. Hot Axle: ONLY if critical temperature warning
+  if (t.includes('HOT_AXLE') || t.includes('AXLE')) {
+    return sev === 'critical' || payload.status === 'Critical';
+  }
+
+  // 2. Brake Binding & CR Overcharge: ONLY if one of 5 diagnostic flags is active
+  if (t.includes('BRAKE') || t.includes('OVERCHARGE')) {
+    return Boolean(payload.is_diagnostic_flag);
+  }
+
+  // 3. BC Pressure: ONLY if pressure status critical
+  if (t.includes('BC_PRESSURE') || t.includes('PRESSURE')) {
+    return sev === 'critical' || payload.status === 'Critical';
+  }
+
+  // 4. Bad Odour: ONLY if odour index >= 250 (moderate 250-949 or alert >= 950)
+  if (t.includes('ODOUR') || t.includes('ODOR')) {
+    return Boolean(payload.send_sms);
+  }
+
+  return payload.send_sms === true || sev === 'critical';
 }
 
 /**
  * Builds the exact SMS message fitting the approved DLT content template:
  * SmartCoaches Railway Coach Monitoring Alert: {#var#}. Immediate action required for coach safety. Please check dashboard immediately. -Mirtha technology
+ *
+ * Formats variable as: Alert: {Fault_Name} in Train {Train_No}, Coach_Unique Id {Coach_No}
  */
 function buildDltSmsMessage(title, data = {}) {
-  const variableText = getShortFaultLabel(title, data.type || data.module || '');
+  let faultName = data.fault_name || '';
+  if (!faultName && typeof title === 'string') {
+    let clean = title.trim().replace(/^Alert:\s*/i, '');
+    if (clean.includes(' in Train')) {
+      clean = clean.split(' in Train')[0].trim();
+    }
+    faultName = clean;
+  }
+  if (!faultName) faultName = 'Fault Alert';
+
+  const trainNo = data.train_no || data.Train_no || data.train_number || 'Unknown';
+  const coachNo = data.coach_no || data.coach_number || data.coachNo || 'Unknown';
+
+  // Format: Alert: {Fault_Name} in Train {Train_No}, Coach_Unique Id {Coach_No}
+  let variableText = `Alert: ${faultName} in Train ${trainNo}, Coach_Unique Id ${coachNo}`
+    .replace(/[|]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\.+$/, '');
+
   return `SmartCoaches Railway Coach Monitoring Alert: ${variableText}. Immediate action required for coach safety. Please check dashboard immediately. -Mirtha technology`;
 }
 
@@ -271,10 +305,11 @@ async function broadcastPushNotification(title, body, type, data = {}, scope = {
 
     // SMS channel — location-scoped, severity-based recipient filtering.
     const severity = (data && data.severity) ? String(data.severity).toLowerCase() : 'warning';
-    if (location) {
+    if (location && shouldSendSmsForAlert(type, data, severity)) {
       try {
         const smsMessage = buildDltSmsMessage(title, { ...data, type });
-        await smsAlertService.sendLocationAlert(location, severity, smsMessage, DLT_TEMPLATE_ID);
+        const dedupKey = `${type}_${location}_${data.coach_no || ''}_${data.fault_name || ''}`;
+        await smsAlertService.sendLocationAlert(location, severity, smsMessage, DLT_TEMPLATE_ID, null, dedupKey);
       } catch (smsErr) {
         console.error('❌ SMS alert error:', smsErr.message);
       }
@@ -354,10 +389,11 @@ async function saveInAppNotificationForAllUsers(title, body, type, scope = {}) {
 
     // SMS channel — location-scoped, severity-based recipient filtering.
     const severity = (scope && scope.severity) ? String(scope.severity).toLowerCase() : 'warning';
-    if (location) {
+    if (location && shouldSendSmsForAlert(type, scope, severity)) {
       try {
         const smsMessage = buildDltSmsMessage(title, { ...scope, type });
-        await smsAlertService.sendLocationAlert(location, severity, smsMessage, DLT_TEMPLATE_ID);
+        const dedupKey = `${type}_${location}_${scope.coach_no || ''}_${scope.fault_name || ''}`;
+        await smsAlertService.sendLocationAlert(location, severity, smsMessage, DLT_TEMPLATE_ID, null, dedupKey);
       } catch (smsErr) {
         console.error('❌ SMS alert error:', smsErr.message);
       }
