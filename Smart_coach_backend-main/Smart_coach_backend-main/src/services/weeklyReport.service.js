@@ -1132,6 +1132,41 @@ async function sendWeeklyReports(options = {}) {
   return { sent, period: period.label, results };
 }
 
+function getSchedulerStatus() {
+  const day = parseInt(process.env.WEEKLY_REPORT_DAY || '6', 10);
+  const hour = parseInt(process.env.WEEKLY_REPORT_HOUR || '18', 10);
+  const minute = parseInt(process.env.WEEKLY_REPORT_MINUTE || '0', 10);
+  const windowMinutes = Math.max(1, parseInt(process.env.WEEKLY_REPORT_WINDOW_MINUTES || '14', 10));
+  const enabled = String(process.env.WEEKLY_REPORT_ENABLED || 'true').toLowerCase() !== 'false';
+
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const now = new Date();
+  const shifted = new Date(now.getTime() + IST_OFFSET_MS);
+
+  return {
+    enabled,
+    schedule: {
+      targetDay: day,
+      targetDayName: dayNames[day] || String(day),
+      targetHourIST: hour,
+      targetMinuteIST: minute,
+      windowMinutes,
+      description: `Every ${dayNames[day] || day} at ${hour}:${String(minute).padStart(2, '0')} IST`,
+      envDay: process.env.WEEKLY_REPORT_DAY || null,
+      envHour: process.env.WEEKLY_REPORT_HOUR || null,
+    },
+    currentTimeIST: {
+      iso: shifted.toISOString(),
+      formatted: formatIST(now, true),
+      day: shifted.getUTCDay(),
+      dayName: dayNames[shifted.getUTCDay()],
+      hour: shifted.getUTCHours(),
+      minute: shifted.getUTCMinutes(),
+    },
+    currentTimeUTC: now.toISOString(),
+  };
+}
+
 function startWeeklyReportScheduler() {
   if (String(process.env.WEEKLY_REPORT_ENABLED || 'true').toLowerCase() === 'false') {
     return;
@@ -1182,4 +1217,5 @@ module.exports = {
   generateSingleModulePdfBuffer,
   sendWeeklyReports,
   startWeeklyReportScheduler,
+  getSchedulerStatus,
 };

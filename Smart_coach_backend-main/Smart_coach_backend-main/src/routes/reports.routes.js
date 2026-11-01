@@ -4,6 +4,14 @@ const weeklyReport = require('../services/weeklyReport.service');
 
 const router = express.Router();
 
+router.get('/weekly/status', (req, res) => {
+  return res.status(200).json({
+    success: true,
+    ...weeklyReport.getSchedulerStatus(),
+  });
+});
+
+
 router.get('/weekly/locations', authenticate, authorize(['Master', 'Super Admin']), async (req, res, next) => {
   try {
     const locations = await weeklyReport.getReportLocations();
