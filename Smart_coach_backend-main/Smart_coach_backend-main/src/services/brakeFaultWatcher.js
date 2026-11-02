@@ -141,7 +141,7 @@ async function startBrakeFaultWatcher() {
         }
 
         const coachInfo = resolveCoachInfo(fault.device_id, fault.coach_no);
-        const istTime = formatIST(fault.timestamp || new Date());
+        const istTime = formatIST(new Date());
 
         const title = `Alert: ${faultName} in Train ${coachInfo.train_no}, Coach_Unique Id ${coachInfo.coach_no}`;
         const body = `Fault: ${faultName} detected on Coach ${coachInfo.coach_no} (Train ${coachInfo.train_no}) at ${istTime}.`;

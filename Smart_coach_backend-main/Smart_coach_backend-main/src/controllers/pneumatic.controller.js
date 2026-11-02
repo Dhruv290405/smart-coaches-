@@ -377,7 +377,7 @@ exports.getBreakBindingData = async (req, res) => {
 
                     const shouldSms = isSevereOrEmergency && hasSufficientLogs;
 
-                    const istTime = formatIST(latestFault.timestamp || new Date());
+                    const istTime = formatIST(new Date());
                     const coachNo = (finalCoachInfo.technical_id && /^\d+$/.test(String(finalCoachInfo.technical_id)))
                         ? String(finalCoachInfo.technical_id)
                         : (finalCoachInfo.coach_no !== 'LWSCZ - AC' && finalCoachInfo.coach_no ? finalCoachInfo.coach_no : (activeDeviceId === 'Raspberry4_7' ? '226965' : (finalCoachInfo.coach_no || 'Unknown')));
