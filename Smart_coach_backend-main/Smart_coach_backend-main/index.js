@@ -306,6 +306,8 @@ const startServer = async () => {
     }
 
     startSupabaseListener();
+    const { startBrakeFaultWatcher } = require('./src/services/brakeFaultWatcher');
+    startBrakeFaultWatcher();
     const { startWeeklyReportScheduler } = require('./src/services/weeklyReport.service');
     startWeeklyReportScheduler();
 

@@ -252,6 +252,8 @@ async function sendPushNotification(fcmToken, title, body, data = {}) {
         priority: 'high',
         defaultSound: true,
         defaultVibrateTimings: true,
+        clickAction: 'FLUTTER_NOTIFICATION_CLICK',
+        visibility: 'public',
       },
     },
     data: Object.fromEntries(
@@ -357,7 +359,7 @@ async function saveInAppNotifications(title, body, type, userIds) {
     }
     if (!ids || ids.length === 0) return;
 
-    const cutoff = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+    const cutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString();
     const { data: recent, error: recentError } = await supabaseAdmin
       .from('user_notifications')
       .select('user_id')
