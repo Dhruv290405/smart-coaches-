@@ -27,6 +27,75 @@ import 'core/config/remote_app_config.dart';
 
 final Logger _log = Logger('Main');
 
+Future<void> _loadApiBaseUrl() async {
+  final preferences = await SharedPreferences.getInstance();
+  final fallback = ApiConstants.normalizeBaseUrl(ApiConstants.devUrl);
+
+  try {
+    final response = await http
+        .get(Uri.parse(ApiConstants.bootstrapConfigUrl))
+        .timeout(const Duration(seconds: 8));
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception('API bootstrap returned HTTP ${response.statusCode}');
+    }
+
+    final decoded = jsonDecode(response.body);
+    final configuredUrl =
+        decoded is Map<String, dynamic> ? decoded['apiBaseUrl'] : null;
+    if (configuredUrl is! String || !_isValidApiBaseUrl(configuredUrl)) {
+      throw Exception('API bootstrap returned an invalid apiBaseUrl');
+    }
+
+    await preferences.setString(
+      ApiConstants.apiBaseUrlKey,
+      ApiConstants.normalizeBaseUrl(configuredUrl),
+    );
+    ApiConstants.activeBaseUrl = ApiConstants.normalizeBaseUrl(configuredUrl);
+    _log.info('API base URL loaded from backend configuration');
+
+    final config = decoded is Map<String, dynamic> ? decoded['config'] : null;
+    if (config is Map<String, dynamic>) {
+      final remoteConfig = RemoteAppConfig.fromJson(config);
+      RemoteAppConfig.current = remoteConfig;
+      await preferences.setString(
+        'remote_app_config',
+        RemoteAppConfig.encode(remoteConfig),
+      );
+    }
+  } catch (error) {
+    _log.warn('API bootstrap unavailable; using saved URL or fallback: $error');
+  }
+
+  if ((preferences.getString(ApiConstants.apiBaseUrlKey) ?? '').trim().isEmpty) {
+    await preferences.setString(ApiConstants.apiBaseUrlKey, fallback);
+  }
+  ApiConstants.activeBaseUrl = ApiConstants.normalizeBaseUrl(
+    preferences.getString(ApiConstants.apiBaseUrlKey) ?? fallback,
+  );
+
+  final savedConfig = preferences.getString('remote_app_config');
+  if (savedConfig != null) {
+    try {
+      final decoded = jsonDecode(savedConfig);
+      if (decoded is Map<String, dynamic>) {
+        RemoteAppConfig.current = RemoteAppConfig.fromJson(decoded);
+      }
+    } catch (error) {
+      _log.warn('Saved remote app configuration is invalid: $error');
+    }
+  }
+}
+
+bool _isValidApiBaseUrl(String value) {
+  final uri = Uri.tryParse(value.trim());
+  return uri != null &&
+      uri.scheme == 'https' &&
+      uri.host.isNotEmpty &&
+      uri.userInfo.isEmpty &&
+      uri.query.isEmpty &&
+      uri.fragment.isEmpty;
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -50,77 +119,6 @@ Future<void> main() async {
     );
   } catch (e) {
     _log.warn('Supabase init failed (non-critical)', e);
-  }
-
-  Future<void> _loadApiBaseUrl() async {
-    final preferences = await SharedPreferences.getInstance();
-    final fallback = ApiConstants.normalizeBaseUrl(ApiConstants.devUrl);
-
-    try {
-      final response = await http
-          .get(Uri.parse(ApiConstants.bootstrapConfigUrl))
-          .timeout(const Duration(seconds: 8));
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw Exception('API bootstrap returned HTTP ${response.statusCode}');
-      }
-
-      final decoded = jsonDecode(response.body);
-      final configuredUrl =
-          decoded is Map<String, dynamic> ? decoded['apiBaseUrl'] : null;
-      if (configuredUrl is! String || !_isValidApiBaseUrl(configuredUrl)) {
-        throw Exception('API bootstrap returned an invalid apiBaseUrl');
-      }
-
-      await preferences.setString(
-        ApiConstants.apiBaseUrlKey,
-        ApiConstants.normalizeBaseUrl(configuredUrl),
-      );
-      ApiConstants.activeBaseUrl = ApiConstants.normalizeBaseUrl(configuredUrl);
-      _log.info('API base URL loaded from backend configuration');
-
-      final config = decoded is Map<String, dynamic>
-          ? decoded['config']
-          : null;
-      if (config is Map<String, dynamic>) {
-        final remoteConfig = RemoteAppConfig.fromJson(config);
-        RemoteAppConfig.current = remoteConfig;
-        await preferences.setString(
-          'remote_app_config',
-          RemoteAppConfig.encode(remoteConfig),
-        );
-      }
-    } catch (error) {
-      _log.warn('API bootstrap unavailable; using saved URL or fallback: $error');
-    }
-
-    if ((preferences.getString(ApiConstants.apiBaseUrlKey) ?? '').trim().isEmpty) {
-      await preferences.setString(ApiConstants.apiBaseUrlKey, fallback);
-    }
-    ApiConstants.activeBaseUrl = ApiConstants.normalizeBaseUrl(
-      preferences.getString(ApiConstants.apiBaseUrlKey) ?? fallback,
-    );
-
-    final savedConfig = preferences.getString('remote_app_config');
-    if (savedConfig != null) {
-      try {
-        final decoded = jsonDecode(savedConfig);
-        if (decoded is Map<String, dynamic>) {
-          RemoteAppConfig.current = RemoteAppConfig.fromJson(decoded);
-        }
-      } catch (error) {
-        _log.warn('Saved remote app configuration is invalid: $error');
-      }
-    }
-  }
-
-  bool _isValidApiBaseUrl(String value) {
-    final uri = Uri.tryParse(value.trim());
-    return uri != null &&
-        uri.scheme == 'https' &&
-        uri.host.isNotEmpty &&
-        uri.userInfo.isEmpty &&
-        uri.query.isEmpty &&
-        uri.fragment.isEmpty;
   }
 
   _initFirebaseAndFcm();
