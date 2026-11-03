@@ -29,7 +29,7 @@ class _HardwareIssueSimulatorScreenState extends State<HardwareIssueSimulatorScr
     setState(() => _loading = true);
     try {
       final response = await http.get(
-        Uri.parse('${ApiConstants.devUrl}/hardware-issues/mapping'),
+        Uri.parse('${ApiConstants.activeBaseUrl}/hardware-issues/mapping'),
         headers: {'Content-Type': 'application/json'},
       );
       if (response.statusCode == 200) {
@@ -55,7 +55,7 @@ class _HardwareIssueSimulatorScreenState extends State<HardwareIssueSimulatorScr
     Loader.show();
     try {
       final response = await http.post(
-        Uri.parse('${ApiConstants.devUrl}/hardware-issues/event'),
+        Uri.parse('${ApiConstants.activeBaseUrl}/hardware-issues/event'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'device_id': deviceId, 'event_type': eventType}),
       );

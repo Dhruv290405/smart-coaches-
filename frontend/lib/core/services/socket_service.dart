@@ -21,7 +21,7 @@ class SocketService {
   void connect() {
     if (_socket != null) return;
 
-    final uri = Uri.parse(ApiConstants.devUrl);
+    final uri = Uri.parse(ApiConstants.activeBaseUrl);
     final serverUrl = '${uri.scheme}://${uri.host}';
 
     _socket = io.io(serverUrl, <String, dynamic>{

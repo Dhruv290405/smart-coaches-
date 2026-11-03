@@ -31,7 +31,7 @@ class WaterLevelScreen extends StatefulWidget {
 }
 
 class _WaterLevelScreenState extends State<WaterLevelScreen> {
-  final WliDataService _dataService = WliDataService(baseUrl: ApiConstants.devUrl);
+  final WliDataService _dataService = WliDataService(baseUrl: ApiConstants.activeBaseUrl);
   String selectedTrainNumber = 'All Trains';
   String selectedCoachType = 'All Types';
   String selectedCoachNumber = 'All Coach Numbers';

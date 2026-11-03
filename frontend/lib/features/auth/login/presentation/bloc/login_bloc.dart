@@ -55,12 +55,12 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
           throw StateError('Authentication token was not saved after login');
         }
         await http.post(
-          Uri.parse("${ApiConstants.devUrl}/fcm/fcm-token"),
+          Uri.parse("${ApiConstants.activeBaseUrl}/fcm/fcm-token"),
           headers: {'Authorization': 'Bearer $authToken'},
           body: {'fcm_token': fcmToken ?? ''},
         );
         await http.delete(
-          Uri.parse("${ApiConstants.devUrl}/notifications"),
+          Uri.parse("${ApiConstants.activeBaseUrl}/notifications"),
           headers: {'Authorization': 'Bearer $authToken'},
         );
       } catch (_) {

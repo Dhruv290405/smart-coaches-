@@ -10,6 +10,7 @@ import 'package:smart_coach_new/core/permissions/permission_helper.dart';
 import 'package:smart_coach_new/core/utils/prefs.dart';
 import 'package:smart_coach_new/routes/app_router.dart';
 import 'package:smart_coach_new/core/widgets/notification_permission_dialog.dart';
+import 'package:smart_coach_new/core/config/remote_app_config.dart';
 
 class CustomDrawer extends StatefulWidget {
   const CustomDrawer({super.key});
@@ -17,15 +18,6 @@ class CustomDrawer extends StatefulWidget {
   @override
   State<CustomDrawer> createState() => _CustomDrawerState();
 }
-
-const Map<String, List<String>> _divisionModuleMap = {
-  'Danapur': ['acp', 'hot_axle_section2', 'bc_pressure', 'sensor_config'],
-  'Nagpur': ['brake_binding', 'hot_axle_section1', 'sensor_config', 'odour'],
-  'Howrah': ['brake_binding'],
-  'Kolkata': ['brake_binding'],
-  'South Eastern': ['brake_binding'],
-  'Jaipur': ['brake_binding'],
-};
 
 String _moduleKeyFor(String label) {
   if (label.contains('Coach Dashboard')) return 'coach_dashboard';
@@ -78,7 +70,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
 
     final divisionName = user?.divisionName;
     final allowedModules = divisionName != null
-        ? (_divisionModuleMap.entries
+        ? (RemoteAppConfig.current.divisionModules.entries
             .firstWhere(
               (e) => divisionName.toLowerCase().startsWith(e.key.toLowerCase()),
               orElse: () => const MapEntry('', <String>[]),

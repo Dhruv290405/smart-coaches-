@@ -92,9 +92,6 @@ Future<String?> _resolveQuad9Doh(String host) async {
 abstract class RegisterModule {
   @preResolve
   Future<SharedPreferences> get prefs {
-    _resolveHostname(Uri.parse(ApiConstants.devUrl).host).then((ip) {
-      _resolvedIp = ip;
-    });
     return SharedPreferences.getInstance();
   }
 
@@ -103,9 +100,15 @@ abstract class RegisterModule {
 
   @lazySingleton
   Dio provideDio(Prefs prefs) {
-    _apiHost = Uri.parse(ApiConstants.devUrl).host;
+    final configuredBaseUrl = prefs.getString(ApiConstants.apiBaseUrlKey);
+    final activeBaseUrl = configuredBaseUrl == null ||
+            configuredBaseUrl.trim().isEmpty
+        ? ApiConstants.devUrl
+        : ApiConstants.normalizeBaseUrl(configuredBaseUrl);
+    _apiHost = Uri.parse(activeBaseUrl).host;
+    _resolvedIp = '';
 
-    String baseUrl = ApiConstants.devUrl;
+    String baseUrl = activeBaseUrl;
     final headers = <String, dynamic>{
       'Content-Type': 'application/json',
       'Accept': 'application/json',
@@ -115,7 +118,7 @@ abstract class RegisterModule {
     };
 
     if (_resolvedIp.isNotEmpty && _resolvedIp != _apiHost) {
-      baseUrl = ApiConstants.devUrl.replaceFirst(_apiHost, _resolvedIp);
+      baseUrl = activeBaseUrl.replaceFirst(_apiHost, _resolvedIp);
       headers['Host'] = _apiHost;
     }
 
@@ -238,5 +241,12 @@ abstract class RegisterModule {
   NetworkOptimizer provideNetworkOptimizer(Dio dio) => NetworkOptimizer(dio);
 
   @lazySingleton
-  RestClient provideRestClient(Dio dio) => RestClient(dio, baseUrl: ApiConstants.devUrl);
+  RestClient provideRestClient(Dio dio, Prefs prefs) {
+    final configuredBaseUrl = prefs.getString(ApiConstants.apiBaseUrlKey);
+    final activeBaseUrl = configuredBaseUrl == null ||
+            configuredBaseUrl.trim().isEmpty
+        ? ApiConstants.devUrl
+        : ApiConstants.normalizeBaseUrl(configuredBaseUrl);
+    return RestClient(dio, baseUrl: activeBaseUrl);
+  }
 }

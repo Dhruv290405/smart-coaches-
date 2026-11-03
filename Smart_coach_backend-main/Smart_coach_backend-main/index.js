@@ -108,6 +108,35 @@ app.get('/smart_coach_api/api/health', (req, res) => {
   });
 });
 
+// Public bootstrap configuration used by installed mobile clients. Keep the
+// current API URL as the fallback so older deployments remain compatible.
+app.get('/smart_coach_api/api/app-config', (req, res) => {
+  const apiBaseUrl = (
+    process.env.PUBLIC_API_BASE_URL ||
+    'https://api.vaspsystemic.com/smart_coach_api/api'
+  ).replace(/\/+$/, '');
+
+  let config = {};
+  if (process.env.APP_CONFIG_JSON) {
+    try {
+      config = JSON.parse(process.env.APP_CONFIG_JSON);
+    } catch (error) {
+      console.error('Invalid APP_CONFIG_JSON:', error.message);
+      return res.status(500).json({
+        success: false,
+        message: 'Invalid application configuration',
+      });
+    }
+  }
+
+  res.set('Cache-Control', 'no-store');
+  res.json({
+    success: true,
+    apiBaseUrl,
+    config,
+  });
+});
+
 const acpSupabaseClient = require('./src/config/supabaseAcp');
 app.post('/smart_coach_api/api/test-notification', async (req, res) => {
   try {

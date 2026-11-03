@@ -219,7 +219,10 @@ extension GetItInjectableX on _i174.GetIt {
       () => registerModule.provideNetworkOptimizer(gh<_i361.Dio>()),
     );
     gh.lazySingleton<_i100.RestClient>(
-      () => registerModule.provideRestClient(gh<_i361.Dio>()),
+      () => registerModule.provideRestClient(
+        gh<_i361.Dio>(),
+        gh<_i1038.Prefs>(),
+      ),
     );
     gh.factory<_i513.BcPressureRemoteDataSource>(
       () => _i513.BcPressureRemoteDataSourceImpl(gh<_i100.RestClient>()),

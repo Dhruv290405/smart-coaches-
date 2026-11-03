@@ -28,7 +28,7 @@ class LevelIndicatorScreen extends StatefulWidget {
 }
 
 class _LevelIndicatorScreenState extends State<LevelIndicatorScreen> {
-  final apiService = SensorApiService(baseUrl: ApiConstants.devUrl);
+  final apiService = SensorApiService(baseUrl: ApiConstants.activeBaseUrl);
   late TrainListBloc _trainListBloc;
   bool _filtersExpanded = false;
   String? selectedLevel;

@@ -434,7 +434,7 @@ class ChartData {
   }
 }
 
-const String apiUrl = "${ApiConstants.devUrl}/iot_water_level/get_data_for_coach";
+String get apiUrl => "${ApiConstants.activeBaseUrl}/iot_water_level/get_data_for_coach";
 
 Future<List<ChartData>> fetchSensorData(int coachId) async {
   final response = await http.get(Uri.parse("$apiUrl?coach_id=$coachId"));

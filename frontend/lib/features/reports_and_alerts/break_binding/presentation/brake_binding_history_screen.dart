@@ -381,7 +381,7 @@ class _BrakeBindingHistoryScreenState extends State<BrakeBindingHistoryScreen> w
       final prefs = GetIt.I<Prefs>();
       final token = prefs.token;
 
-      final uri = Uri.parse('${ApiConstants.devUrl}/pneumatic/export-pdf').replace(
+      final uri = Uri.parse('${ApiConstants.activeBaseUrl}/pneumatic/export-pdf').replace(
         queryParameters: {
           'from_date': fromDate,
           'to_date': toDate,

@@ -1,3 +1,5 @@
+import 'package:smart_coach_new/core/config/remote_app_config.dart';
+
 class DeviceIdMapper {
   static const Map<String, String> _map = {
     'Raspberry4_1': 'SCBB-JP-26-001',
@@ -9,6 +11,8 @@ class DeviceIdMapper {
 
   static String resolve(String? deviceId) {
     if (deviceId == null) return 'N/A';
+    final remote = RemoteAppConfig.current.deviceMappings[deviceId];
+    if (remote != null && remote.isNotEmpty) return remote;
     
     // Check if the deviceId is in our explicit map
     if (_map.containsKey(deviceId)) {

@@ -90,7 +90,7 @@ class _HardwareIssueReportScreenState extends State<HardwareIssueReportScreen> {
   Future<void> _loadMapping() async {
     try {
       final response = await http.get(
-        Uri.parse('${ApiConstants.devUrl}/hardware-issues/mapping'),
+        Uri.parse('${ApiConstants.activeBaseUrl}/hardware-issues/mapping'),
         headers: {
           'Content-Type': 'application/json',
           if (GetIt.I<Prefs>().token != null)
@@ -213,7 +213,7 @@ class _HardwareIssueReportScreenState extends State<HardwareIssueReportScreen> {
       if (_selectedUniqueId != 'All Unique IDs') params['deviceId'] = _selectedUniqueId;
       if (_selectedType != 'All Types') params['issueType'] = _selectedType.toLowerCase();
 
-      String url = '${ApiConstants.devUrl}/hardware-issues/report';
+      String url = '${ApiConstants.activeBaseUrl}/hardware-issues/report';
       if (params.isNotEmpty) {
         url += '?${Uri(queryParameters: params).query}';
       }

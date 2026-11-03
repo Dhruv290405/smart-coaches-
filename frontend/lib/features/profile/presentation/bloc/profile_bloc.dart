@@ -48,7 +48,7 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
       final token = prefs.token;
       final fcmToken = await FCMService.getToken();
       if (token != null && fcmToken != null) {
-        await http.delete(Uri.parse('${ApiConstants.devUrl}/fcm/fcm-token'), headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'}, body: '{"fcm_token":"$fcmToken"}');
+        await http.delete(Uri.parse('${ApiConstants.activeBaseUrl}/fcm/fcm-token'), headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'}, body: '{"fcm_token":"$fcmToken"}');
       }
       await prefs.clear();
 

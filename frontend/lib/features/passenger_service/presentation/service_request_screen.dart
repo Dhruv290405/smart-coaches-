@@ -44,7 +44,7 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
     Loader.show();
 
     try {
-      final url = Uri.parse('${ApiConstants.devUrl}/service-requests');
+      final url = Uri.parse('${ApiConstants.activeBaseUrl}/service-requests');
       final response = await http.post(
         url,
         headers: {"Content-Type": "application/json"},

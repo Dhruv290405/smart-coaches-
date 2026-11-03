@@ -26,7 +26,7 @@ class DieselChartView extends StatefulWidget {
 
 class _DieselChartViewState extends State<DieselChartView> {
   final DieselDataService _dataService = DieselDataService(
-    baseUrl: ApiConstants.devUrl,
+    baseUrl: ApiConstants.activeBaseUrl,
   );
   String selectedPeriod = 'Live';
   DateTimeRange? customRange;

@@ -1,4 +1,5 @@
 class ApiConstants {
+  static const String apiBaseUrlKey = 'api_base_url';
   static const String loginApiEndpoint = '/auth/login';
   static const String registerApiEndpoint = '/auth/register';
   static const String profileApiEndpoint = '/auth/profile';
@@ -63,6 +64,14 @@ class ApiConstants {
   // PRODUCTION: deployed Railway backend
   static const String devUrl =
       'https://api.vaspsystemic.com/smart_coach_api/api'; // Railway backend - Supabase
+  static String activeBaseUrl = devUrl;
+
+  static String normalizeBaseUrl(String value) {
+    return value.trim().replaceFirst(RegExp(r'/+$'), '');
+  }
+
+  static String get bootstrapConfigUrl =>
+      '${normalizeBaseUrl(devUrl)}/app-config';
 
   // LOCAL: comment above and uncomment below to use local backend (port 3000)
   // static const String devUrl = 'http://10.0.2.2:3000/smart_coach_api/api';   // Android emulator

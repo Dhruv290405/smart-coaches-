@@ -42,7 +42,7 @@ class _ServiceRequestReportScreenState
     Loader.show();
 
     try {
-      String url = '${ApiConstants.devUrl}/service-requests/report';
+      String url = '${ApiConstants.activeBaseUrl}/service-requests/report';
       final params = <String, String>{};
       if (_dateFrom != null) {
         params['dateFrom'] = _dateFrom!.toUtc().toIso8601String();
@@ -86,7 +86,7 @@ class _ServiceRequestReportScreenState
     Loader.show();
     try {
       final response = await http.patch(
-        Uri.parse('${ApiConstants.devUrl}/service-requests/$id/status'),
+        Uri.parse('${ApiConstants.activeBaseUrl}/service-requests/$id/status'),
         headers: {
           'Content-Type': 'application/json',
           if (GetIt.I<Prefs>().token != null)

@@ -365,7 +365,7 @@ class DieselLevelScreen extends StatefulWidget {
 
 class _DieselLevelScreenState extends State<DieselLevelScreen> {
   final DieselDataService _dataService = DieselDataService(
-    baseUrl: ApiConstants.devUrl,
+    baseUrl: ApiConstants.activeBaseUrl,
   );
   String selectedTrainNumber = 'All';
   String selectedLocoNumber = 'All Locos';

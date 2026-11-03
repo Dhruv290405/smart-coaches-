@@ -23,7 +23,7 @@ class _FullTankHistoryState extends State<FullTankHistory> {
   int _selectedSensorIndex = 0;
   String selectedPeriod = 'Live';
 
-  final WliDataService _dataService = WliDataService(baseUrl: ApiConstants.devUrl);
+  final WliDataService _dataService = WliDataService(baseUrl: ApiConstants.activeBaseUrl);
   List<Map<String, dynamic>> _history = [];
   bool _loadingHistory = false;
 

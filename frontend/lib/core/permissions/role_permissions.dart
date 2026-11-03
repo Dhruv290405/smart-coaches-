@@ -1,7 +1,10 @@
 import 'permission_constants.dart';
+import 'package:smart_coach_new/core/config/remote_app_config.dart';
 
 class RolePermissions {
   static Set<String> getPermissionsForRole(int roleId) {
+    final remote = RemoteAppConfig.current.rolePermissions[roleId];
+    if (remote != null) return remote;
     switch (roleId) {
       case RoleIds.masterAdmin:
         return _masterAdminPermissions;

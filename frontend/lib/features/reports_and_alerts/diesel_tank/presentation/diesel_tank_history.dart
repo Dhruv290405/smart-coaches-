@@ -451,7 +451,7 @@ class DieselTankHistory extends StatefulWidget {
 
 class _DieselTankHistoryState extends State<DieselTankHistory> {
   final DieselDataService _dataService = DieselDataService(
-    baseUrl: ApiConstants.devUrl,
+    baseUrl: ApiConstants.activeBaseUrl,
   );
   String selectedPeriod = '1 Day';
   DateTimeRange? customRange;

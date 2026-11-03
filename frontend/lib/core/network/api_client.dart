@@ -13,7 +13,12 @@ class ApiClient {
 
   ApiClient(this.prefs);
 
-  static const String baseUrl = ApiConstants.devUrl;
+  String get baseUrl {
+    final configured = prefs.getString(ApiConstants.apiBaseUrlKey);
+    return configured == null || configured.trim().isEmpty
+        ? ApiConstants.devUrl
+        : ApiConstants.normalizeBaseUrl(configured);
+  }
 
   Future<Map<String, String>> _getHeaders({bool includeAuth = true}) async {
     final headers = <String, String>{'Content-Type': 'application/json'};
