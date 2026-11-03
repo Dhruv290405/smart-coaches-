@@ -9,6 +9,7 @@ import '../../../../core/utils/app_dimensions.dart';
 import '../../../../core/utils/app_icons.dart';
 import '../../../../core/utils/app_strings.dart';
 import '../../../../core/utils/app_text_styles.dart';
+import '../../../../core/utils/device_id_mapper.dart';
 import '../../../../core/utils/color_constants.dart';
 import '../../../../core/widgets/period_filter.dart';
 import '../data/models/acp_model.dart';
@@ -240,7 +241,7 @@ class _AcpHistoryScreenState extends State<AcpHistoryScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(color: ColorConstants.cardBackground, borderRadius: BorderRadius.circular(4)),
-                child: Text('Device ID: ${widget.coach.deviceId}', style: AppTextStyles.bodySmall),
+                child: Text('Device ID: ${DeviceIdMapper.resolve(widget.coach.deviceId.toString())}', style: AppTextStyles.bodySmall),
               ),
               const SizedBox(width: 8),
               // Container(

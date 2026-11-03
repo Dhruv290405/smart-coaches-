@@ -676,7 +676,8 @@ class _BrakeBindingHistoryScreenState extends State<BrakeBindingHistoryScreen> w
           ),
           ...state.coachList.map((coach) {
             final deviceId = coach.deviceId?.toString() ?? '';
-            final label = coach.actualId?.toString() ?? coach.deviceId?.toString() ?? 'Unknown';
+            final label = coach.actualId?.toString() ??
+                _getActualId(coach.deviceId?.toString());
             return DropdownMenuItem<String>(
               value: deviceId,
               child: Text(label),

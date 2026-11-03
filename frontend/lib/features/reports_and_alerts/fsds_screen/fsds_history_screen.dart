@@ -8,6 +8,7 @@ import '../../../../core/network/api_client.dart';
 import '../../../../core/utils/app_dimensions.dart';
 import '../../../../core/utils/app_text_styles.dart';
 import '../../../../core/utils/color_constants.dart';
+import '../../../../core/utils/device_id_mapper.dart';
 import '../../../../core/widgets/period_filter.dart';
 import 'data/repository/fsds_repository.dart' show FsdsRepository;
 
@@ -242,7 +243,7 @@ class _FsdsHistoryScreenState extends State<FsdsHistoryScreen> {
                 ),
               ),
               const SizedBox(width: 8),
-              Text(sensor.assetName.isNotEmpty ? sensor.assetName : sensor.deviceId,
+              Text(sensor.assetName.isNotEmpty ? sensor.assetName : DeviceIdMapper.resolve(sensor.deviceId),
                 style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: ColorConstants.textPrimary)),
             ],
           ),
@@ -259,7 +260,7 @@ class _FsdsHistoryScreenState extends State<FsdsHistoryScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(color: ColorConstants.cardBackground, borderRadius: BorderRadius.circular(4)),
-                child: Text('Device: ${sensor.deviceId}', style: AppTextStyles.bodySmall),
+                child: Text('Device: ${DeviceIdMapper.resolve(sensor.deviceId)}', style: AppTextStyles.bodySmall),
               ),
               const SizedBox(width: 8),
               Container(

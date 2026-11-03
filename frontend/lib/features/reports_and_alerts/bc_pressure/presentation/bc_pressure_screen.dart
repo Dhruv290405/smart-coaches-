@@ -17,6 +17,7 @@ import '../../../../core/widgets/action_button.dart';
 import '../../../../core/widgets/filter_dropdown.dart';
 import '../../../../core/widgets/status_chip.dart';
 import '../../../../core/widgets/view_type_selector.dart';
+import '../../../../core/utils/device_id_mapper.dart';
 import '../data/models/bc_pressure_model.dart';
 import 'bc_alerts_view.dart';
 import 'bc_chart_view.dart';
@@ -249,7 +250,7 @@ class _BCPressureScreenState extends State<BCPressureScreen> {
               child: Row(children: [
                 const Icon(Icons.warning, size: 16, color: ColorConstants.statusCritical),
                 const SizedBox(width: 8),
-                Expanded(child: Text('${c.coachNumber} — ${c.deviceId} (${c.trainNumber})', style: GoogleFonts.poppins(fontSize: 12))),
+                Expanded(child: Text('${c.coachNumber} — ${DeviceIdMapper.resolve(c.deviceId)} (${c.trainNumber})', style: GoogleFonts.poppins(fontSize: 12))),
               ]),
             )),
           ],

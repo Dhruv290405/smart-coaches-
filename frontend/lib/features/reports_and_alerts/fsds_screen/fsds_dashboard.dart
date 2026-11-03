@@ -10,6 +10,7 @@ import 'package:smart_coach_new/core/utils/app_icons.dart';
 import 'package:smart_coach_new/core/utils/app_strings.dart';
 import 'package:smart_coach_new/core/utils/app_text_styles.dart';
 import 'package:smart_coach_new/core/utils/color_constants.dart';
+import 'package:smart_coach_new/core/utils/device_id_mapper.dart';
 import 'package:smart_coach_new/core/widgets/action_button.dart';
 import 'package:smart_coach_new/core/widgets/filter_dropdown.dart';
 import 'package:smart_coach_new/core/widgets/status_chip.dart';
@@ -390,12 +391,12 @@ class _FsdsDashboardState extends State<FsdsDashboard> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(asset.assetName.isNotEmpty ? asset.assetName : asset.deviceId, style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 14)),
+                Text(asset.assetName.isNotEmpty ? asset.assetName : DeviceIdMapper.resolve(asset.deviceId), style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 14)),
                 const SizedBox(height: 4),
                 if (asset.locName.isNotEmpty)
                   Text('Location: ${asset.locName}', style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey)),
                 if (asset.deviceId.isNotEmpty)
-                  Text('Device: ${asset.deviceId}', style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey)),
+                  Text('Device: ${DeviceIdMapper.resolve(asset.deviceId)}', style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey)),
                 if (asset.timestamp.isNotEmpty)
                   Text('Time: ${_fmtTimestamp(asset.timestamp)}', style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey)),
               ],
@@ -515,7 +516,7 @@ class _FsdsDashboardState extends State<FsdsDashboard> {
           else
             ...bypassed.map((a) => Padding(
               padding: const EdgeInsets.symmetric(vertical: 3),
-              child: Text('${a.deviceId} - ${a.locName} [${_fmtTimestamp(a.timestamp)}]', style: GoogleFonts.poppins(fontSize: 11)),
+              child: Text('${DeviceIdMapper.resolve(a.deviceId)} - ${a.locName} [${_fmtTimestamp(a.timestamp)}]', style: GoogleFonts.poppins(fontSize: 11)),
             )),
           const SizedBox(height: 12),
           Text('Normal Sensors', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFF2E7D32))),
@@ -525,7 +526,7 @@ class _FsdsDashboardState extends State<FsdsDashboard> {
           else
             ...normal.map((a) => Padding(
               padding: const EdgeInsets.symmetric(vertical: 3),
-              child: Text('${a.deviceId} - ${a.locName}', style: GoogleFonts.poppins(fontSize: 11)),
+              child: Text('${DeviceIdMapper.resolve(a.deviceId)} - ${a.locName}', style: GoogleFonts.poppins(fontSize: 11)),
             )),
         ],
       ),
@@ -584,7 +585,7 @@ class _FsdsDashboardState extends State<FsdsDashboard> {
                   if (alert.locName.isNotEmpty)
                     Text('Location: ${alert.locName}', style: GoogleFonts.poppins(fontSize: 10, color: ColorConstants.textSecondary)),
                   if (alert.deviceId.isNotEmpty)
-                    Text('Device: ${alert.deviceId}', style: GoogleFonts.poppins(fontSize: 10, color: ColorConstants.textSecondary)),
+                    Text('Device: ${DeviceIdMapper.resolve(alert.deviceId)}', style: GoogleFonts.poppins(fontSize: 10, color: ColorConstants.textSecondary)),
                 ])),
               ],
             ),

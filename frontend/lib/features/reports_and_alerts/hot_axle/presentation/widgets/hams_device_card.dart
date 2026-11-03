@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:smart_coach_new/core/utils/device_id_mapper.dart';
 
 class HamsDataModel {
   final int id;
@@ -201,7 +202,7 @@ class _HamsDeviceCardState extends State<HamsDeviceCard>
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Device: ${widget.data.deviceId}',
+              Text('Device: ${DeviceIdMapper.resolve(widget.data.deviceId)}',
                 style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF1A1D21)),
                 overflow: TextOverflow.ellipsis, maxLines: 1),
               Text('Master: ${widget.data.masterId}',

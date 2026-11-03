@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:smart_coach_new/core/utils/app_dimensions.dart';
 import 'package:smart_coach_new/core/utils/app_text_styles.dart';
 import 'package:smart_coach_new/core/utils/color_constants.dart';
+import 'package:smart_coach_new/core/utils/device_id_mapper.dart';
 import 'package:smart_coach_new/core/widgets/info_row.dart';
 import 'package:smart_coach_new/core/widgets/loco_badge.dart';
 import 'package:smart_coach_new/features/reports_and_alerts/diesel_tank/data/models/diesel_tank_model.dart';
@@ -37,7 +38,7 @@ class TankInfoSection extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           InfoRow(label: 'Engine ID', value: tank.engineId),
-          InfoRow(label: 'Sensor ID', value: tank.sensorId),
+          InfoRow(label: 'Sensor ID', value: DeviceIdMapper.resolve(tank.sensorId)),
           InfoRow(label: 'Height', value: '${tank.height.toInt()} cm'),
           InfoRow(label: 'Width', value: '${tank.width.toInt()} cm'),
           InfoRow(label: 'Length', value: '${tank.length.toInt()} cm'),

@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:smart_coach_new/core/utils/app_icons.dart';
 import 'package:smart_coach_new/core/utils/color_constants.dart';
+import 'package:smart_coach_new/core/utils/device_id_mapper.dart';
 import 'package:smart_coach_new/features/reports_and_alerts/hot_axle/data/models/hot_axle_model.dart';
 
 class HotAxleCoachCard extends StatelessWidget {
@@ -57,7 +58,7 @@ class HotAxleCoachCard extends StatelessWidget {
                     if (coach.trainNo.isNotEmpty)
                       Text('Train: ${coach.trainNo}', overflow: TextOverflow.ellipsis, style: GoogleFonts.poppins(fontSize: 10, color: ColorConstants.textSecondary)),
                     if (coach.deviceId != 'Unknown')
-                      Text('Device: ${coach.deviceId}', overflow: TextOverflow.ellipsis, style: GoogleFonts.poppins(fontSize: 9, color: ColorConstants.textTertiary)),
+                      Text('Device: ${DeviceIdMapper.resolve(coach.deviceId)}', overflow: TextOverflow.ellipsis, style: GoogleFonts.poppins(fontSize: 9, color: ColorConstants.textTertiary)),
                     if (coach.trainNo.isEmpty)
                       Text('Train: No data', style: GoogleFonts.poppins(fontSize: 10, color: ColorConstants.textTertiary)),
                   ],

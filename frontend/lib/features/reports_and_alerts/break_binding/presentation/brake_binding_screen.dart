@@ -300,7 +300,8 @@ class _BrakeBindingScreenState extends State<BrakeBindingScreen> {
                       return DropdownMenuItem<String>(
                         value: coach.deviceId?.toString(),
                         child: Text(
-                          coach.actualId?.toString() ?? coach.deviceId?.toString() ?? "Unknown",
+                          coach.actualId?.toString() ??
+                              _getActualId(coach.deviceId?.toString()),
                           style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600),
                         ),
                       );

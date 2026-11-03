@@ -5,6 +5,7 @@ import 'package:smart_coach_new/features/reports_and_alerts/acp_screen/data/mode
 import 'package:smart_coach_new/features/reports_and_alerts/acp_screen/data/repository/acp_repository.dart';
 import '../../../core/di/inject.dart';
 import '../../../core/widgets/period_filter.dart';
+import '../../../core/utils/device_id_mapper.dart';
 
 class CoachHistoryScreen extends StatefulWidget {
   final String coachNo;
@@ -157,7 +158,7 @@ class _CoachHistoryScreenState extends State<CoachHistoryScreen> {
               Text(widget.coachNo, style: GoogleFonts.poppins(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
               if (widget.deviceId != 'N/A') ...[
                 const SizedBox(height: 2),
-                Text('Device ID: ${widget.deviceId}', style: GoogleFonts.poppins(color: Colors.white70, fontSize: 11)),
+                Text('Device ID: ${DeviceIdMapper.resolve(widget.deviceId)}', style: GoogleFonts.poppins(color: Colors.white70, fontSize: 11)),
               ],
             ],
           ),

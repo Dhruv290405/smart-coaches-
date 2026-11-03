@@ -4,6 +4,7 @@ import '../../../../core/utils/app_dimensions.dart';
 import '../../../../core/utils/app_text_styles.dart';
 import '../../../../core/utils/color_constants.dart';
 import '../../../../core/widgets/period_filter.dart';
+import '../../../../core/utils/device_id_mapper.dart';
 import '../data/models/hot_axle_model.dart';
 
 class HotAxleChartView extends StatefulWidget {
@@ -187,7 +188,7 @@ class _HotAxleChartViewState extends State<HotAxleChartView> {
             children: [
               Text(coach, style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w500)),
               if (deviceId != null && deviceId != 'Unknown')
-                Text(deviceId, style: GoogleFonts.poppins(fontSize: 8, color: ColorConstants.textTertiary)),
+                Text(DeviceIdMapper.resolve(deviceId), style: GoogleFonts.poppins(fontSize: 8, color: ColorConstants.textTertiary)),
             ],
           ),
         ),

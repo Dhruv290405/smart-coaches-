@@ -7,6 +7,8 @@ class DeviceIdMapper {
     'Raspberry4_3': 'SCBB-HWH-26-002',
     'Raspberry4_4': 'SCBB-JP-26-002',
     'Raspberry4_5': 'SCBB-NP-26-001',
+    'Raspberry4_6': 'SCBB-NP-26-002',
+    'Raspberry4_7': 'SCBB-NP-26-003',
   };
 
   static String resolve(String? deviceId) {
