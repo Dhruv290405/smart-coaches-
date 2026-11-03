@@ -198,7 +198,9 @@ class _HotAxleDeviceCardState extends State<HotAxleDeviceCard>
                   overflow: TextOverflow.ellipsis,
                   maxLines: 1,
                 ),
-              if (coach.trainNo.isNotEmpty)
+              // Only show train/device for Section 2 coaches — Section 1 (HAMS)
+              // uses hardcoded backend values that are not meaningful to display.
+              if (coach.trainNo.isNotEmpty && coach.coachType != 'HAMS')
                 Text(
                   'Train: ${coach.trainNo} | Device: ${coach.brakeDeviceId}',
                   style: GoogleFonts.poppins(
