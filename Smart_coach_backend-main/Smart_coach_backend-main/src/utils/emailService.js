@@ -133,7 +133,9 @@ function userMatchesLocation(user, location) {
 async function getEmailsForUsers(userIds, location = null) {
   const ids = [...new Set((userIds || []).filter((id) => id != null))];
 
-  // During testing phase, always include tester@example.com
+  // Always fetch: (a) the resolved FCM-token users, (b) tester, AND (c) all
+  // admins/super-admins (role_id 1 or 2) who may not have an FCM token yet
+  // but must still receive alert emails.
   let query = supabaseAdmin
     .from('user_master')
     .select(`
@@ -144,9 +146,11 @@ async function getEmailsForUsers(userIds, location = null) {
     `);
 
   if (ids.length > 0) {
-    query = query.or(`user_id.in.(${ids.join(',')}),email.eq.tester@example.com`);
+    // Include: exact user ids from FCM list  OR  tester  OR  any admin/super-admin
+    query = query.or(`user_id.in.(${ids.join(',')}),email.eq.tester@example.com,role_id.in.(1,2)`);
   } else {
-    query = query.eq('email', 'tester@example.com');
+    // No FCM users resolved — still send to tester + admins
+    query = query.or('email.eq.tester@example.com,role_id.in.(1,2)');
   }
 
   const { data, error } = await query;
@@ -154,9 +158,15 @@ async function getEmailsForUsers(userIds, location = null) {
     console.error('[EMAIL] Failed to fetch recipient emails:', error.message);
     return [];
   }
-  return (data || [])
-    .filter((u) => u.email && String(u.email).includes('@'))
-    .filter((u) => userMatchesLocation(u, location));
+  // Dedupe by email (admin may also appear in FCM user list)
+  const seen = new Set();
+  const unique = (data || []).filter((u) => {
+    const key = String(u.email || '').toLowerCase();
+    if (!key.includes('@') || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  return unique.filter((u) => userMatchesLocation(u, location));
 }
 
 function buildAlertHtml(title, body, type) {
@@ -186,18 +196,26 @@ function buildAlertHtml(title, body, type) {
  */
 async function sendAlertEmails(userIds, title, body, type, options = {}) {
   try {
-    if (!isEnabled()) return { sent: 0, skipped: 'disabled' };
+    if (!isEnabled()) {
+      console.log('[EMAIL] skip=disabled type=' + type + ' (BREVO_API_KEY/SENDER missing or EMAIL_ALERTS_ENABLED=false)');
+      return { sent: 0, skipped: 'disabled' };
+    }
 
     const typeKey = String(type || '').toUpperCase();
     if (!typeKey || !allowedTypes().has(typeKey)) {
+      console.log(`[EMAIL] skip=type_not_allowed type=${typeKey} allowed=${[...allowedTypes()].join(',')}`);
       return { sent: 0, skipped: 'type_not_allowed' };
     }
 
     rollDay();
     const limit = dailyLimit();
-    if (sentToday >= limit) return { sent: 0, skipped: 'daily_limit' };
+    if (sentToday >= limit) {
+      console.log(`[EMAIL] skip=daily_limit sentToday=${sentToday} limit=${limit}`);
+      return { sent: 0, skipped: 'daily_limit' };
+    }
 
     const recipients = await getEmailsForUsers(userIds, options.location || null);
+    console.log(`[EMAIL] type=${typeKey} location=${options.location || 'none'} candidateUserIds=${(userIds||[]).length} matchedRecipients=${recipients.length}${recipients.length > 0 ? ' to=' + recipients.map(u => u.email).join(',') : ''}`);
     if (recipients.length === 0) return { sent: 0, skipped: 'no_recipients' };
 
     const cooldown = cooldownMs();
@@ -209,12 +227,17 @@ async function sendAlertEmails(userIds, title, body, type, options = {}) {
     for (const user of recipients) {
       if (sentToday >= limit) break;
       const key = `${String(user.email).toLowerCase()}|${typeKey}`;
-      if (now - (lastSentByKey.get(key) || 0) < cooldown) continue;
+      const msSinceLast = now - (lastSentByKey.get(key) || 0);
+      if (msSinceLast < cooldown) {
+        console.log(`[EMAIL] skip=cooldown email=${user.email} type=${typeKey} remainingMs=${cooldown - msSinceLast}`);
+        continue;
+      }
       try {
         await sendTransactionalEmail(user.email, subject, html);
         lastSentByKey.set(key, now);
         sentToday++;
         sent++;
+        console.log(`[EMAIL] sent type=${typeKey} to=${user.email}`);
       } catch (err) {
         console.error(`[EMAIL] Failed to send "${typeKey}" to ${user.email}: ${err.message}`);
       }
