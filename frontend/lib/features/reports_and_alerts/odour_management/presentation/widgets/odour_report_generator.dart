@@ -129,10 +129,12 @@ class OdourReportGenerator {
           pw.Text('Coach Summary', style: ReportPdfTheme.sectionTitle),
           pw.SizedBox(height: 6),
           pw.TableHelper.fromTextArray(
-            headers: ['Coach No.', 'Type', 'Position', 'Status', 'VOC', 'H2S', 'NH3', 'Timestamp'],
+            headers: ['Coach No.', 'Type', 'Train No.', 'Location', 'Position', 'Status', 'VOC', 'H2S', 'NH3', 'Timestamp'],
             data: coaches.map((c) => [
               c.coachNumber,
               c.coachType,
+              c.trainNumber,
+              c.address,
               c.toiletPosition,
               c.status,
               '${c.voc}',

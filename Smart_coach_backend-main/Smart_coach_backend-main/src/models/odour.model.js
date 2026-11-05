@@ -166,10 +166,11 @@ class OdourModel {
                     ...reading,
                     device_ID: coach.device_ID,
                     Coach_ID: reading.Coach_ID || coach.Coach_ID || coach.device_ID,
-                    Coach_no: reading.Coach_no || coach.Coach_no,
-                    coach_type: coach.Coach_no || 'LWCZAC',
-                    Train_No: reading.Train_No || coach.Train_No,
-                    location: coach.location || reading.location,
+                    Coach_no: reading.Coach_no || coach.Coach_no || reading.coach_number || coach.coach_number,
+                    coach_type: reading.coach_type || coach.coach_type || reading.Coach_type || coach.Coach_type,
+                    Train_No: reading.Train_No || coach.Train_No || reading.train_no || coach.train_no || reading.train_number || coach.train_number,
+                    location: coach.location || coach.Location || reading.location || reading.Location ||
+                        reading.train_location || reading.loc_name,
                 });
             });
 
@@ -194,7 +195,24 @@ class OdourModel {
             row.device_ID,
             row.device_id,
         );
-        const coachType = firstValue(row.coach_type, row.Coach_type, coachNumber);
+        const coachType = firstValue(row.coach_type, row.Coach_type, row.coachType, coachNumber);
+        const trainNumber = firstValue(
+            row.Train_No,
+            row.Train_no,
+            row.train_no,
+            row.train_number,
+            row.Train_Number,
+            row.trainNo,
+        );
+        const location = firstValue(
+            row.location,
+            row.Location,
+            row.train_location,
+            row.loc_name,
+            row.address,
+            row.division,
+        );
+        const trainName = firstValue(row.train_name, row.Train_Name, trainNumber);
 
         return {
             device_id: row.device_ID ?? null,
@@ -210,10 +228,10 @@ class OdourModel {
             temperature: row.temperature ?? 0,
             humidity: row.humidity ?? 0,
             timestamp: row.timestamp ?? row.received_at ?? null,
-            train_number: row.Train_No ?? null,
-            train_name: row.Train_No ?? '--',
-            route: row.location ?? '--',
-            address: row.location ?? 'Unknown',
+            train_number: trainNumber,
+            train_name: trainName,
+            route: location,
+            address: location,
             door_status: row.Door_Status ?? 'Closed',
             door_open_events_today: row.Door_Count ?? row.long_lock_count ?? 0,
             u_count: 0,
