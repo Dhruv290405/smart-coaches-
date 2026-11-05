@@ -9,6 +9,7 @@ import 'package:smart_coach_new/features/reports_and_alerts/odour_management/dat
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:share_plus/share_plus.dart';
+import 'package:smart_coach_new/features/reports_and_alerts/shared/report_pdf_theme.dart';
 
 class OdourReportGenerator {
   static Future<void> generate(BuildContext context, List<OdourCoachModel> coaches, {String title = 'Odour Monitoring Report'}) async {
@@ -114,23 +115,42 @@ class OdourReportGenerator {
 
   static Future<File> _buildPdf(List<OdourCoachModel> coaches, {String title = 'Odour Monitoring Report'}) async {
     final pdf = pw.Document();
+    final now = DateTime.now();
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(32),
+        margin: const pw.EdgeInsets.all(28),
         build: (pw.Context context) => [
-          pw.Header(level: 0, child: pw.Text(title, style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold))),
-          pw.SizedBox(height: 20),
+          ...ReportPdfTheme.header(
+            title: title,
+            summary: 'Total Coaches: ${coaches.length}',
+            generatedAt: now,
+          ),
+          pw.Text('Coach Summary', style: ReportPdfTheme.sectionTitle),
+          pw.SizedBox(height: 6),
           pw.TableHelper.fromTextArray(
-            headers: ['Coach', 'Type', 'Position', 'Status', 'Reading'],
-            data: coaches.map((c) => [c.coachNumber, c.coachType, c.toiletPosition, c.status, '${c.reading} ppm']).toList(),
+            headers: ['Coach No.', 'Type', 'Position', 'Status', 'VOC', 'H2S', 'NH3', 'Timestamp'],
+            data: coaches.map((c) => [
+              c.coachNumber,
+              c.coachType,
+              c.toiletPosition,
+              c.status,
+              '${c.voc}',
+              '${c.h2s}',
+              '${c.nh3}',
+              c.timestamp,
+            ]).toList(),
+            headerStyle: ReportPdfTheme.tableHeader,
+            headerDecoration: ReportPdfTheme.tableHeaderDecoration,
+            cellStyle: ReportPdfTheme.tableCellStyle,
+            cellHeight: 24,
           ),
         ],
       ),
     );
 
     final dir = await getApplicationDocumentsDirectory();
-    final fileName = 'Odour_Report_${DateTime.now().millisecondsSinceEpoch}.pdf';
+    final fileName = 'Odour_Report_${now.millisecondsSinceEpoch}.pdf';
     final file = File('${dir.path}/$fileName');
     await file.writeAsBytes(await pdf.save());
     return file;

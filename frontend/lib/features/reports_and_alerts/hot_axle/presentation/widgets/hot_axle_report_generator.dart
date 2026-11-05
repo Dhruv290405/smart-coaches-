@@ -10,6 +10,7 @@ import 'package:smart_coach_new/features/reports_and_alerts/hot_axle/data/models
 import 'package:pdf/widgets.dart' as pw;
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:smart_coach_new/features/reports_and_alerts/shared/report_pdf_theme.dart';
 
 class HotAxleReportGenerator {
   static Future<void> generate(BuildContext context, List<HotAxleCoachModel> coaches) async {
@@ -86,18 +87,30 @@ class HotAxleReportGenerator {
 
   static Future<File> _buildPdf(List<HotAxleCoachModel> coaches) async {
     final pdf = pw.Document();
+    final now = DateTime.now();
     pdf.addPage(pw.MultiPage(
+      pageFormat: PdfPageFormat.a4,
+      margin: const pw.EdgeInsets.all(28),
       build: (context) => [
-        pw.Header(level: 0, child: pw.Text('Hot Axle Monitoring Report', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
-        pw.SizedBox(height: 20),
+        ...ReportPdfTheme.header(
+          title: 'Hot Axle Monitoring Report',
+          summary: 'Total Coaches: ${coaches.length}',
+          generatedAt: now,
+        ),
+        pw.Text('Coach Summary', style: ReportPdfTheme.sectionTitle),
+        pw.SizedBox(height: 6),
         pw.TableHelper.fromTextArray(
           headers: ['Coach No.', 'Status', 'Max Temp', 'Axles Issue'],
           data: coaches.map((c) => [c.coachNumber, c.status, c.maxTemp, '${c.axlesIssue}']).toList(),
+          headerStyle: ReportPdfTheme.tableHeader,
+          headerDecoration: ReportPdfTheme.tableHeaderDecoration,
+          cellStyle: ReportPdfTheme.tableCellStyle,
+          cellHeight: 24,
         ),
       ],
     ));
     final dir = await getApplicationDocumentsDirectory();
-    final file = File('${dir.path}/HotAxle_Report_${DateTime.now().millisecondsSinceEpoch}.pdf');
+    final file = File('${dir.path}/HotAxle_Report_${now.millisecondsSinceEpoch}.pdf');
     await file.writeAsBytes(await pdf.save());
     return file;
   }

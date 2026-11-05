@@ -9,6 +9,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:intl/intl.dart';
 import 'package:smart_coach_new/core/utils/color_constants.dart';
 import 'package:smart_coach_new/features/reports_and_alerts/diesel_tank/data/models/diesel_tank_model.dart';
+import 'package:smart_coach_new/features/reports_and_alerts/shared/report_pdf_theme.dart';
 
 class DieselReportGenerator {
   static Future<void> generate(BuildContext context, List<DieselTankModel> tanks) async {
@@ -67,28 +68,35 @@ class DieselReportGenerator {
 
   static Future<File> _buildPdf(List<DieselTankModel> tanks) async {
     final pdf = pw.Document();
+    final now = DateTime.now();
     pdf.addPage(pw.MultiPage(
       pageFormat: PdfPageFormat.a4,
-      margin: const pw.EdgeInsets.all(32),
+      margin: const pw.EdgeInsets.all(28),
       build: (ctx) => [
-        pw.Header(level: 0, text: 'Diesel Level Report', textStyle: pw.TextStyle(fontSize: 22, fontWeight: pw.FontWeight.bold, color: PdfColor.fromInt(0xFF1A3A5C))),
-        pw.Paragraph(text: 'Generated: ${DateFormat('dd MMM yyyy HH:mm').format(DateTime.now())}', style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey)),
-        pw.SizedBox(height: 16),
+        ...ReportPdfTheme.header(
+          title: 'Diesel Level Report',
+          summary: 'Total Locomotives: ${tanks.length}',
+          generatedAt: now,
+        ),
+        pw.Text('Diesel Summary', style: ReportPdfTheme.sectionTitle),
+        pw.SizedBox(height: 6),
         pw.TableHelper.fromTextArray(
           headers: ['Loco', 'Train', 'Level %', 'Status', 'Capacity (L)', 'Consumption (L/hr)', 'Last Updated'],
           data: tanks.map((t) => [
             t.locoNumber, t.trainName, '${t.percentage}%', t.status,
             '${t.capacity}', '${t.consumptionRate}', t.getFormattedDate(),
           ]).toList(),
-          headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: PdfColors.white),
-          headerDecoration: pw.BoxDecoration(color: PdfColor.fromInt(0xFF1A3A5C), borderRadius: const pw.BorderRadius.all(pw.Radius.zero)),
+          headerStyle: ReportPdfTheme.tableHeader,
+          headerDecoration: ReportPdfTheme.tableHeaderDecoration,
+          cellStyle: ReportPdfTheme.tableCellStyle,
+          cellHeight: 24,
           cellAlignments: {0: pw.Alignment.centerLeft, 1: pw.Alignment.centerLeft},
           headerAlignments: {0: pw.Alignment.center},
         ),
       ],
     ));
     final dir = await getApplicationDocumentsDirectory();
-    final file = File('${dir.path}/Diesel_Report_${DateTime.now().millisecondsSinceEpoch}.pdf');
+    final file = File('${dir.path}/Diesel_Report_${now.millisecondsSinceEpoch}.pdf');
     await file.writeAsBytes(await pdf.save());
     return file;
   }

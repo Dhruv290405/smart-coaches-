@@ -10,6 +10,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:share_plus/share_plus.dart';
 import '../../../../../core/utils/color_constants.dart';
 import '../../data/models/water_tank_model.dart';
+import 'package:smart_coach_new/features/reports_and_alerts/shared/report_pdf_theme.dart';
 
 class WliReportGenerator {
   static Future<void> generate(BuildContext context, List<WaterTankModel> coaches, {String title = 'Water Level Monitoring Report'}) async {
@@ -124,24 +125,21 @@ class WliReportGenerator {
 
   static Future<File> _buildPdf(List<WaterTankModel> coaches, {String title = 'Water Level Monitoring Report'}) async {
     final pdf = pw.Document();
+    final now = DateTime.now();
     
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(32),
+        margin: const pw.EdgeInsets.all(28),
         build: (pw.Context context) {
           return [
-            pw.Header(
-              level: 0,
-              child: pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                children: [
-                  pw.Text(title, style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: PdfColors.blue900)),
-                  pw.Text(DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now()), style: const pw.TextStyle(fontSize: 10)),
-                ],
-              ),
+            ...ReportPdfTheme.header(
+              title: title,
+              summary: 'Total Coaches: ${coaches.length}',
+              generatedAt: now,
             ),
-            pw.SizedBox(height: 20),
+            pw.Text('Coach Summary', style: ReportPdfTheme.sectionTitle),
+            pw.SizedBox(height: 6),
             pw.TableHelper.fromTextArray(
               headers: ['Coach Name', 'Unique ID', 'Level (%)', 'Status', 'Last Update'],
               data: coaches.map((c) => [
@@ -151,9 +149,10 @@ class WliReportGenerator {
                 c.status,
                 c.timestamp,
               ]).toList(),
-              headerStyle: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold),
-              headerDecoration: const pw.BoxDecoration(color: PdfColors.blue900),
-              cellHeight: 30,
+              headerStyle: ReportPdfTheme.tableHeader,
+              headerDecoration: ReportPdfTheme.tableHeaderDecoration,
+              cellStyle: ReportPdfTheme.tableCellStyle,
+              cellHeight: 24,
               cellAlignments: {
                 0: pw.Alignment.centerLeft,
                 1: pw.Alignment.centerLeft,
@@ -168,7 +167,7 @@ class WliReportGenerator {
     );
 
     final dir = await getApplicationDocumentsDirectory();
-    final fileName = 'WLI_Report_${DateTime.now().millisecondsSinceEpoch}.pdf';
+    final fileName = 'WLI_Report_${now.millisecondsSinceEpoch}.pdf';
     final file = File('${dir.path}/$fileName');
     await file.writeAsBytes(await pdf.save());
     return file;

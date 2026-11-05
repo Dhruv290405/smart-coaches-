@@ -182,11 +182,25 @@ class OdourModel {
 
     _mapBadOdourRow(row) {
         const dur = (v) => (v != null ? `${v}s` : 'N/A');
+        const firstValue = (...values) => values.find((value) => (
+            value != null
+            && String(value).trim() !== ''
+            && String(value).toLowerCase() !== 'unknown'
+        )) ?? 'Unknown';
+        const coachNumber = firstValue(
+            row.Coach_no,
+            row.coach_number,
+            row.Coach_Number,
+            row.device_ID,
+            row.device_id,
+        );
+        const coachType = firstValue(row.coach_type, row.Coach_type, coachNumber);
+
         return {
             device_id: row.device_ID ?? null,
-            sensor_id: row.Coach_ID ?? row.device_ID ?? null,
-            coach_number: row.Coach_no ?? null,
-            coach_type: 'Unknown',
+            sensor_id: row.Coach_ID ?? row.sensor_id ?? row.device_ID ?? row.device_id ?? null,
+            coach_number: coachNumber,
+            coach_type: coachType,
             toilet_position: row.Coach_ID ?? 'N/A',
             status: 'Active',
             voc_index: row.voc_index ?? 0,
