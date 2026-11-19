@@ -7,3 +7,7 @@ build/
 
 # Firebase secret (use FIREBASE_SERVICE_ACCOUNT env var)
 Smart_coach_backend-main/Smart_coach_backend-main/firebase-service-account.json
+
+# Any Firebase service-account key, wherever it lands
+**/*firebase-adminsdk*.json
+**/serviceAccountKey.json
