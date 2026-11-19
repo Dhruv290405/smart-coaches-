@@ -179,12 +179,12 @@ class _CoachGroupCardState extends State<_CoachGroupCard> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        Text('Peak', style: GoogleFonts.poppins(fontSize: 8, color: ColorConstants.textTertiary)),
+                        Text('Odour Index', style: GoogleFonts.poppins(fontSize: 8, color: ColorConstants.textTertiary)),
                         FittedBox(
                           fit: BoxFit.scaleDown,
                           alignment: Alignment.centerRight,
                           child: Text(
-                            '${displayReading.toStringAsFixed(2)} ppm',
+                            '${displayReading.toStringAsFixed(1)} / 1000',
                             style: GoogleFonts.poppins(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,

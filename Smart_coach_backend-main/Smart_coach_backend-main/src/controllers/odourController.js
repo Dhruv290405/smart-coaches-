@@ -1,6 +1,7 @@
 const OdourModel = require("../models/odour.model");
 const rbac = require('../utils/rbac');
 const { broadcastPushNotification } = require('../utils/notificationService');
+const { computeOdourIndex, getOdourLevel } = require('../utils/odourIndex');
 
 // Tracks last alert state per device to avoid spamming pushes on every reading.
 const _odourAlertState = {};
@@ -37,32 +38,18 @@ const odourController = {
 
             const insertId = await OdourModel.saveLog(dataToSave);
 
-            const voc = dataToSave.voc_index;
-            let odourDesc = null;
-            let severity = 'info';
-            let sendSms = false;
-
-            // Odour Index Rules:
-            // 250-499: Moderate (Slight Increase) -> Push Notification Only (FREE)
-            // 500-949: Moderate (High Level - Investigate) -> Push Notification Only (FREE)
-            // >=950: Extreme / Toxic Odour -> Send SMS + Push Notification (Critical Alert)
-            if (voc >= 950) {
-                odourDesc = 'Very High Odour';
-                severity = 'critical';
-                sendSms = true; // Extreme/Toxic Odour (> 950): Send SMS
-            } else if (voc >= 500) {
-                odourDesc = 'High Odour';
-                severity = 'warning';
-                sendSms = false; // Moderate: Push only (FREE)
-            } else if (voc >= 250) {
-                odourDesc = 'Moderate Odour';
-                severity = 'warning';
-                sendSms = false; // Slight increase: Push only (FREE)
-            }
+            // Weighted Odour Index (3*NH3 + 5*H2S + 0.2*VOC). Bands: Normal 0-250,
+            // Moderate 250-500, Warning 500-950, ALERT > 950. Only ALERT notifies
+            // (in-app + push + email + SMS), once per entry into the ALERT band.
+            const odourIndex = computeOdourIndex(dataToSave);
+            const lvl = getOdourLevel(odourIndex);
+            const odourDesc = lvl.label;
+            const severity = lvl.severity;
+            const sendSms = lvl.sendSms;
 
             const deviceKey = dataToSave.device_id || dataToSave.coach_number || 'unknown';
-            const wasAlert = _odourAlertState[deviceKey];
-            if (odourDesc && !wasAlert) {
+            const lastLevel = _odourAlertState[deviceKey] || 'Normal';
+            if (lvl.level === 'Alert' && lastLevel !== 'Alert') {
                 const coachNo = dataToSave.coach_number || 'Unknown';
                 const trainNo = dataToSave.train_number || 'Unknown';
                 const alertText = `Alert: ${odourDesc} in Train ${trainNo}, Coach_Unique Id ${coachNo} | ${formattedTime}`;
@@ -75,6 +62,7 @@ const odourController = {
                         coach_no: coachNo,
                         train_no: trainNo,
                         fault_name: odourDesc,
+                        odour_index: odourIndex,
                         severity,
                         send_sms: sendSms,
                         location: dataToSave.location || dataToSave.train_location || dataToSave.locName || dataToSave.division,
@@ -87,7 +75,7 @@ const odourController = {
                     }
                 );
             }
-            _odourAlertState[deviceKey] = Boolean(odourDesc);
+            _odourAlertState[deviceKey] = lvl.level;
 
             if (global._io) {
                 global._io.emit('odour_data_update', dataToSave);

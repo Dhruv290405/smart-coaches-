@@ -89,7 +89,7 @@ class OdourReportGenerator {
     _header(summary, 1, 0, 'Period: ${_fmt(range.start)}  →  ${_fmt(range.end)}');
     _blankRow(summary, 2);
 
-    final headers = ['Coach No.', 'Type', 'Toilet Position', 'Status', 'Reading (ppm)', 'Timestamp'];
+    final headers = ['Coach No.', 'Type', 'Toilet Position', 'Status', 'Odour Index', 'Odour Level', 'Timestamp'];
     for (var i = 0; i < headers.length; i++) {
       _colHeader(summary, 3, i, headers[i]);
     }
@@ -101,8 +101,9 @@ class OdourReportGenerator {
       _cell(summary, row, 1, c.coachType);
       _cell(summary, row, 2, c.toiletPosition);
       _cell(summary, row, 3, c.status);
-      _cell(summary, row, 4, '${c.reading}');
-      _cell(summary, row, 5, c.timestamp);
+      _cell(summary, row, 4, c.odourIndex.toStringAsFixed(1));
+      _cell(summary, row, 5, c.odourStatus);
+      _cell(summary, row, 6, c.timestamp);
     }
 
     final dir = await getApplicationDocumentsDirectory();
@@ -129,14 +130,15 @@ class OdourReportGenerator {
           pw.Text('Coach Summary', style: ReportPdfTheme.sectionTitle),
           pw.SizedBox(height: 6),
           pw.TableHelper.fromTextArray(
-            headers: ['Coach No.', 'Type', 'Train No.', 'Location', 'Position', 'Status', 'VOC', 'H2S', 'NH3', 'Timestamp'],
+            headers: ['Coach No.', 'Type', 'Train No.', 'Location', 'Position', 'Odour Index', 'Level', 'VOC', 'H2S', 'NH3', 'Timestamp'],
             data: coaches.map((c) => [
               c.coachNumber,
               c.coachType,
               c.trainNumber,
               c.address,
               c.toiletPosition,
-              c.status,
+              c.odourIndex.toStringAsFixed(1),
+              c.odourStatus,
               '${c.voc}',
               '${c.h2s}',
               '${c.nh3}',

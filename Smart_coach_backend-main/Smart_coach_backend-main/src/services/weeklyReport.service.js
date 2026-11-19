@@ -4,6 +4,12 @@ const supabaseAdmin = require('../config/supabaseAdmin');
 const supabaseOld = require('../config/supabaseOld');
 const supabaseAcp = require('../config/supabaseAcp');
 const rbac = require('../utils/rbac');
+const {
+  computeOdourIndex,
+  getOdourLevel,
+  ALERT_THRESHOLD: ODOUR_ALERT_THRESHOLD,
+  ALERT_CANDIDATE_FILTER: ODOUR_ALERT_CANDIDATE_FILTER,
+} = require('../utils/odourIndex');
 const { sendTransactionalEmail, isConfigured } = require('../utils/emailService');
 
 const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
@@ -459,44 +465,72 @@ async function buildOdour(ctx) {
       .gte('timestamp', ctx.period.startIso)
       .lt('timestamp', ctx.period.endIso);
 
-  const alertFilter = (query) =>
-    apply(query).or('voc_index.gte.800,h2s_ppm.gt.0.05,nh3_ppm.gt.0.2');
-
-  const [total, alerts, registered, rows] = await Promise.all([
+  // Alerts are decided by the Weighted Odour Index (> 950). PostgREST cannot
+  // filter on the computed index, so fetch a superset of candidate rows and
+  // compute the exact index here.
+  const [total, registered, candidates] = await Promise.all([
     safeCount(supabaseAcp, 'bad_odour_data', apply),
-    safeCount(supabaseAcp, 'bad_odour_data', alertFilter),
     safeCount(supabaseAcp, 'coaches_Bad_Odour', (query) => query.ilike('location', ctx.location)),
-    safeRows(
-      supabaseAcp,
-      'bad_odour_data',
-      'timestamp,device_ID,Coach_ID,Coach_no,Train_No,voc_index,h2s_ppm,nh3_ppm,Status_VOC,Bad_Odour_generation',
-      alertFilter,
-      'timestamp',
-      25
-    ),
+    fetchOdourAlertCandidates(apply),
   ]);
+
+  const alertRows = candidates.rows
+    .map((row) => ({ ...row, odour_index: computeOdourIndex(row) }))
+    .filter((row) => row.odour_index > ODOUR_ALERT_THRESHOLD)
+    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+  const notes = [];
+  if (candidates.error) notes.push(`Alerts: ${candidates.error}`);
+  if (candidates.capped) notes.push(`Alert count limited to the first ${ODOUR_CANDIDATE_CAP} candidate readings.`);
 
   return makeResult('odour', {
     total: total.value,
-    alerts: alerts.value,
+    alerts: alertRows.length,
     metrics: [
       { label: 'Readings', value: formatNumber(total.value) },
-      { label: 'Bad odour alerts', value: formatNumber(alerts.value) },
+      { label: 'Bad odour alert readings (Odour Index > 950)', value: formatNumber(alertRows.length) },
       { label: 'Registered coaches', value: formatNumber(registered.value) },
     ],
-    columns: ['Timestamp', 'Device', 'Coach', 'Train', 'VOC', 'H2S', 'NH3', 'Status'],
-    rows: rows.value.map((row) => [
+    columns: ['Timestamp', 'Device', 'Coach', 'Train', 'Odour Index', 'Level', 'NH3', 'H2S', 'VOC'],
+    rows: alertRows.slice(0, 25).map((row) => [
       formatIST(row.timestamp),
       row.device_ID || '',
       row.Coach_ID || row.Coach_no || '',
       row.Train_No || '',
-      row.voc_index == null ? '' : String(row.voc_index),
-      row.h2s_ppm == null ? '' : String(row.h2s_ppm),
+      String(row.odour_index),
+      getOdourLevel(row.odour_index).level,
       row.nh3_ppm == null ? '' : String(row.nh3_ppm),
-      row.Bad_Odour_generation || row.Status_VOC || '',
+      row.h2s_ppm == null ? '' : String(row.h2s_ppm),
+      row.voc_index == null ? '' : String(row.voc_index),
     ]),
-    note: rows.error ? `Alerts: ${rows.error}` : '',
+    note: notes.join(' '),
   });
+}
+
+const ODOUR_CANDIDATE_CAP = 20000;
+
+async function fetchOdourAlertCandidates(apply) {
+  const rows = [];
+  const pageSize = 1000;
+  try {
+    for (let from = 0; from < ODOUR_CANDIDATE_CAP; from += pageSize) {
+      const query = apply(
+        supabaseAcp
+          .from('bad_odour_data')
+          .select('timestamp,device_ID,Coach_ID,Coach_no,Train_No,voc_index,h2s_ppm,nh3_ppm')
+      )
+        .or(ODOUR_ALERT_CANDIDATE_FILTER)
+        .order('timestamp', { ascending: false })
+        .range(from, from + pageSize - 1);
+      const { data, error } = await withTimeout(query);
+      if (error) throw error;
+      rows.push(...(data || []));
+      if (!data || data.length < pageSize) return { rows, capped: false, error: null };
+    }
+    return { rows, capped: true, error: null };
+  } catch (error) {
+    return { rows, capped: false, error: error.message || String(error) };
+  }
 }
 
 async function buildBcPressure(ctx) {

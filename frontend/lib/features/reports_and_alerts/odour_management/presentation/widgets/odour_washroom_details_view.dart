@@ -25,11 +25,13 @@ class OdourWashroomDetailsView extends StatelessWidget {
         return Colors.blue;
       case 'hot':
         return Colors.red;
-      case 'warning': 
+      case 'warning':
+        return Colors.deepOrange;
       case 'moderate':
       case 'dry':
         return ColorConstants.statusWarning;
-      case 'critical': 
+      case 'critical':
+      case 'alert':
       case 'bad':
       case 'humid':
         return ColorConstants.statusCritical;
@@ -154,14 +156,14 @@ class OdourWashroomDetailsView extends StatelessWidget {
   );
 
   Widget _hygieneSection(OdourCoachModel wm) {
-    final score = wm.hygieneScore;
-    final status = score >= 70 ? 'Good' : score >= 50 ? 'Warning' : 'Critical';
+    final index = wm.odourIndex;
+    final status = wm.odourStatus;
     final color = _statusColor(status);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Text('Overall Hygiene Score', style: AppTextStyles.header2),
+        Text('Overall Odour Index', style: AppTextStyles.header2),
         const SizedBox(height: 24),
         Stack(
           alignment: Alignment.center,
@@ -170,7 +172,7 @@ class OdourWashroomDetailsView extends StatelessWidget {
               width: 160,
               height: 160,
               child: CircularProgressIndicator(
-                value: score / 100,
+                value: (index / 1000).clamp(0.0, 1.0),
                 strokeWidth: 14,
                 backgroundColor: color.withValues(alpha: 0.15),
                 valueColor: AlwaysStoppedAnimation(color),
@@ -180,15 +182,16 @@ class OdourWashroomDetailsView extends StatelessWidget {
             Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('${score.toStringAsFixed(0)}%', style: GoogleFonts.poppins(fontSize: 32, fontWeight: FontWeight.w800, color: color)),
-                Text(status, style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600, color: color)),
+                Text(index.toStringAsFixed(0), style: GoogleFonts.poppins(fontSize: 32, fontWeight: FontWeight.w800, color: color)),
+                Text('/ 1000', style: GoogleFonts.poppins(fontSize: 11, color: ColorConstants.textSecondary)),
+                Text(status == 'Alert' ? 'ALERT' : status, style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600, color: color)),
               ],
             ),
           ],
         ),
         const SizedBox(height: 16),
         Text(
-          '* Hygiene score is considered Low if below 70% and Critical if below 50%.',
+          '* Index = 3 × NH₃ + 5 × H₂S + 0.2 × VOC.  Normal 0–250, Moderate 250–500, Warning 500–950, ALERT > 950 (bad odour alert).',
           style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w500, color: ColorConstants.textSecondary, fontStyle: FontStyle.italic),
           textAlign: TextAlign.center,
         ),
@@ -237,7 +240,7 @@ class OdourWashroomDetailsView extends StatelessWidget {
     IconData statusIcon = Icons.check_circle;
     if (dsLower == 'warning' || dsLower == 'moderate' || dsLower == 'dry' || dsLower == 'cold') {
       statusIcon = Icons.warning_rounded;
-    } else if (dsLower == 'critical' || dsLower == 'bad' || dsLower == 'hot' || dsLower == 'humid') {
+    } else if (dsLower == 'critical' || dsLower == 'alert' || dsLower == 'bad' || dsLower == 'hot' || dsLower == 'humid') {
       statusIcon = Icons.error_rounded;
     }
 
@@ -594,6 +597,7 @@ class _HistoryChartState extends State<_HistoryChart> {
                       topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
                     ),
                     lineBarsData: [
+                      _line(_points.map((p) => p.odourIndex).toList(), xs, const Color(0xFFEA580C), 'Odour Index'),
                       _line(_points.map((p) => p.voc).toList(), xs, const Color(0xFF7C3AED), 'VOC'),
                       _line(_points.map((p) => p.nh3).toList(), xs, const Color(0xFF2563EB), 'NH₃'),
                       _line(_points.map((p) => p.h2s).toList(), xs, const Color(0xFFDC2626), 'H₂S'),
@@ -625,6 +629,7 @@ class _HistoryChartState extends State<_HistoryChart> {
             spacing: 14,
             runSpacing: 4,
             children: const [
+              _LegendDot(color: Color(0xFFEA580C), label: 'Odour Index'),
               _LegendDot(color: Color(0xFF7C3AED), label: 'VOC'),
               _LegendDot(color: Color(0xFF2563EB), label: 'NH₃'),
               _LegendDot(color: Color(0xFFDC2626), label: 'H₂S'),

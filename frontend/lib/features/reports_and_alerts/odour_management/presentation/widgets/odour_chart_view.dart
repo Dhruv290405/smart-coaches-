@@ -117,11 +117,16 @@ class OdourChartView extends StatelessWidget {
     int good = 0;
     int warning = 0;
     int critical = 0;
+    // Odour Index bands: Normal/Moderate = Good, Warning (500-950), ALERT (> 950) = Critical.
     for (var r in records) {
-      if (r.hygieneScore >= 70) {
+      final s = r.odourStatus;
+      if (s == 'Alert') {
+        critical++;
+      } else if (s == 'Warning') {
+        warning++;
+      } else {
         good++;
-      } else if (r.hygieneScore >= 50) warning++;
-      else critical++;
+      }
     }
     
     final total = records.length;
@@ -191,15 +196,19 @@ class OdourChartView extends StatelessWidget {
 
   Widget _buildTop3CriticalList(BuildContext context) {
     final sorted = List<OdourCoachModel>.from(records);
-    sorted.sort((a, b) => a.hygieneScore.compareTo(b.hygieneScore));
-    
+    sorted.sort((a, b) => b.odourIndex.compareTo(a.odourIndex));
+
     final worst3 = sorted.take(3).toList();
     if (worst3.isEmpty) return const SizedBox.shrink();
 
     return Column(
       children: worst3.map((r) {
-        final score = r.hygieneScore;
-        final color = score >= 70 ? const Color(0xFF34C700) : score >= 50 ? const Color(0xFFBE8B22) : const Color(0xFFD32F2F);
+        final status = r.odourStatus;
+        final color = status == 'Alert'
+            ? const Color(0xFFD32F2F)
+            : status == 'Warning'
+                ? const Color(0xFFBE8B22)
+                : const Color(0xFF34C700);
         
         return Container(
           margin: const EdgeInsets.only(bottom: 8),
@@ -214,7 +223,7 @@ class OdourChartView extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(color: color.withValues(alpha: 0.15), shape: BoxShape.circle),
-                child: Text('${score.toStringAsFixed(2)}%', style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w700, color: color)),
+                child: Text(r.odourIndex.toStringAsFixed(0), style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w700, color: color)),
               ),
               const SizedBox(width: 16),
               Expanded(

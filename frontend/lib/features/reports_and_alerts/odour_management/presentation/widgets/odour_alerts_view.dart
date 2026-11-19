@@ -44,14 +44,31 @@ class _OdourAlertsViewState extends State<OdourAlertsView> {
   List<OdourAlertItem> _generateAlerts() {
     final alerts = <OdourAlertItem>[];
     for (var r in widget.records) {
-      if (r.voc >= r.vocThreshold) alerts.add(OdourAlertItem(record: r, alertType: 'Threshold Exceeded', sensorName: 'VOC', currentReading: '${r.voc.toStringAsFixed(2)} ppm', threshold: '${r.vocThreshold.toStringAsFixed(2)} ppm', severity: 'Critical'));
-      if (r.h2s >= r.h2sThreshold) alerts.add(OdourAlertItem(record: r, alertType: 'Threshold Exceeded', sensorName: 'H₂S', currentReading: '${r.h2s.toStringAsFixed(2)} ppm', threshold: '${r.h2sThreshold.toStringAsFixed(2)} ppm', severity: 'Critical'));
-      if (r.nh3 >= r.nh3Threshold) alerts.add(OdourAlertItem(record: r, alertType: 'Threshold Exceeded', sensorName: 'NH₃', currentReading: '${r.nh3.toStringAsFixed(2)} ppm', threshold: '${r.nh3Threshold.toStringAsFixed(2)} ppm', severity: 'Critical'));
+      // Weighted Odour Index (3 x NH3 + 5 x H2S + 0.2 x VOC):
+      // Warning 500-950 -> Warning item; ALERT > 950 -> Critical "Bad Odour Alert"
+      // (the same condition that sends in-app / phone / email / SMS).
+      if (r.odourIndex > OdourIndex.alert) {
+        alerts.add(OdourAlertItem(
+          record: r,
+          alertType: 'Bad Odour Alert',
+          sensorName: 'Odour Index',
+          currentReading: r.odourIndex.toStringAsFixed(1),
+          threshold: '> ${OdourIndex.alert.toStringAsFixed(0)}',
+          severity: 'Critical',
+        ));
+      } else if (r.odourIndex >= OdourIndex.warning) {
+        alerts.add(OdourAlertItem(
+          record: r,
+          alertType: 'Odour Warning',
+          sensorName: 'Odour Index',
+          currentReading: r.odourIndex.toStringAsFixed(1),
+          threshold: OdourIndex.warning.toStringAsFixed(0),
+          severity: 'Warning',
+        ));
+      }
       if (r.smoke >= r.smokeThreshold) alerts.add(OdourAlertItem(record: r, alertType: 'Threshold Exceeded', sensorName: 'Smoke', currentReading: '${r.smoke.toStringAsFixed(2)} ppm', threshold: '${r.smokeThreshold.toStringAsFixed(2)} ppm', severity: 'Critical'));
-      if (r.hygieneScore < 50) {
-        alerts.add(OdourAlertItem(record: r, alertType: 'Hygiene Critical', sensorName: 'Hygiene Score', currentReading: '${r.hygieneScore.toStringAsFixed(0)}%', threshold: '50%', severity: 'Critical'));
-      } else if (r.hygieneScore < 70) alerts.add(OdourAlertItem(record: r, alertType: 'Hygiene Warning', sensorName: 'Hygiene Score', currentReading: '${r.hygieneScore.toStringAsFixed(0)}%', threshold: '70%', severity: 'Warning'));
-      
+
+
       if (r.doorStatus.toLowerCase() == 'open') {
         alerts.add(OdourAlertItem(record: r, alertType: 'Door Open', sensorName: 'Limit Switch', currentReading: 'Open', threshold: 'Closed', severity: 'Warning'));
       }

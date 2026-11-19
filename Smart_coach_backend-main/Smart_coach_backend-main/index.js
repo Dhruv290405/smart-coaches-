@@ -337,6 +337,8 @@ const startServer = async () => {
     startSupabaseListener();
     const { startBrakeFaultWatcher } = require('./src/services/brakeFaultWatcher');
     startBrakeFaultWatcher();
+    const { startOdourAlertWatcher } = require('./src/services/odourAlertWatcher');
+    startOdourAlertWatcher();
     const { startWeeklyReportScheduler } = require('./src/services/weeklyReport.service');
     startWeeklyReportScheduler();
 

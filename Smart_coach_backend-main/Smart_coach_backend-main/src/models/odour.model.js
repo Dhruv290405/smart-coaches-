@@ -4,6 +4,8 @@ const acpSupabase = _acpSupabase || { from: () => ({ select: () => ({ order: () 
 const _odour2Supabase = require('../config/supabaseOdour2');
 const odour2Supabase = _odour2Supabase || null;
 
+const { computeOdourIndex, getOdourLevel } = require('../utils/odourIndex');
+
 const TABLE = 'iot_bad_odour';
 const SECTION1_TABLE = 'bad_odour_data';
 const SECTION1_COACHES_TABLE = 'coaches_Bad_Odour';
@@ -213,8 +215,11 @@ class OdourModel {
             row.division,
         );
         const trainName = firstValue(row.train_name, row.Train_Name, trainNumber);
+        const odourIndex = computeOdourIndex(row);
 
         return {
+            odour_index: odourIndex,
+            odour_status: getOdourLevel(odourIndex).level,
             device_id: row.device_ID ?? null,
             sensor_id: row.Coach_ID ?? row.sensor_id ?? row.device_ID ?? row.device_id ?? null,
             coach_number: coachNumber,
@@ -313,6 +318,7 @@ class OdourModel {
             if (error) throw error;
             const mapped = (data || []).map((r) => ({
                 timestamp: r.timestamp,
+                odour_index: computeOdourIndex(r),
                 voc: r.voc_index ?? 0,
                 nh3: r.nh3_ppm ?? 0,
                 h2s: r.h2s_ppm ?? 0,
@@ -369,7 +375,7 @@ class OdourModel {
                     .order('timestamp', { ascending: true })
                     .limit(limit);
                 if (!error && data && data.length > 0) {
-                    return data.map(c.map);
+                    return data.map(c.map).map((p) => ({ ...p, odour_index: computeOdourIndex(p) }));
                 }
             }
             return [];

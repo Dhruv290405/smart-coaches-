@@ -109,6 +109,9 @@ class OdourRepository {
     final vocVal = d(data['voc_index'] ?? data['voc']);
     final h2sVal = d(data['h2s_ppm'] ?? data['h2s']);
     final nh3Val = d(data['nh3_ppm'] ?? data['nh3']);
+    final odourIndexVal = data['odour_index'] != null
+        ? d(data['odour_index'])
+        : OdourIndex.compute(nh3: nh3Val, h2s: h2sVal, voc: vocVal);
 
     return OdourCoachModel(
       coachNumber: s(data['coach_number'] ?? data['device_id']),
@@ -116,7 +119,7 @@ class OdourRepository {
       coachType: s(data['coach_type'], 'Unknown'),
       toiletPosition: s(data['toilet_position']),
       status: s(data['status'], 'Active'),
-      reading: vocVal,
+      reading: odourIndexVal,
       timestamp: s(
         data['timestamp_device'] ??
             data['created_at'] ??
@@ -148,6 +151,7 @@ class OdourRepository {
       totalDoorCyclesToday: i(data['total_door_cycles_today']),
       averageOpenDuration: s(data['average_open_duration'], 'N/A'),
       longestOpenDuration: s(data['longest_open_duration'], 'N/A'),
+      serverOdourIndex: odourIndexVal,
       serverHygieneScore: data['hygiene_score'] != null
           ? d(data['hygiene_score'])
           : null,
