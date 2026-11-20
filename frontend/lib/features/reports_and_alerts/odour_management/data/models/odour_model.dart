@@ -143,10 +143,11 @@ class OdourCoachModel {
   /// limit, or combined index > 500.
   bool get hasAlert => odourStatus == 'Critical';
 
-  /// Hygiene % from the combined index (100 = clean, 0 at CRITICAL 500).
+  /// Overall Hygiene Score % from the combined odour index, linear:
+  /// index 0 -> 100 %, index 400 or more -> 0 %  (score = 100 - index / 4).
   double get hygieneScore {
     if (serverHygieneScore != null) return serverHygieneScore!;
-    return (100 - odourIndex / 5).clamp(0.0, 100.0);
+    return (100 - odourIndex / 4).clamp(0.0, 100.0);
   }
 
   // Per-sensor status (BODR spec).

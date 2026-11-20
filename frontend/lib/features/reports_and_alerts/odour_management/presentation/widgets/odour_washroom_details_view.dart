@@ -158,7 +158,8 @@ class OdourWashroomDetailsView extends StatelessWidget {
   );
 
   Widget _hygieneSection(OdourCoachModel wm) {
-    final index = wm.odourIndex;
+    // Hygiene % : odour index 0 -> 100 %, 400 or more -> 0 % (linear).
+    final score = wm.hygieneScore;
     final status = wm.odourStatus;
     final color = _statusColor(status);
 
@@ -174,8 +175,7 @@ class OdourWashroomDetailsView extends StatelessWidget {
               width: 160,
               height: 160,
               child: CircularProgressIndicator(
-                // Full ring at 2 x CRITICAL limit (1000); CRITICAL (500) = half.
-                value: (index / (OdourIndex.critical * 2)).clamp(0.0, 1.0),
+                value: (score / 100).clamp(0.0, 1.0),
                 strokeWidth: 14,
                 backgroundColor: color.withValues(alpha: 0.15),
                 valueColor: AlwaysStoppedAnimation(color),
@@ -185,7 +185,7 @@ class OdourWashroomDetailsView extends StatelessWidget {
             Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(index.toStringAsFixed(2), style: GoogleFonts.poppins(fontSize: 28, fontWeight: FontWeight.w800, color: color)),
+                Text('${score.toStringAsFixed(0)}%', style: GoogleFonts.poppins(fontSize: 32, fontWeight: FontWeight.w800, color: color)),
                 Text(status.toUpperCase(), style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600, color: color)),
               ],
             ),
