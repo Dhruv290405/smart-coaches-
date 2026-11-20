@@ -26,8 +26,10 @@ class OdourWashroomDetailsView extends StatelessWidget {
       case 'hot':
         return Colors.red;
       case 'warning':
+      case 'high':
         return Colors.deepOrange;
       case 'moderate':
+      case 'medium':
       case 'dry':
         return ColorConstants.statusWarning;
       case 'critical':
@@ -172,7 +174,8 @@ class OdourWashroomDetailsView extends StatelessWidget {
               width: 160,
               height: 160,
               child: CircularProgressIndicator(
-                value: (index / 1000).clamp(0.0, 1.0),
+                // Full ring at 2 x CRITICAL limit (1000); CRITICAL (500) = half.
+                value: (index / (OdourIndex.critical * 2)).clamp(0.0, 1.0),
                 strokeWidth: 14,
                 backgroundColor: color.withValues(alpha: 0.15),
                 valueColor: AlwaysStoppedAnimation(color),
@@ -182,16 +185,23 @@ class OdourWashroomDetailsView extends StatelessWidget {
             Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(index.toStringAsFixed(0), style: GoogleFonts.poppins(fontSize: 32, fontWeight: FontWeight.w800, color: color)),
-                Text('/ 1000', style: GoogleFonts.poppins(fontSize: 11, color: ColorConstants.textSecondary)),
-                Text(status == 'Alert' ? 'ALERT' : status, style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600, color: color)),
+                Text(index.toStringAsFixed(2), style: GoogleFonts.poppins(fontSize: 28, fontWeight: FontWeight.w800, color: color)),
+                Text(status.toUpperCase(), style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600, color: color)),
               ],
             ),
           ],
         ),
+        if (wm.gasAlerts.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Text(
+            'Gas over limit: ${wm.gasAlerts.join(', ')}',
+            style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w700, color: ColorConstants.statusCritical),
+          ),
+        ],
         const SizedBox(height: 16),
         Text(
-          '* Index = 3 × NH₃ + 5 × H₂S + 0.2 × VOC.  Normal 0–250, Moderate 250–500, Warning 500–950, ALERT > 950 (bad odour alert).',
+          '* Index = [(NH₃/10 + CH₄/15 + H₂S/5) / 3] × 100.  Normal < 90, Medium 90–250, High 250–500, CRITICAL > 500.  '
+          'Gas CRITICAL when NH₃ > 10, CH₄ > 15 or H₂S > 5 ppm.',
           style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w500, color: ColorConstants.textSecondary, fontStyle: FontStyle.italic),
           textAlign: TextAlign.center,
         ),
@@ -217,6 +227,7 @@ class OdourWashroomDetailsView extends StatelessWidget {
             _circularSensorTile('VOC', wm.voc, 'ppm', wm.vocThreshold, wm.vocStatus),
             _circularSensorTile('NH₃', wm.nh3, 'ppm', wm.nh3Threshold, wm.nh3Status),
             _circularSensorTile('H₂S', wm.h2s, 'ppm', wm.h2sThreshold, wm.h2sStatus),
+            _circularSensorTile('CH₄', wm.methane, 'ppm', wm.methaneThreshold, wm.methaneStatus),
             _circularSensorTile('Smoke', wm.smoke, 'ppm', wm.smokeThreshold, wm.smokeStatus),
             _circularSensorTile('Temp', wm.temperature, '°C', 40.0, wm.tempStatus),
             _circularSensorTile('Humidity', wm.humidity, '% RH', 90.0, wm.humidityStatus),
@@ -238,7 +249,7 @@ class OdourWashroomDetailsView extends StatelessWidget {
     String dsLower = status.toLowerCase();
     
     IconData statusIcon = Icons.check_circle;
-    if (dsLower == 'warning' || dsLower == 'moderate' || dsLower == 'dry' || dsLower == 'cold') {
+    if (dsLower == 'warning' || dsLower == 'moderate' || dsLower == 'medium' || dsLower == 'high' || dsLower == 'dry' || dsLower == 'cold') {
       statusIcon = Icons.warning_rounded;
     } else if (dsLower == 'critical' || dsLower == 'alert' || dsLower == 'bad' || dsLower == 'hot' || dsLower == 'humid') {
       statusIcon = Icons.error_rounded;
@@ -601,6 +612,7 @@ class _HistoryChartState extends State<_HistoryChart> {
                       _line(_points.map((p) => p.voc).toList(), xs, const Color(0xFF7C3AED), 'VOC'),
                       _line(_points.map((p) => p.nh3).toList(), xs, const Color(0xFF2563EB), 'NH₃'),
                       _line(_points.map((p) => p.h2s).toList(), xs, const Color(0xFFDC2626), 'H₂S'),
+                      _line(_points.map((p) => p.methane).toList(), xs, const Color(0xFF0891B2), 'CH₄'),
                       _line(_points.map((p) => p.temperature).toList(), xs, const Color(0xFF059669), 'Temp'),
                     ],
                     lineTouchData: LineTouchData(
@@ -633,6 +645,7 @@ class _HistoryChartState extends State<_HistoryChart> {
               _LegendDot(color: Color(0xFF7C3AED), label: 'VOC'),
               _LegendDot(color: Color(0xFF2563EB), label: 'NH₃'),
               _LegendDot(color: Color(0xFFDC2626), label: 'H₂S'),
+              _LegendDot(color: Color(0xFF0891B2), label: 'CH₄'),
               _LegendDot(color: Color(0xFF059669), label: 'Temp'),
             ],
           ),

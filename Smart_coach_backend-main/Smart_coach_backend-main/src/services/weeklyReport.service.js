@@ -7,7 +7,7 @@ const rbac = require('../utils/rbac');
 const {
   computeOdourIndex,
   getOdourLevel,
-  ALERT_THRESHOLD: ODOUR_ALERT_THRESHOLD,
+  evaluateOdourReading,
   ALERT_CANDIDATE_FILTER: ODOUR_ALERT_CANDIDATE_FILTER,
 } = require('../utils/odourIndex');
 const { sendTransactionalEmail, isConfigured } = require('../utils/emailService');
@@ -465,9 +465,9 @@ async function buildOdour(ctx) {
       .gte('timestamp', ctx.period.startIso)
       .lt('timestamp', ctx.period.endIso);
 
-  // Alerts are decided by the Weighted Odour Index (> 950). PostgREST cannot
-  // filter on the computed index, so fetch a superset of candidate rows and
-  // compute the exact index here.
+  // BODR spec: a reading is CRITICAL when NH3 > 10, CH4 > 15 or H2S > 5 ppm,
+  // or the Combined Odour Index > 500. The candidate filter selects exactly
+  // those rows; the level is re-checked here.
   const [total, registered, candidates] = await Promise.all([
     safeCount(supabaseAcp, 'bad_odour_data', apply),
     safeCount(supabaseAcp, 'coaches_Bad_Odour', (query) => query.ilike('location', ctx.location)),
@@ -475,8 +475,8 @@ async function buildOdour(ctx) {
   ]);
 
   const alertRows = candidates.rows
-    .map((row) => ({ ...row, odour_index: computeOdourIndex(row) }))
-    .filter((row) => row.odour_index > ODOUR_ALERT_THRESHOLD)
+    .map((row) => ({ ...row, odour_index: computeOdourIndex(row), ev: evaluateOdourReading(row) }))
+    .filter((row) => row.ev.level === 'Critical')
     .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
   const notes = [];
@@ -488,10 +488,10 @@ async function buildOdour(ctx) {
     alerts: alertRows.length,
     metrics: [
       { label: 'Readings', value: formatNumber(total.value) },
-      { label: 'Bad odour alert readings (Odour Index > 950)', value: formatNumber(alertRows.length) },
+      { label: 'CRITICAL bad odour readings (NH3 > 10 / CH4 > 15 / H2S > 5 ppm or Index > 500)', value: formatNumber(alertRows.length) },
       { label: 'Registered coaches', value: formatNumber(registered.value) },
     ],
-    columns: ['Timestamp', 'Device', 'Coach', 'Train', 'Odour Index', 'Level', 'NH3', 'H2S', 'VOC'],
+    columns: ['Timestamp', 'Device', 'Coach', 'Train', 'Odour Index', 'Index Level', 'Gas Alerts', 'NH3', 'CH4', 'H2S'],
     rows: alertRows.slice(0, 25).map((row) => [
       formatIST(row.timestamp),
       row.device_ID || '',
@@ -499,9 +499,10 @@ async function buildOdour(ctx) {
       row.Train_No || '',
       String(row.odour_index),
       getOdourLevel(row.odour_index).level,
+      row.ev.gases.map((g) => g.gas).join(', ') || '-',
       row.nh3_ppm == null ? '' : String(row.nh3_ppm),
+      row.methane_ppm == null ? '' : String(row.methane_ppm),
       row.h2s_ppm == null ? '' : String(row.h2s_ppm),
-      row.voc_index == null ? '' : String(row.voc_index),
     ]),
     note: notes.join(' '),
   });
@@ -517,7 +518,7 @@ async function fetchOdourAlertCandidates(apply) {
       const query = apply(
         supabaseAcp
           .from('bad_odour_data')
-          .select('timestamp,device_ID,Coach_ID,Coach_no,Train_No,voc_index,h2s_ppm,nh3_ppm')
+          .select('timestamp,device_ID,Coach_ID,Coach_no,Train_No,voc_index,h2s_ppm,nh3_ppm,methane_ppm')
       )
         .or(ODOUR_ALERT_CANDIDATE_FILTER)
         .order('timestamp', { ascending: false })

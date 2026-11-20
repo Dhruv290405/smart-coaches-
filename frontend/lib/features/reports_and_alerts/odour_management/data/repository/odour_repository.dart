@@ -111,7 +111,11 @@ class OdourRepository {
     final nh3Val = d(data['nh3_ppm'] ?? data['nh3']);
     final odourIndexVal = data['odour_index'] != null
         ? d(data['odour_index'])
-        : OdourIndex.compute(nh3: nh3Val, h2s: h2sVal, voc: vocVal);
+        : OdourIndex.compute(
+            nh3: nh3Val,
+            ch4: d(data['methane_ppm'] ?? data['methane']),
+            h2s: h2sVal,
+          );
 
     return OdourCoachModel(
       coachNumber: s(data['coach_number'] ?? data['device_id']),
@@ -136,6 +140,7 @@ class OdourRepository {
       voc: vocVal,
       h2s: h2sVal,
       nh3: nh3Val,
+      methane: d(data['methane_ppm'] ?? data['methane']),
       smoke: d(data['smoke']),
       temperature: d(data['temperature']),
       humidity: d(data['humidity']),

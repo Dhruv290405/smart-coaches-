@@ -184,7 +184,7 @@ class _CoachGroupCardState extends State<_CoachGroupCard> {
                           fit: BoxFit.scaleDown,
                           alignment: Alignment.centerRight,
                           child: Text(
-                            '${displayReading.toStringAsFixed(1)} / 1000',
+                            displayReading.toStringAsFixed(2),
                             style: GoogleFonts.poppins(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,

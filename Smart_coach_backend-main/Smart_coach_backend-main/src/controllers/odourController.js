@@ -1,7 +1,7 @@
 const OdourModel = require("../models/odour.model");
 const rbac = require('../utils/rbac');
 const { broadcastPushNotification } = require('../utils/notificationService');
-const { computeOdourIndex, getOdourLevel } = require('../utils/odourIndex');
+const { evaluateOdourReading } = require('../utils/odourIndex');
 
 // Tracks last alert state per device to avoid spamming pushes on every reading.
 const _odourAlertState = {};
@@ -38,18 +38,19 @@ const odourController = {
 
             const insertId = await OdourModel.saveLog(dataToSave);
 
-            // Weighted Odour Index (3*NH3 + 5*H2S + 0.2*VOC). Bands: Normal 0-250,
-            // Moderate 250-500, Warning 500-950, ALERT > 950. Only ALERT notifies
-            // (in-app + push + email + SMS), once per entry into the ALERT band.
-            const odourIndex = computeOdourIndex(dataToSave);
-            const lvl = getOdourLevel(odourIndex);
-            const odourDesc = lvl.label;
-            const severity = lvl.severity;
-            const sendSms = lvl.sendSms;
+            // BODR spec: CRITICAL when NH3 > 10, CH4 > 15 or H2S > 5 ppm, or
+            // Combined Odour Index [(NH3/10 + CH4/15 + H2S/5)/3 x 100] > 500.
+            // Only CRITICAL notifies (in-app + push + email + SMS), once per entry.
+            const ev = evaluateOdourReading(dataToSave);
+            const odourIndex = ev.index;
+            const lvl = { level: ev.level };
+            const odourDesc = 'Bad Odour Alert';
+            const severity = 'critical';
+            const sendSms = true;
 
             const deviceKey = dataToSave.device_id || dataToSave.coach_number || 'unknown';
             const lastLevel = _odourAlertState[deviceKey] || 'Normal';
-            if (lvl.level === 'Alert' && lastLevel !== 'Alert') {
+            if (lvl.level === 'Critical' && lastLevel !== 'Critical') {
                 const coachNo = dataToSave.coach_number || 'Unknown';
                 const trainNo = dataToSave.train_number || 'Unknown';
                 const alertText = `Alert: ${odourDesc} in Train ${trainNo}, Coach_Unique Id ${coachNo} | ${formattedTime}`;

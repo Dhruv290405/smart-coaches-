@@ -3,17 +3,18 @@
  *
  * Nagpur odour devices write straight into `bad_odour_data` (ACP/Odour Supabase
  * project) and never call the backend, so alerts must be raised by polling.
- * The decision comes from utils/odourIndex.evaluateOdourReading(): the
- * Weighted Odour Index (3 x NH3 + 5 x H2S + 0.2 x VOC).
+ * The decision comes from utils/odourIndex.evaluateOdourReading() (BODR spec):
  *
- *  - Index > 950 (ALERT) -> in-app + push + email + SMS ("Bad Odour")
- *  - Otherwise no notification (Moderate / Warning are shown in the app only)
+ *  - CRITICAL when NH3 > 10 ppm, CH4 > 15 ppm or H2S > 5 ppm (each gas
+ *    independently), or Combined Odour Index > 500
+ *    -> in-app + push + email + SMS ("Bad Odour")
+ *  - HIGH / MEDIUM / Normal -> no notification (shown in the app only)
  *
  * Rules:
- *  - Alert when a coach rises to a higher level and holds it for
- *    CONFIRM_READINGS consecutive readings (ignores single spikes).
- *  - While the coach stays at that level, a reminder is sent every REMINDER_MS.
- *  - The coach is re-armed after CONFIRM_READINGS consecutive Normal readings.
+ *  - Alert on the first CRITICAL reading (the spec has no confirmation delay).
+ *  - One alert per episode; while the coach stays CRITICAL a reminder is sent
+ *    every REMINDER_MS.
+ *  - The coach is re-armed after REARM_READINGS consecutive non-critical readings.
  *  - Before sending, user_notifications is checked so a server restart/deploy
  *    does not resend an alert already sent within REMINDER_MS.
  *  - SMS has its own 2 h cooldown per coach + fault in smsAlert.service.
@@ -28,10 +29,11 @@ const TABLE = 'bad_odour_data';
 const COACHES_TABLE = 'coaches_Bad_Odour';
 const POLL_INTERVAL_MS = 30 * 1000;
 const BATCH_LIMIT = 1000;
-const CONFIRM_READINGS = 3;
+const CONFIRM_READINGS = 1; // spec: a single reading above threshold is CRITICAL
+const REARM_READINGS = 3;
 const REMINDER_MS = 2 * 60 * 60 * 1000;
 const SEED_ROWS = 300;
-const LEVELS = ['Normal', 'Warning', 'Critical'];
+const LEVELS = ['Normal', 'Critical'];
 
 let _lastId = null;
 // device -> { alerted, firedAt, upCount, upMinRank, normalCount }
@@ -100,7 +102,7 @@ function evaluate(row, now = Date.now()) {
     s.upMinRank = 99;
     if (rank === 0) {
       s.normalCount += 1;
-      if (s.normalCount >= CONFIRM_READINGS) s.alerted = 'Normal';
+      if (s.normalCount >= REARM_READINGS) s.alerted = 'Normal';
     } else {
       s.normalCount = 0;
       // Still at the alerted level: periodic reminder.
@@ -120,9 +122,11 @@ function buildMessage(row, fire) {
   const { level, ev } = fire;
   const faultName = level === 'Critical' ? 'Bad Odour' : 'Odour Warning';
   const title = `Alert: ${faultName} in Train ${info.train_no}, Coach_Unique Id ${info.coach_no}`;
-  const body = `${faultName} confirmed on Coach ${info.coach_no} (Train ${info.train_no}) at ${formatIST(row.timestamp || new Date())}. `
-    + `Odour Index ${ev.index} (ALERT, above 950). `
-    + `Readings: NH3 ${ev.nh3} ppm, H2S ${ev.h2s} ppm, VOC ${ev.voc}.`;
+  const r2 = (v) => Math.round(v * 100) / 100;
+  const body = `CRITICAL ${faultName} on Coach ${info.coach_no} (Train ${info.train_no}) at ${formatIST(row.timestamp || new Date())}. `
+    + `Reason: ${ev.reasons.join('; ')}. `
+    + `Combined Odour Index ${ev.index} (${ev.band.toUpperCase()}). `
+    + `Readings: NH3 ${r2(ev.nh3)} ppm, CH4 ${r2(ev.ch4)} ppm, H2S ${r2(ev.h2s)} ppm.`;
   return { info, faultName, title, body };
 }
 
@@ -150,7 +154,7 @@ async function dispatch(row, fire) {
     return;
   }
   const isCritical = fire.level === 'Critical';
-  console.log(`🚀 [OdourAlertWatcher] ${title} | index=${fire.ev.index}${fire.ev.reasons.join(', ')}`);
+  console.log(`🚀 [OdourAlertWatcher] ${title} | index=${fire.ev.index} | ${fire.ev.reasons.join(', ')}`);
   await broadcastPushNotification(
     title,
     body,
@@ -179,7 +183,7 @@ async function processRows(rows) {
   }
 }
 
-const SELECT_COLS = 'id, timestamp, device_ID, Coach_ID, Coach_no, Train_No, location, voc_index, nh3_ppm, h2s_ppm, Status_VOC';
+const SELECT_COLS = 'id, timestamp, device_ID, Coach_ID, Coach_no, Train_No, location, voc_index, nh3_ppm, h2s_ppm, methane_ppm, Status_VOC';
 
 async function seed() {
   // Replay the most recent readings so coaches that are ALREADY critical get

@@ -1,30 +1,38 @@
-/// Sensor Hygiene — Weighted Odour Index (0 - 1000 scale).
-///   Index = 0.3 x (NH3/100 x 1000) + 0.5 x (H2S/100 x 1000) + 0.2 x (VOC/1000 x 1000)
-///         = 3 x NH3 + 5 x H2S + 0.2 x VOC
-/// Bands: Normal 0-250 | Moderate 250-500 | Warning 500-950 | ALERT > 950.
-/// Bad odour alert when Index > 950. Must match backend `src/utils/odourIndex.js`.
+/// BODR – Bad Odour Detection System (spec: "Bad Odour mathematic logic").
+///
+/// Individual gas alerts (strictly greater than) -> CRITICAL:
+///   NH3 > 10 ppm, CH4 > 15 ppm, H2S > 5 ppm
+/// Combined Odour Index = [(NH3/10 + CH4/15 + H2S/5) / 3] x 100  (2 dp)
+///   > 500 CRITICAL | 250-500 HIGH | 90-<250 MEDIUM | < 90 Normal
+/// VOC index is the original sensor value; VOC > 90 = MEDIUM (bad odour
+/// generation), it is not part of the combined index.
+/// Must match backend `src/utils/odourIndex.js`.
 class OdourIndex {
-  static const double moderate = 250;
-  static const double warning = 500;
-  static const double alert = 950;
+  static const double nh3Limit = 10;
+  static const double ch4Limit = 15;
+  static const double h2sLimit = 5;
+  static const double vocLimit = 90;
 
-  static double compute({double nh3 = 0, double h2s = 0, double voc = 0}) {
+  static const double medium = 90;
+  static const double high = 250;
+  static const double critical = 500;
+
+  static double compute({double nh3 = 0, double ch4 = 0, double h2s = 0}) {
     double p(double v) => v.isFinite && v > 0 ? v : 0;
-    final idx = 3 * p(nh3) + 5 * p(h2s) + 0.2 * p(voc);
-    return (idx.clamp(0, 1000) * 10).round() / 10;
+    final idx = ((p(nh3) / nh3Limit + p(ch4) / ch4Limit + p(h2s) / h2sLimit) / 3) * 100;
+    return (idx * 100).round() / 100;
   }
 
-  /// Band for any value on the 0-1000 scale.
-  static String level(double value) {
-    if (value > alert) return 'Alert';
-    if (value >= warning) return 'Warning';
-    if (value >= moderate) return 'Moderate';
+  /// Combined-index level.
+  static String level(double index) {
+    if (index > critical) return 'Critical';
+    if (index >= high) return 'High';
+    if (index >= medium) return 'Medium';
     return 'Normal';
   }
 
-  /// NH3 / H2S are rated on the same 0-1000 scale the formula uses
-  /// (ppm / 100 x 1000 = ppm x 10); VOC is already 0-1000.
-  static String gasLevel(double ppm) => level(ppm * 10);
+  /// Individual gas: CRITICAL only when strictly above its configured limit.
+  static String gasLevel(double ppm, double limit) => ppm > limit ? 'Critical' : 'Normal';
 }
 
 class OdourCoachModel {
@@ -45,6 +53,7 @@ class OdourCoachModel {
   final double voc;
   final double h2s;
   final double nh3;
+  final double methane;
   final double smoke;
   final double temperature;
   final double humidity;
@@ -86,6 +95,7 @@ class OdourCoachModel {
     this.voc = 0.0,
     this.h2s = 0.0,
     this.nh3 = 0.0,
+    this.methane = 0.0,
     this.smoke = 0.0,
     this.temperature = 0.0,
     this.humidity = 0.0,
@@ -111,27 +121,39 @@ class OdourCoachModel {
   });
 
   bool get isActive => status.toLowerCase() == 'active' || status.toLowerCase() == 'testing';
-  /// Weighted Odour Index; prefers the backend value, else computed locally.
+  /// Combined Odour Index; prefers the backend value, else computed locally.
   double get odourIndex =>
-      serverOdourIndex ?? OdourIndex.compute(nh3: nh3, h2s: h2s, voc: voc);
+      serverOdourIndex ?? OdourIndex.compute(nh3: nh3, ch4: methane, h2s: h2s);
 
-  /// Normal / Moderate / Warning / Alert (Index bands).
-  String get odourStatus => OdourIndex.level(odourIndex);
-  double get odourThreshold => OdourIndex.alert;
+  /// Level of the combined index alone: Normal / Medium / High / Critical.
+  String get indexLevel => OdourIndex.level(odourIndex);
 
-  /// Same rule the backend uses to send notifications: Index > 950 (ALERT).
-  bool get hasAlert => odourIndex > OdourIndex.alert;
+  /// Gases above their configured limit (each is an individual CRITICAL alert).
+  List<String> get gasAlerts => [
+        if (nh3 > OdourIndex.nh3Limit) 'NH3',
+        if (methane > OdourIndex.ch4Limit) 'CH4',
+        if (h2s > OdourIndex.h2sLimit) 'H2S',
+      ];
 
-  /// Hygiene % derived from the Weighted Odour Index (100 = clean, 0 = worst).
+  /// Overall status = worst of combined index level and gas alerts.
+  String get odourStatus => gasAlerts.isNotEmpty ? 'Critical' : indexLevel;
+  double get odourThreshold => OdourIndex.critical;
+
+  /// Same rule the backend uses to send notifications: any gas over its
+  /// limit, or combined index > 500.
+  bool get hasAlert => odourStatus == 'Critical';
+
+  /// Hygiene % from the combined index (100 = clean, 0 at CRITICAL 500).
   double get hygieneScore {
     if (serverHygieneScore != null) return serverHygieneScore!;
-    return (100 - odourIndex / 10).clamp(0.0, 100.0);
+    return (100 - odourIndex / 5).clamp(0.0, 100.0);
   }
 
-  // Per-sensor status on the same bands as the Index (formula scale).
-  String get vocStatus => OdourIndex.level(voc);
-  String get nh3Status => OdourIndex.gasLevel(nh3);
-  String get h2sStatus => OdourIndex.gasLevel(h2s);
+  // Per-sensor status (BODR spec).
+  String get vocStatus => voc > OdourIndex.vocLimit ? 'Medium' : 'Normal';
+  String get nh3Status => OdourIndex.gasLevel(nh3, OdourIndex.nh3Limit);
+  String get h2sStatus => OdourIndex.gasLevel(h2s, OdourIndex.h2sLimit);
+  String get methaneStatus => OdourIndex.gasLevel(methane, OdourIndex.ch4Limit);
 
   String get smokeStatus {
     if (serverSmokeStatus != null) return serverSmokeStatus!;
@@ -152,10 +174,11 @@ class OdourCoachModel {
     return 'Normal';
   }
 
-  // Full scale of each sensor in the formula (used for gauge fill).
-  double get vocThreshold => 1000.0;
-  double get nh3Threshold => 100.0;
-  double get h2sThreshold => 100.0;
+  // Gauge full-scale = 2 x the alert limit, so the limit sits at half-way.
+  double get vocThreshold => 500.0;
+  double get nh3Threshold => OdourIndex.nh3Limit * 2;
+  double get methaneThreshold => OdourIndex.ch4Limit * 2;
+  double get h2sThreshold => OdourIndex.h2sLimit * 2;
   double get smokeThreshold => 19.9;
 
   String get locationAddress => address;
@@ -171,6 +194,7 @@ class OdourHistoryPoint {
   final double voc;
   final double nh3;
   final double h2s;
+  final double methane;
   final double smoke;
   final double temperature;
   final double humidity;
@@ -181,6 +205,7 @@ class OdourHistoryPoint {
     this.voc = 0.0,
     this.nh3 = 0.0,
     this.h2s = 0.0,
+    this.methane = 0.0,
     this.smoke = 0.0,
     this.temperature = 0.0,
     this.humidity = 0.0,
@@ -192,14 +217,16 @@ class OdourHistoryPoint {
     final voc = d(j['voc']);
     final nh3 = d(j['nh3']);
     final h2s = d(j['h2s']);
+    final methane = d(j['methane'] ?? j['methane_ppm']);
     return OdourHistoryPoint(
       timestamp: j['timestamp']?.toString() ?? '',
       odourIndex: j['odour_index'] != null
           ? d(j['odour_index'])
-          : OdourIndex.compute(nh3: nh3, h2s: h2s, voc: voc),
+          : OdourIndex.compute(nh3: nh3, ch4: methane, h2s: h2s),
       voc: voc,
       nh3: nh3,
       h2s: h2s,
+      methane: methane,
       smoke: d(j['smoke']),
       temperature: d(j['temperature']),
       humidity: d(j['humidity']),

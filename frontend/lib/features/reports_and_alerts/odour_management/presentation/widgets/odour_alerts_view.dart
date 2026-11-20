@@ -44,25 +44,44 @@ class _OdourAlertsViewState extends State<OdourAlertsView> {
   List<OdourAlertItem> _generateAlerts() {
     final alerts = <OdourAlertItem>[];
     for (var r in widget.records) {
-      // Weighted Odour Index (3 x NH3 + 5 x H2S + 0.2 x VOC):
-      // Warning 500-950 -> Warning item; ALERT > 950 -> Critical "Bad Odour Alert"
-      // (the same condition that sends in-app / phone / email / SMS).
-      if (r.odourIndex > OdourIndex.alert) {
+      // BODR spec. Individual gas > limit -> CRITICAL (each gas independently);
+      // Combined Index > 500 -> CRITICAL, 250-500 HIGH, 90-<250 MEDIUM.
+      // CRITICAL is the same condition that sends in-app / phone / email / SMS.
+      void gas(String name, double v, double limit) {
+        if (v > limit) {
+          alerts.add(OdourAlertItem(
+            record: r,
+            alertType: 'Gas Threshold Exceeded',
+            sensorName: name,
+            currentReading: '${v.toStringAsFixed(2)} ppm',
+            threshold: '> ${limit.toStringAsFixed(0)} ppm',
+            severity: 'Critical',
+          ));
+        }
+      }
+      gas('NH3', r.nh3, OdourIndex.nh3Limit);
+      gas('CH4', r.methane, OdourIndex.ch4Limit);
+      gas('H2S', r.h2s, OdourIndex.h2sLimit);
+
+      final idxLevel = r.indexLevel;
+      if (idxLevel == 'Critical') {
         alerts.add(OdourAlertItem(
           record: r,
           alertType: 'Bad Odour Alert',
-          sensorName: 'Odour Index',
-          currentReading: r.odourIndex.toStringAsFixed(1),
-          threshold: '> ${OdourIndex.alert.toStringAsFixed(0)}',
+          sensorName: 'Combined Odour Index',
+          currentReading: r.odourIndex.toStringAsFixed(2),
+          threshold: '> ${OdourIndex.critical.toStringAsFixed(0)}',
           severity: 'Critical',
         ));
-      } else if (r.odourIndex >= OdourIndex.warning) {
+      } else if (idxLevel == 'High' || idxLevel == 'Medium') {
         alerts.add(OdourAlertItem(
           record: r,
-          alertType: 'Odour Warning',
-          sensorName: 'Odour Index',
-          currentReading: r.odourIndex.toStringAsFixed(1),
-          threshold: OdourIndex.warning.toStringAsFixed(0),
+          alertType: idxLevel == 'High' ? 'High Odour' : 'Bad Odour Increasing',
+          sensorName: 'Combined Odour Index',
+          currentReading: r.odourIndex.toStringAsFixed(2),
+          threshold: idxLevel == 'High'
+              ? '${OdourIndex.high.toStringAsFixed(0)}–${OdourIndex.critical.toStringAsFixed(0)}'
+              : '${OdourIndex.medium.toStringAsFixed(0)}–${OdourIndex.high.toStringAsFixed(0)}',
           severity: 'Warning',
         ));
       }

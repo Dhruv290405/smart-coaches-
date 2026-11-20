@@ -4,7 +4,7 @@ const acpSupabase = _acpSupabase || { from: () => ({ select: () => ({ order: () 
 const _odour2Supabase = require('../config/supabaseOdour2');
 const odour2Supabase = _odour2Supabase || null;
 
-const { computeOdourIndex, getOdourLevel } = require('../utils/odourIndex');
+const { computeOdourIndex, getOdourLevel, overallLevel, gasAlerts } = require('../utils/odourIndex');
 
 const TABLE = 'iot_bad_odour';
 const SECTION1_TABLE = 'bad_odour_data';
@@ -219,7 +219,10 @@ class OdourModel {
 
         return {
             odour_index: odourIndex,
-            odour_status: getOdourLevel(odourIndex).level,
+            odour_index_level: getOdourLevel(odourIndex).level,
+            // Worst of combined-index level and individual gas alerts.
+            odour_status: overallLevel(row),
+            gas_alerts: gasAlerts(row).map((a) => a.gas),
             device_id: row.device_ID ?? null,
             sensor_id: row.Coach_ID ?? row.sensor_id ?? row.device_ID ?? row.device_id ?? null,
             coach_number: coachNumber,
@@ -229,6 +232,7 @@ class OdourModel {
             voc_index: row.voc_index ?? 0,
             h2s_ppm: row.h2s_ppm ?? 0,
             nh3_ppm: row.nh3_ppm ?? 0,
+            methane_ppm: row.methane_ppm ?? 0,
             smoke: 0,
             temperature: row.temperature ?? 0,
             humidity: row.humidity ?? 0,
@@ -311,7 +315,7 @@ class OdourModel {
             if (!deviceId) return [];
             const { data, error } = await acpSupabase
                 .from(SECTION1_TABLE)
-                .select('timestamp, voc_index, h2s_ppm, nh3_ppm, temperature, humidity')
+                .select('timestamp, voc_index, h2s_ppm, nh3_ppm, methane_ppm, temperature, humidity')
                 .eq('device_ID', deviceId)
                 .order('timestamp', { ascending: true })
                 .limit(limit);
@@ -322,6 +326,7 @@ class OdourModel {
                 voc: r.voc_index ?? 0,
                 nh3: r.nh3_ppm ?? 0,
                 h2s: r.h2s_ppm ?? 0,
+                methane: r.methane_ppm ?? 0,
                 smoke: 0,
                 temperature: r.temperature ?? 0,
                 humidity: r.humidity ?? 0,

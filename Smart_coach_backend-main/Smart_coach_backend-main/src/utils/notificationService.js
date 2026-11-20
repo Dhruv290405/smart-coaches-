@@ -32,7 +32,7 @@ function shouldSendSmsForAlert(type, payload = {}, severity = 'warning') {
     return sev === 'critical' || payload.status === 'Critical';
   }
 
-  // 4. Bad Odour: ONLY if odour index >= 250 (moderate 250-949 or alert >= 950)
+  // 4. Bad Odour: ONLY when CRITICAL (gas > threshold or Combined Index > 500)
   if (t.includes('ODOUR') || t.includes('ODOR')) {
     return Boolean(payload.send_sms);
   }

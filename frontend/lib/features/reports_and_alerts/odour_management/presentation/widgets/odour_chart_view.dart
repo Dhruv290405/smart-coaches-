@@ -117,12 +117,12 @@ class OdourChartView extends StatelessWidget {
     int good = 0;
     int warning = 0;
     int critical = 0;
-    // Odour Index bands: Normal/Moderate = Good, Warning (500-950), ALERT (> 950) = Critical.
+    // BODR: Critical (gas over limit or Index > 500), Warning = High/Medium, Good = Normal.
     for (var r in records) {
       final s = r.odourStatus;
-      if (s == 'Alert') {
+      if (s == 'Critical') {
         critical++;
-      } else if (s == 'Warning') {
+      } else if (s == 'High' || s == 'Medium') {
         warning++;
       } else {
         good++;
@@ -204,9 +204,9 @@ class OdourChartView extends StatelessWidget {
     return Column(
       children: worst3.map((r) {
         final status = r.odourStatus;
-        final color = status == 'Alert'
+        final color = status == 'Critical'
             ? const Color(0xFFD32F2F)
-            : status == 'Warning'
+            : (status == 'High' || status == 'Medium')
                 ? const Color(0xFFBE8B22)
                 : const Color(0xFF34C700);
         
