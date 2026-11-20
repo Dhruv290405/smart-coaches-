@@ -2,38 +2,38 @@
  * BODR – Bad Odour Detection System: alert logic & mathematics
  * (spec: "Bad Odour mathematic logic" document).
  *
- * 1. Individual gas alerts (each gas checked independently, strictly greater than):
- *      NH3 > 10 ppm  -> CRITICAL
- *      CH4 > 15 ppm  -> CRITICAL
- *      H2S > 5 ppm   -> CRITICAL
+ * 1. Individual gas limits (each gas checked independently, strictly greater than):
+ *      NH3 > 10 ppm, CH4 > 15 ppm, H2S > 5 ppm  -> "gas over limit"
+ *    Shown in the app and reports only; since 21 Nov 2026 they do NOT send
+ *    notifications on their own (decision: alert on the Hygiene Score only).
  *
  * 2. Combined Odour Index:
  *      Index = [(NH3/10 + CH4/15 + H2S/5) / 3] x 100   (rounded to 2 dp)
  *    A missing / invalid gas reading counts as 0.
  *
- * 3. Combined Index classification:
- *      > 500        -> CRITICAL
- *      250 – 500    -> HIGH     (inclusive)
+ * 3. Combined Index classification (alert threshold set to 250 on 21 Nov 2026):
+ *      >= 250       -> CRITICAL  (= Overall Hygiene Score 37.5 % or below)
  *      90 – <250    -> MEDIUM
  *      < 90         -> no combined-index alert ("Normal")
+ *    Hygiene Score % shown in the app = 100 - index / 4 (index 400+ = 0 %).
  *
  * 4. VOC (voc_index) is kept as the original sensor value; it is NOT part of
  *    the index and does not raise notifications.
  *
  * Notifications (in-app + push + email + SMS) are sent for CRITICAL only:
- * any individual gas CRITICAL, or combined Index > 500. HIGH / MEDIUM are
- * shown in the app and reports. The app mirrors this in odour_model.dart.
+ * combined Index >= 250 (Hygiene Score <= 37.5 %). MEDIUM and gas-over-limit
+ * are shown in the app and reports. The app mirrors this in odour_model.dart.
  */
 
 const GAS_THRESHOLDS = { nh3: 10, ch4: 15, h2s: 5 };
 
 const MEDIUM = 90;
-const HIGH = 250;
-const CRITICAL = 500; // critical when index is strictly greater than this
+const CRITICAL = 250; // critical when index is at or above this
+const HIGH = CRITICAL; // kept for compatibility; the HIGH band no longer exists
 
 const ALERT_THRESHOLD = CRITICAL;
 
-const LEVELS = ['Normal', 'Medium', 'High', 'Critical'];
+const LEVELS = ['Normal', 'Medium', 'Critical'];
 
 function num(v) {
   const n = Number(v);
@@ -60,11 +60,10 @@ function computeOdourIndex(row = {}) {
   return round2((ratioSum / 3) * 100);
 }
 
-/** Combined-index level: Normal / Medium / High / Critical. */
+/** Combined-index level: Normal / Medium / Critical. */
 function bandFor(value) {
   const v = Number(value) || 0;
-  if (v > CRITICAL) return 'Critical';
-  if (v >= HIGH) return 'High';
+  if (v >= CRITICAL) return 'Critical';
   if (v >= MEDIUM) return 'Medium';
   return 'Normal';
 }
@@ -93,19 +92,20 @@ function levelRank(level) {
   return LEVELS.indexOf(level);
 }
 
-/**
- * Overall level of one reading = worst of (combined index level, gas alerts).
- * Any gas above its threshold makes the reading CRITICAL.
- */
+/** Overall level of one reading = combined index level (Normal / Medium / Critical). */
 function overallLevel(row = {}) {
-  const index = computeOdourIndex(row);
-  const band = bandFor(index);
-  return gasAlerts(row).length > 0 ? 'Critical' : band;
+  return bandFor(computeOdourIndex(row));
+}
+
+/** Hygiene Score % shown in the app: index 0 -> 100 %, index 400+ -> 0 %. */
+function hygieneScore(index) {
+  return Math.max(0, Math.min(100, 100 - (Number(index) || 0) / 4));
 }
 
 /**
  * Single decision used for ALL odour notifications (in-app, push, email, SMS):
- * 'Critical' if any gas > threshold or Index > 500, otherwise 'Normal'.
+ * 'Critical' when the combined Index >= 250 (Hygiene Score <= 37.5 %), else 'Normal'.
+ * Gases over their limit are listed in `reasons` for the message text.
  */
 function evaluateOdourReading(row = {}) {
   const g = gasValues(row);
@@ -113,10 +113,13 @@ function evaluateOdourReading(row = {}) {
   const index = computeOdourIndex(row);
   const band = bandFor(index);
   const gases = gasAlerts(row);
-  const reasons = gases.map((a) => `${a.gas} ${round2(a.value)} ppm > ${a.threshold} ppm`);
-  if (band === 'Critical') reasons.push(`Combined Odour Index ${index} > ${CRITICAL}`);
-  const level = reasons.length > 0 ? 'Critical' : 'Normal';
-  return { level, band, index, gases, reasons, nh3: g.nh3, ch4: g.ch4, h2s: g.h2s, voc };
+  const level = band === 'Critical' ? 'Critical' : 'Normal';
+  const reasons = [];
+  if (level === 'Critical') {
+    reasons.push(`Odour Index ${index} (Hygiene Score ${round2(hygieneScore(index))}%, alert at 37.5% or below)`);
+    gases.forEach((a) => reasons.push(`${a.gas} ${round2(a.value)} ppm over ${a.threshold} ppm limit`));
+  }
+  return { level, band, index, hygiene: round2(hygieneScore(index)), gases, reasons, nh3: g.nh3, ch4: g.ch4, h2s: g.h2s, voc };
 }
 
 function alertRank(level) {
@@ -124,9 +127,9 @@ function alertRank(level) {
 }
 
 /**
- * PostgREST `or` filter for rows that are CRITICAL. Index > 500 needs the ratio
- * sum > 15, so at least one ratio > 5, i.e. that gas is already above its
- * threshold — this filter is therefore exact for CRITICAL readings.
+ * PostgREST `or` filter returning a SUPERSET of CRITICAL rows. Index >= 250 needs
+ * the ratio sum >= 7.5, so at least one ratio >= 2.5, i.e. that gas is above its
+ * limit. Callers must still apply evaluateOdourReading() to get the exact set.
  */
 const ALERT_CANDIDATE_FILTER = `nh3_ppm.gt.${GAS_THRESHOLDS.nh3},methane_ppm.gt.${GAS_THRESHOLDS.ch4},h2s_ppm.gt.${GAS_THRESHOLDS.h2s}`;
 
@@ -142,6 +145,7 @@ module.exports = {
   computeOdourIndex,
   bandFor,
   overallLevel,
+  hygieneScore,
   getOdourLevel,
   levelRank,
   evaluateOdourReading,

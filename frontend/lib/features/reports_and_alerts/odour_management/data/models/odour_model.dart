@@ -1,9 +1,11 @@
 /// BODR – Bad Odour Detection System (spec: "Bad Odour mathematic logic").
 ///
-/// Individual gas alerts (strictly greater than) -> CRITICAL:
-///   NH3 > 10 ppm, CH4 > 15 ppm, H2S > 5 ppm
 /// Combined Odour Index = [(NH3/10 + CH4/15 + H2S/5) / 3] x 100  (2 dp)
-///   > 500 CRITICAL | 250-500 HIGH | 90-<250 MEDIUM | < 90 Normal
+///   >= 250 CRITICAL (alert) | 90-<250 MEDIUM | < 90 Normal
+/// Overall Hygiene Score % = 100 - index / 4 (index 400+ = 0 %), so the alert
+/// fires at Hygiene Score 37.5 % or below.
+/// Individual gas limits (NH3 > 10, CH4 > 15, H2S > 5 ppm) are shown as
+/// "gas over limit" only; they do not raise alerts on their own.
 /// VOC index is the original sensor value; VOC > 90 = MEDIUM (bad odour
 /// generation), it is not part of the combined index.
 /// Must match backend `src/utils/odourIndex.js`.
@@ -14,8 +16,8 @@ class OdourIndex {
   static const double vocLimit = 90;
 
   static const double medium = 90;
-  static const double high = 250;
-  static const double critical = 500;
+  static const double critical = 250;
+  static const double high = critical; // HIGH band merged into CRITICAL
 
   static double compute({double nh3 = 0, double ch4 = 0, double h2s = 0}) {
     double p(double v) => v.isFinite && v > 0 ? v : 0;
@@ -25,8 +27,7 @@ class OdourIndex {
 
   /// Combined-index level.
   static String level(double index) {
-    if (index > critical) return 'Critical';
-    if (index >= high) return 'High';
+    if (index >= critical) return 'Critical';
     if (index >= medium) return 'Medium';
     return 'Normal';
   }
@@ -135,12 +136,12 @@ class OdourCoachModel {
         if (h2s > OdourIndex.h2sLimit) 'H2S',
       ];
 
-  /// Overall status = worst of combined index level and gas alerts.
-  String get odourStatus => gasAlerts.isNotEmpty ? 'Critical' : indexLevel;
+  /// Overall status = combined index level (Normal / Medium / Critical).
+  String get odourStatus => indexLevel;
   double get odourThreshold => OdourIndex.critical;
 
-  /// Same rule the backend uses to send notifications: any gas over its
-  /// limit, or combined index > 500.
+  /// Same rule the backend uses to send notifications: index >= 250,
+  /// i.e. Overall Hygiene Score 37.5 % or below.
   bool get hasAlert => odourStatus == 'Critical';
 
   /// Overall Hygiene Score % from the combined odour index, linear:

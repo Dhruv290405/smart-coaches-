@@ -6,7 +6,7 @@
  * The decision comes from utils/odourIndex.evaluateOdourReading() (BODR spec):
  *
  *  - CRITICAL when NH3 > 10 ppm, CH4 > 15 ppm or H2S > 5 ppm (each gas
- *    independently), or Combined Odour Index > 500
+ *    independently), or Combined Odour Index >= 250
  *    -> in-app + push + email + SMS ("Bad Odour")
  *  - HIGH / MEDIUM / Normal -> no notification (shown in the app only)
  *
@@ -124,8 +124,7 @@ function buildMessage(row, fire) {
   const title = `Alert: ${faultName} in Train ${info.train_no}, Coach_Unique Id ${info.coach_no}`;
   const r2 = (v) => Math.round(v * 100) / 100;
   const body = `CRITICAL ${faultName} on Coach ${info.coach_no} (Train ${info.train_no}) at ${formatIST(row.timestamp || new Date())}. `
-    + `Reason: ${ev.reasons.join('; ')}. `
-    + `Combined Odour Index ${ev.index} (${ev.band.toUpperCase()}). `
+    + `Overall Hygiene Score ${ev.hygiene}% (alert at 37.5% or below), Odour Index ${ev.index}. `
     + `Readings: NH3 ${r2(ev.nh3)} ppm, CH4 ${r2(ev.ch4)} ppm, H2S ${r2(ev.h2s)} ppm.`;
   return { info, faultName, title, body };
 }

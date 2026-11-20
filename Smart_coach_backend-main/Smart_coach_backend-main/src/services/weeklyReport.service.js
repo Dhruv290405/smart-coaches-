@@ -466,7 +466,7 @@ async function buildOdour(ctx) {
       .lt('timestamp', ctx.period.endIso);
 
   // BODR spec: a reading is CRITICAL when NH3 > 10, CH4 > 15 or H2S > 5 ppm,
-  // or the Combined Odour Index > 500. The candidate filter selects exactly
+  // or the Combined Odour Index >= 250. The candidate filter selects exactly
   // those rows; the level is re-checked here.
   const [total, registered, candidates] = await Promise.all([
     safeCount(supabaseAcp, 'bad_odour_data', apply),
@@ -488,7 +488,7 @@ async function buildOdour(ctx) {
     alerts: alertRows.length,
     metrics: [
       { label: 'Readings', value: formatNumber(total.value) },
-      { label: 'CRITICAL bad odour readings (NH3 > 10 / CH4 > 15 / H2S > 5 ppm or Index > 500)', value: formatNumber(alertRows.length) },
+      { label: 'CRITICAL bad odour readings (NH3 > 10 / CH4 > 15 / H2S > 5 ppm or Index >= 250)', value: formatNumber(alertRows.length) },
       { label: 'Registered coaches', value: formatNumber(registered.value) },
     ],
     columns: ['Timestamp', 'Device', 'Coach', 'Train', 'Odour Index', 'Index Level', 'Gas Alerts', 'NH3', 'CH4', 'H2S'],

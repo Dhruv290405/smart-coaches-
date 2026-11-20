@@ -44,18 +44,19 @@ class _OdourAlertsViewState extends State<OdourAlertsView> {
   List<OdourAlertItem> _generateAlerts() {
     final alerts = <OdourAlertItem>[];
     for (var r in widget.records) {
-      // BODR spec. Individual gas > limit -> CRITICAL (each gas independently);
-      // Combined Index > 500 -> CRITICAL, 250-500 HIGH, 90-<250 MEDIUM.
-      // CRITICAL is the same condition that sends in-app / phone / email / SMS.
+      // Alert rule: Overall Hygiene Score 37.5 % or below (odour index >= 250)
+      // -> CRITICAL "Bad Odour Alert" (same condition that sends in-app /
+      // phone / email / SMS). Index 90-<250 -> warning. A single gas over its
+      // limit is listed as a warning only.
       void gas(String name, double v, double limit) {
         if (v > limit) {
           alerts.add(OdourAlertItem(
             record: r,
-            alertType: 'Gas Threshold Exceeded',
+            alertType: 'Gas Over Limit',
             sensorName: name,
             currentReading: '${v.toStringAsFixed(2)} ppm',
             threshold: '> ${limit.toStringAsFixed(0)} ppm',
-            severity: 'Critical',
+            severity: 'Warning',
           ));
         }
       }
@@ -68,20 +69,18 @@ class _OdourAlertsViewState extends State<OdourAlertsView> {
         alerts.add(OdourAlertItem(
           record: r,
           alertType: 'Bad Odour Alert',
-          sensorName: 'Combined Odour Index',
-          currentReading: r.odourIndex.toStringAsFixed(2),
-          threshold: '> ${OdourIndex.critical.toStringAsFixed(0)}',
+          sensorName: 'Overall Hygiene Score',
+          currentReading: '${r.hygieneScore.toStringAsFixed(0)}%',
+          threshold: '<= 37.5%',
           severity: 'Critical',
         ));
-      } else if (idxLevel == 'High' || idxLevel == 'Medium') {
+      } else if (idxLevel == 'Medium') {
         alerts.add(OdourAlertItem(
           record: r,
-          alertType: idxLevel == 'High' ? 'High Odour' : 'Bad Odour Increasing',
-          sensorName: 'Combined Odour Index',
-          currentReading: r.odourIndex.toStringAsFixed(2),
-          threshold: idxLevel == 'High'
-              ? '${OdourIndex.high.toStringAsFixed(0)}–${OdourIndex.critical.toStringAsFixed(0)}'
-              : '${OdourIndex.medium.toStringAsFixed(0)}–${OdourIndex.high.toStringAsFixed(0)}',
+          alertType: 'Bad Odour Increasing',
+          sensorName: 'Overall Hygiene Score',
+          currentReading: '${r.hygieneScore.toStringAsFixed(0)}%',
+          threshold: '<= 77.5%',
           severity: 'Warning',
         ));
       }

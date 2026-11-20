@@ -39,7 +39,7 @@ const odourController = {
             const insertId = await OdourModel.saveLog(dataToSave);
 
             // BODR spec: CRITICAL when NH3 > 10, CH4 > 15 or H2S > 5 ppm, or
-            // Combined Odour Index [(NH3/10 + CH4/15 + H2S/5)/3 x 100] > 500.
+            // Combined Odour Index [(NH3/10 + CH4/15 + H2S/5)/3 x 100] >= 250.
             // Only CRITICAL notifies (in-app + push + email + SMS), once per entry.
             const ev = evaluateOdourReading(dataToSave);
             const odourIndex = ev.index;
