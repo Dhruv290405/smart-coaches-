@@ -109,8 +109,15 @@ async function recentlySent(title) {
   }
 }
 
+// Test readings (loc_name starting with "TEST") are delivered to an unmatched
+// location, so only admins + tester receive them (never field users).
+function alertLocation(row) {
+  return /^TEST/i.test(String(row.loc_name || '')) ? 'ZZ_TEST_LOCATION' : ACP_LOCATION;
+}
+
 async function dispatch(row) {
   const { coach, train, title, body } = buildMessage(row);
+  const location = alertLocation(row);
   if (await recentlySent(title)) {
     console.log(`[AcpAlertWatcher] Skipping "${title}" — already sent within the last 2 h.`);
     return;
@@ -128,9 +135,9 @@ async function dispatch(row) {
       count: row.count_value,
       severity: 'critical',
       send_sms: true,
-      location: ACP_LOCATION,
+      location,
     },
-    { module: 'acp', location: ACP_LOCATION }
+    { module: 'acp', location }
   );
 }
 
