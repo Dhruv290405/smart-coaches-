@@ -165,7 +165,7 @@ class OdourWashroomDetailsView extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Text('Overall Odour Index', style: AppTextStyles.header2),
+        Text('Overall Hygiene Score', style: AppTextStyles.header2),
         const SizedBox(height: 24),
         Stack(
           alignment: Alignment.center,
@@ -198,13 +198,6 @@ class OdourWashroomDetailsView extends StatelessWidget {
             style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w700, color: ColorConstants.statusCritical),
           ),
         ],
-        const SizedBox(height: 16),
-        Text(
-          '* Index = [(NH₃/10 + CH₄/15 + H₂S/5) / 3] × 100.  Normal < 90, Medium 90–250, High 250–500, CRITICAL > 500.  '
-          'Gas CRITICAL when NH₃ > 10, CH₄ > 15 or H₂S > 5 ppm.',
-          style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w500, color: ColorConstants.textSecondary, fontStyle: FontStyle.italic),
-          textAlign: TextAlign.center,
-        ),
         const SizedBox(height: 16),
       ],
     );
