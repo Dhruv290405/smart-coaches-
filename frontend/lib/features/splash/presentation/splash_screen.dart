@@ -22,12 +22,15 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _checkLoginStatus() async {
-    await Future.delayed(const Duration(seconds: 2));
+    // Short minimum splash so it doesn't flash; the session check runs at the
+    // same time instead of after a fixed 2 s wait.
+    final minSplash = Future.delayed(const Duration(milliseconds: 600));
     final prefs = getIt<Prefs>();
     final token = prefs.token;
 
     // No stored token -> always start at login (fresh install included).
     if (token == null || token.isEmpty) {
+      await minSplash;
       _goLogin();
       return;
     }
@@ -36,9 +39,11 @@ class _SplashScreenState extends State<SplashScreen> {
     // (or a stale token from an Android auto-backup) don't jump to dashboard.
     try {
       await getIt<ApiClient>().get(ApiConstants.profileApiEndpoint);
+      await minSplash;
       if (!mounted) return;
       context.go(AppRouter.dashboardRoute);
     } on ApiException catch (e) {
+      await minSplash;
       final msg = (e.message ?? '').toLowerCase();
       final isAuthFailure = msg.contains('token') ||
           msg.contains('authorization') ||
@@ -55,6 +60,7 @@ class _SplashScreenState extends State<SplashScreen> {
       }
     } catch (_) {
       // Network/offline issue — keep the session and continue.
+      await minSplash;
       if (!mounted) return;
       context.go(AppRouter.dashboardRoute);
     }

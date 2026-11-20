@@ -425,18 +425,23 @@ class UserModel extends BaseModel {
   }
 
   async getFullUserDetail(userId) {
-    const { data, error } = await supabaseAdmin
-      .from('user_master')
-      .select(`*, role_master!left(name), zone_master!left(name), division_master!left(name), region_master!left(name)`)
-      .eq('user_id', userId)
-      .maybeSingle();
+    // Both lookups only need userId: run them in parallel.
+    const [userRes, trainRes] = await Promise.all([
+      supabaseAdmin
+        .from('user_master')
+        .select(`*, role_master!left(name), zone_master!left(name), division_master!left(name), region_master!left(name)`)
+        .eq('user_id', userId)
+        .maybeSingle(),
+      supabaseAdmin
+        .from('user_train_mapping')
+        .select('train_id')
+        .eq('user_id', userId),
+    ]);
+    const { data, error } = userRes;
     if (error) throw error;
     if (!data) return null;
 
-    const { data: trainMappings } = await supabaseAdmin
-      .from('user_train_mapping')
-      .select('train_id')
-      .eq('user_id', userId);
+    const trainMappings = trainRes.data;
 
     data.role_name = data.role_master?.name || null;
     data.zone_name = data.zone_master?.name || null;

@@ -310,17 +310,21 @@ class OdourModel {
         return points;
     }
 
-    async getSection1History(deviceId, limit = 10000) {
+    async getSection1History(deviceId, limit = 1000) {
         try {
             if (!deviceId) return [];
+            // Newest `limit` readings (Supabase caps a request at 1000 rows, so
+            // the old ascending query returned the OLDEST 1000 readings, e.g.
+            // September data). Fetch newest-first, then return oldest -> newest
+            // as before. Served by index bad_odour_data(device_ID, timestamp DESC).
             const { data, error } = await acpSupabase
                 .from(SECTION1_TABLE)
                 .select('timestamp, voc_index, h2s_ppm, nh3_ppm, methane_ppm, temperature, humidity')
                 .eq('device_ID', deviceId)
-                .order('timestamp', { ascending: true })
+                .order('timestamp', { ascending: false })
                 .limit(limit);
             if (error) throw error;
-            const mapped = (data || []).map((r) => ({
+            const mapped = (data || []).slice().reverse().map((r) => ({
                 timestamp: r.timestamp,
                 odour_index: computeOdourIndex(r),
                 voc: r.voc_index ?? 0,

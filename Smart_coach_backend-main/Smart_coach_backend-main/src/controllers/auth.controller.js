@@ -65,15 +65,18 @@ const authController = {
         return errorResponse(res, 'Invalid credentials', 401);
       }
 
-      const fullUserData = await userModel.getFullUserDetail(user.user_id);
-
       if (user.approval_status == "Pending") {
         return errorResponse(res, 'Your account is pending approval from admin', 403);
       } else if (user.approval_status === "Rejected") {
         return errorResponse(res, 'Your account has been rejected by admin', 403);
       }
 
-      const isMatch = await userModel.validatePassword(user, password);
+      // Profile lookup (DB) and password check (bcrypt) are independent: run
+      // them together instead of one after the other.
+      const [fullUserData, isMatch] = await Promise.all([
+        userModel.getFullUserDetail(user.user_id),
+        userModel.validatePassword(user, password),
+      ]);
       if (!isMatch) {
         return errorResponse(res, 'Invalid credentials', 401);
       }

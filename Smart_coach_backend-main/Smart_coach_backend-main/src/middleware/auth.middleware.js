@@ -3,19 +3,46 @@ const { errorResponse } = require('../utils/response');
 const supabaseAdmin = require('../config/supabaseAdmin');
 const roleModel = require('../models/role.model.js');
 
+// Short-lived cache of the resolved user (hierarchy names + approval). The app
+// fires many requests at once (login, dashboards, 15 s polling); without this
+// every request does 1-4 DB round trips just to rebuild req.user. The JWT is
+// still verified on every request; only the DB lookup is reused for
+// USER_CACHE_TTL_MS, so role/approval changes apply within that window.
+const USER_CACHE_TTL_MS = 30 * 1000;
+const USER_CACHE_MAX = 2000;
+const _userCache = new Map(); // user_id -> { user, at }
+
+function getCachedUser(userId) {
+  const hit = _userCache.get(userId);
+  if (hit && Date.now() - hit.at < USER_CACHE_TTL_MS) return { ...hit.user };
+  if (hit) _userCache.delete(userId);
+  return null;
+}
+
+function setCachedUser(userId, user) {
+  if (_userCache.size >= USER_CACHE_MAX) _userCache.delete(_userCache.keys().next().value);
+  _userCache.set(userId, { user: { ...user }, at: Date.now() });
+}
+
 // Middleware to verify JWT token
 const authenticate = async (req, res, next) => {
   try {
     const authHeader = req.header('Authorization');
     const token = authHeader?.split(' ')[1];
-    
+
     if (!token) {
       return errorResponse(res, 'No token, authorization denied', 401);
     }
 
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your_jwt_secret');
-      
+
+      const cached = decoded.user_id != null ? getCachedUser(decoded.user_id) : null;
+      if (cached) {
+        req.user = cached;
+        return next();
+      }
+
       // Lightweight query: check user exists + is approved + get hierarchy names
       const { data: user, error } = await supabaseAdmin
         .from('user_master')
@@ -85,6 +112,7 @@ const authenticate = async (req, res, next) => {
           .maybeSingle();
         if (div) req.user.division_name = div.name;
       }
+      setCachedUser(user.user_id, req.user);
       next();
     } catch (err) {
       if (err.name === 'TokenExpiredError') {
