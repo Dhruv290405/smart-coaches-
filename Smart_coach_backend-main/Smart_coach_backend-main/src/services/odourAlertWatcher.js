@@ -33,15 +33,21 @@ const CONFIRM_READINGS = 1; // spec: a single reading above threshold is CRITICA
 const REARM_READINGS = 3;
 const REMINDER_MS = 2 * 60 * 60 * 1000;
 const SEED_ROWS = 300;
-// Warning = Medium phase (index 90-249, Hygiene Score 37.5-77.5 %): in-app + push only.
-// Critical = index >= 250 (Hygiene Score <= 37.5 %): in-app + push + email + SMS.
-const LEVELS = ['Normal', 'Warning', 'Critical'];
+// Warning     = Medium phase (index 90-249, Hygiene Score 37.5-77.5 %): in-app + push only.
+// GasCritical = any single gas over its limit (NH3 > 10, CH4 > 15, H2S > 5 ppm)
+//               while index < 250: in-app + push + email (no SMS).
+// Critical    = index >= 250 (Hygiene Score <= 37.5 %): in-app + push + email + SMS.
+// One notification per coach per level; all gases over limit are listed together.
+const LEVELS = ['Normal', 'Warning', 'GasCritical', 'Critical'];
 
 function watcherLevel(ev) {
   if (ev.level === 'Critical') return 'Critical';
+  if (ev.gases.length > 0) return 'GasCritical';
   if (ev.band === 'Medium') return 'Warning';
   return 'Normal';
 }
+
+const FAULT_NAMES = { Critical: 'Bad Odour', GasCritical: 'Gas Over Limit', Warning: 'Odour Warning' };
 const alertRank = (level) => LEVELS.indexOf(level);
 
 let _lastId = null;
@@ -129,17 +135,24 @@ function evaluate(row, now = Date.now()) {
 function buildMessage(row, fire) {
   const info = coachInfo(row);
   const { level, ev } = fire;
-  const faultName = level === 'Critical' ? 'Bad Odour' : 'Odour Warning';
+  const faultName = FAULT_NAMES[level] || 'Odour Warning';
   const title = `Alert: ${faultName} in Train ${info.train_no}, Coach_Unique Id ${info.coach_no}`;
   const r2 = (v) => Math.round(v * 100) / 100;
-  const head = level === 'Critical'
-    ? `CRITICAL ${faultName} on Coach ${info.coach_no} (Train ${info.train_no}) at ${formatIST(row.timestamp || new Date())}. `
-      + `Overall Hygiene Score ${ev.hygiene}% (alert at 37.5% or below), Odour Index ${ev.index}. `
-    : `WARNING: bad odour increasing (Medium) on Coach ${info.coach_no} (Train ${info.train_no}) at ${formatIST(row.timestamp || new Date())}. `
-      + `Overall Hygiene Score ${ev.hygiene}% (Medium: 37.5% - 77.5%), Odour Index ${ev.index}. `
-      // One combined warning per coach: every gas over its limit is listed here
-      // instead of sending a separate notification per gas.
-      + (ev.gases.length ? `Gases over limit: ${ev.gases.map((g) => g.gas).join(', ')}. ` : '');
+  const at = formatIST(row.timestamp || new Date());
+  const where = `on Coach ${info.coach_no} (Train ${info.train_no}) at ${at}. `;
+  // One combined notification per coach: every gas over its limit is listed
+  // together instead of sending a separate notification per gas.
+  const gasList = ev.gases.length
+    ? `Gases over limit: ${ev.gases.map((g) => `${g.gas} ${r2(g.value)} ppm (limit ${g.threshold})`).join(', ')}. `
+    : '';
+  let head;
+  if (level === 'Critical') {
+    head = `CRITICAL ${faultName} ${where}Overall Hygiene Score ${ev.hygiene}% (alert at 37.5% or below), Odour Index ${ev.index}. ${gasList}`;
+  } else if (level === 'GasCritical') {
+    head = `CRITICAL gas level ${where}${gasList}Overall Hygiene Score ${ev.hygiene}%, Odour Index ${ev.index}. `;
+  } else {
+    head = `WARNING: bad odour increasing (Medium) ${where}Overall Hygiene Score ${ev.hygiene}% (Medium: 37.5% - 77.5%), Odour Index ${ev.index}. ${gasList}`;
+  }
   const body = head + `Readings: NH3 ${r2(ev.nh3)} ppm, CH4 ${r2(ev.ch4)} ppm, H2S ${r2(ev.h2s)} ppm.`;
   return { info, faultName, title, body };
 }
@@ -168,6 +181,8 @@ async function dispatch(row, fire) {
     return;
   }
   const isCritical = fire.level === 'Critical';
+  // Email: Critical and single-gas critical. SMS: Critical (index) only.
+  const sendEmail = fire.level === 'Critical' || fire.level === 'GasCritical';
   console.log(`🚀 [OdourAlertWatcher] ${title} | level=${fire.level} | index=${fire.ev.index} | hygiene=${fire.ev.hygiene}%`);
   await broadcastPushNotification(
     title,
@@ -179,12 +194,12 @@ async function dispatch(row, fire) {
       train_no: info.train_no,
       fault_name: faultName,
       odour_index: fire.ev.index,
-      severity: isCritical ? 'critical' : 'warning',
+      severity: isCritical || fire.level === 'GasCritical' ? 'critical' : 'warning',
       send_sms: isCritical,
       location: info.location,
     },
-    // Medium-phase warnings: in-app + phone push only (no email, no SMS).
-    { module: 'odour', location: info.location, email: isCritical, sms: isCritical }
+    // Medium warning: in-app + push. Gas over limit: + email. Critical: + email + SMS.
+    { module: 'odour', location: info.location, email: sendEmail, sms: isCritical }
   );
 }
 
