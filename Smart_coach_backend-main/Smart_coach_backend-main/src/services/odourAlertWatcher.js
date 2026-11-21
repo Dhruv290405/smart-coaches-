@@ -136,7 +136,10 @@ function buildMessage(row, fire) {
     ? `CRITICAL ${faultName} on Coach ${info.coach_no} (Train ${info.train_no}) at ${formatIST(row.timestamp || new Date())}. `
       + `Overall Hygiene Score ${ev.hygiene}% (alert at 37.5% or below), Odour Index ${ev.index}. `
     : `WARNING: bad odour increasing (Medium) on Coach ${info.coach_no} (Train ${info.train_no}) at ${formatIST(row.timestamp || new Date())}. `
-      + `Overall Hygiene Score ${ev.hygiene}% (Medium: 37.5% - 77.5%), Odour Index ${ev.index}. `;
+      + `Overall Hygiene Score ${ev.hygiene}% (Medium: 37.5% - 77.5%), Odour Index ${ev.index}. `
+      // One combined warning per coach: every gas over its limit is listed here
+      // instead of sending a separate notification per gas.
+      + (ev.gases.length ? `Gases over limit: ${ev.gases.map((g) => g.gas).join(', ')}. ` : '');
   const body = head + `Readings: NH3 ${r2(ev.nh3)} ppm, CH4 ${r2(ev.ch4)} ppm, H2S ${r2(ev.h2s)} ppm.`;
   return { info, faultName, title, body };
 }
