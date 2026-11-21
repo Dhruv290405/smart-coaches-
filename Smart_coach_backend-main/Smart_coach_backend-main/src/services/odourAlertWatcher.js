@@ -22,7 +22,7 @@
 const acpSupabase = require('../config/supabaseAcp');
 const supabaseAdmin = require('../config/supabaseAdmin');
 const { broadcastPushNotification } = require('../utils/notificationService');
-const { evaluateOdourReading, alertRank } = require('../utils/odourIndex');
+const { evaluateOdourReading } = require('../utils/odourIndex');
 const { formatIST } = require('./brakeFaultWatcher');
 
 const TABLE = 'bad_odour_data';
@@ -33,7 +33,16 @@ const CONFIRM_READINGS = 1; // spec: a single reading above threshold is CRITICA
 const REARM_READINGS = 3;
 const REMINDER_MS = 2 * 60 * 60 * 1000;
 const SEED_ROWS = 300;
-const LEVELS = ['Normal', 'Critical'];
+// Warning = Medium phase (index 90-249, Hygiene Score 37.5-77.5 %): in-app + push only.
+// Critical = index >= 250 (Hygiene Score <= 37.5 %): in-app + push + email + SMS.
+const LEVELS = ['Normal', 'Warning', 'Critical'];
+
+function watcherLevel(ev) {
+  if (ev.level === 'Critical') return 'Critical';
+  if (ev.band === 'Medium') return 'Warning';
+  return 'Normal';
+}
+const alertRank = (level) => LEVELS.indexOf(level);
 
 let _lastId = null;
 // device -> { alerted, firedAt, upCount, upMinRank, normalCount }
@@ -79,7 +88,7 @@ function evaluate(row, now = Date.now()) {
   const device = row.device_ID;
   if (!device) return null;
   const ev = evaluateOdourReading(row);
-  const rank = alertRank(ev.level);
+  const rank = alertRank(watcherLevel(ev));
 
   const s = _state.get(device) || { alerted: 'Normal', firedAt: 0, upCount: 0, upMinRank: 99, normalCount: 0 };
   const alertedRank = alertRank(s.alerted);
@@ -123,9 +132,12 @@ function buildMessage(row, fire) {
   const faultName = level === 'Critical' ? 'Bad Odour' : 'Odour Warning';
   const title = `Alert: ${faultName} in Train ${info.train_no}, Coach_Unique Id ${info.coach_no}`;
   const r2 = (v) => Math.round(v * 100) / 100;
-  const body = `CRITICAL ${faultName} on Coach ${info.coach_no} (Train ${info.train_no}) at ${formatIST(row.timestamp || new Date())}. `
-    + `Overall Hygiene Score ${ev.hygiene}% (alert at 37.5% or below), Odour Index ${ev.index}. `
-    + `Readings: NH3 ${r2(ev.nh3)} ppm, CH4 ${r2(ev.ch4)} ppm, H2S ${r2(ev.h2s)} ppm.`;
+  const head = level === 'Critical'
+    ? `CRITICAL ${faultName} on Coach ${info.coach_no} (Train ${info.train_no}) at ${formatIST(row.timestamp || new Date())}. `
+      + `Overall Hygiene Score ${ev.hygiene}% (alert at 37.5% or below), Odour Index ${ev.index}. `
+    : `WARNING: bad odour increasing (Medium) on Coach ${info.coach_no} (Train ${info.train_no}) at ${formatIST(row.timestamp || new Date())}. `
+      + `Overall Hygiene Score ${ev.hygiene}% (Medium: 37.5% - 77.5%), Odour Index ${ev.index}. `;
+  const body = head + `Readings: NH3 ${r2(ev.nh3)} ppm, CH4 ${r2(ev.ch4)} ppm, H2S ${r2(ev.h2s)} ppm.`;
   return { info, faultName, title, body };
 }
 
@@ -153,7 +165,7 @@ async function dispatch(row, fire) {
     return;
   }
   const isCritical = fire.level === 'Critical';
-  console.log(`🚀 [OdourAlertWatcher] ${title} | index=${fire.ev.index} | ${fire.ev.reasons.join(', ')}`);
+  console.log(`🚀 [OdourAlertWatcher] ${title} | level=${fire.level} | index=${fire.ev.index} | hygiene=${fire.ev.hygiene}%`);
   await broadcastPushNotification(
     title,
     body,
@@ -168,7 +180,8 @@ async function dispatch(row, fire) {
       send_sms: isCritical,
       location: info.location,
     },
-    { module: 'odour', location: info.location }
+    // Medium-phase warnings: in-app + phone push only (no email, no SMS).
+    { module: 'odour', location: info.location, email: isCritical, sms: isCritical }
   );
 }
 
@@ -235,4 +248,4 @@ async function startOdourAlertWatcher() {
   }, POLL_INTERVAL_MS);
 }
 
-module.exports = { startOdourAlertWatcher, evaluate, buildMessage, _state };
+module.exports = { startOdourAlertWatcher, evaluate, buildMessage, _state, _dispatch: dispatch };

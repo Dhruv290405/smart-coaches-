@@ -303,11 +303,15 @@ async function broadcastPushNotification(title, body, type, data = {}, scope = {
 
     // Email channel (Brevo) — only for allow-listed alert types, throttled.
     // When a location is known, email only users whose data scope matches it.
-    await emailService.sendAlertEmails(userIds, title, body, type, { location });
+    // scope.email === false skips email for this alert (e.g. odour warnings).
+    if (scope.email !== false) {
+      await emailService.sendAlertEmails(userIds, title, body, type, { location });
+    }
 
     // SMS channel — location-scoped, severity-based recipient filtering.
+    // scope.sms === false skips SMS for this alert.
     const severity = (data && data.severity) ? String(data.severity).toLowerCase() : 'warning';
-    if (location && shouldSendSmsForAlert(type, data, severity)) {
+    if (scope.sms !== false && location && shouldSendSmsForAlert(type, data, severity)) {
       try {
         const smsMessage = buildDltSmsMessage(title, { ...data, type });
         const dedupKey = `${type}_${location}_${data.coach_no || ''}_${data.fault_name || ''}`;
