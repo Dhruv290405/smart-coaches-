@@ -2,7 +2,7 @@ const Pneumatic = require('../models/pneumatic.model');
 const supabase = require('../config/supabaseOld');
 const supabaseAdmin = require('../config/supabaseAdmin');
 const { dualInsert } = require('../config/dualWrite');
-const { saveInAppNotificationForAllUsers } = require('../utils/notificationService');
+const { saveInAppNotificationForAllUsers, UNREGISTERED_LOCATION } = require('../utils/notificationService');
 const { _notifiedFaults, formatIST } = require('../services/brakeFaultWatcher');
 const { generatePneumaticHistoryPdf, generatePneumaticFaultsPdf } = require('../utils/pneumaticPdfGenerator');
 
@@ -386,11 +386,13 @@ exports.getBreakBindingData = async (req, res) => {
                     const title = `Alert: ${faultName} in Train ${trainNo}, Coach_Unique Id ${coachNo}`;
                     const body = `Fault: ${faultName} detected on Coach ${coachNo} (Train ${trainNo}) at ${istTime}.`;
 
+                    // Never assume a division: unregistered devices go to
+                    // UNREGISTERED_LOCATION (tester / administrators only).
                     const location = finalCoachInfo.Location
                         || finalCoachInfo.location
                         || finalCoachInfo.division
                         || finalCoachInfo.division_name
-                        || 'Nagpur';
+                        || UNREGISTERED_LOCATION;
 
                     saveInAppNotificationForAllUsers(title, body, 'BRAKE_BINDING', {
                         module: 'brake_binding',
@@ -438,7 +440,7 @@ exports.getBreakBindingData = async (req, res) => {
                     || finalCoachInfo.location
                     || finalCoachInfo.division
                     || finalCoachInfo.division_name
-                    || 'Nagpur';
+                    || UNREGISTERED_LOCATION;
 
                 saveInAppNotificationForAllUsers(crTitle, crBody, 'CR_OVERCHARGE', {
                     module: 'brake_binding',

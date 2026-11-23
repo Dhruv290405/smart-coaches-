@@ -21,7 +21,7 @@
  */
 const acpSupabase = require('../config/supabaseAcp');
 const supabaseAdmin = require('../config/supabaseAdmin');
-const { broadcastPushNotification } = require('../utils/notificationService');
+const { broadcastPushNotification, UNREGISTERED_LOCATION } = require('../utils/notificationService');
 const { evaluateOdourReading } = require('../utils/odourIndex');
 const { formatIST } = require('./brakeFaultWatcher');
 
@@ -82,7 +82,9 @@ function coachInfo(row) {
     // Same label the app shows, e.g. "LWCZAC - COACH_02"
     coach_no: coachNo && coachId && coachNo !== coachId ? `${coachNo} - ${coachId}` : String(coachId || coachNo || 'Unknown'),
     train_no: String(pick(row.Train_No, c.Train_No) || 'Unknown'),
-    location: String(pick(c.location, c.Location, row.location) || 'Nagpur'),
+    // Never assume a division: unregistered devices go to UNREGISTERED_LOCATION
+    // (tester / administrators only).
+    location: String(pick(c.location, c.Location, row.location) || UNREGISTERED_LOCATION),
   };
 }
 

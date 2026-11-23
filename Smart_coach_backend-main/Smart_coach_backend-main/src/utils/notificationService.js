@@ -5,6 +5,11 @@ const emailService = require("./emailService");
 const smsAlertService = require("../services/smsAlert.service");
 
 const DLT_TEMPLATE_ID = process.env.DLT_TEMPLATE_ID || '1077529980085199915';
+
+// Location used for alerts from devices that are not registered to any
+// division. It matches no division, so only unrestricted accounts (tester /
+// system administrators) receive the alert - never another division's users.
+const UNREGISTERED_LOCATION = 'Unregistered Device';
 const DLT_CONTENT_TEMPLATE = `SmartCoaches Railway Coach Monitoring Alert: {#var#}. Immediate action required for coach safety. Please check dashboard immediately. -Mirtha technology`;
 
 /**
@@ -437,4 +442,5 @@ module.exports = {
   DLT_TEMPLATE_ID,
   DLT_CONTENT_TEMPLATE,
   buildDltSmsMessage,
+  UNREGISTERED_LOCATION,
 };

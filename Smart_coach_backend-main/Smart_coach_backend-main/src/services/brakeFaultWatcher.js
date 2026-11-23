@@ -1,6 +1,6 @@
 const supabaseOld = require('../config/supabaseOld');
 const supabaseAdmin = require('../config/supabaseAdmin');
-const { saveInAppNotificationForAllUsers } = require('../utils/notificationService');
+const { saveInAppNotificationForAllUsers, UNREGISTERED_LOCATION } = require('../utils/notificationService');
 
 const _notifiedFaults = new Map(); // deviceKey -> { fault_name, timestamp, notifiedAt }
 let _lastProcessedFaultId = null;
@@ -64,9 +64,12 @@ function resolveCoachInfo(deviceId, rawCoachNo) {
   }
 
   const trainNo = c.Train_no || (deviceId === 'Raspberry4_7' ? '1207069' : 'Unknown');
-  const location = c.Location || 'Nagpur';
+  // Never assume a division: a device without a registered location is
+  // routed to UNREGISTERED_LOCATION (tester / administrators only).
+  const registeredLocation = c.Location && String(c.Location).trim();
+  const location = registeredLocation || UNREGISTERED_LOCATION;
 
-  return { coach_no: coachNo, train_no: trainNo, location };
+  return { coach_no: coachNo, train_no: trainNo, location, registered: !!registeredLocation };
 }
 
 async function startBrakeFaultWatcher() {
@@ -144,7 +147,11 @@ async function startBrakeFaultWatcher() {
         const istTime = formatIST(new Date());
 
         const title = `Alert: ${faultName} in Train ${coachInfo.train_no}, Coach_Unique Id ${coachInfo.coach_no}`;
-        const body = `Fault: ${faultName} detected on Coach ${coachInfo.coach_no} (Train ${coachInfo.train_no}) at ${istTime}.`;
+        let body = `Fault: ${faultName} detected on Coach ${coachInfo.coach_no} (Train ${coachInfo.train_no}) at ${istTime}.`;
+        if (!coachInfo.registered) {
+          body += ` Device ${fault.device_id || 'unknown'} is not registered to any division - please register it in Coach Config.`;
+          console.warn(`[BrakeFaultWatcher] Device ${fault.device_id} has no registered location; alert limited to tester/administrators.`);
+        }
 
         const isSevereOrEmergency = fnUpper.includes('SEVERE')
           || fnUpper.includes('OVERCHARG')
