@@ -102,8 +102,9 @@ function normalizeLocation(value) {
 }
 
 function userMatchesLocation(user, location) {
-  // Unrestricted users (Admins, SuperAdmins, Testers) always receive alert emails
-  if (user.role_id === 1 || user.role_id === 2 || String(user.email || '').toLowerCase() === 'tester@example.com') {
+  // Only the tester receives alert emails for every division. Everyone else -
+  // whatever the role (Master, Super Admin, ...) - only for their own division.
+  if (String(user.email || '').trim().toLowerCase() === 'tester@example.com') {
     return true;
   }
   const target = normalizeLocation(location);
@@ -133,9 +134,9 @@ function userMatchesLocation(user, location) {
 async function getEmailsForUsers(userIds, location = null) {
   const ids = [...new Set((userIds || []).filter((id) => id != null))];
 
-  // Always fetch: (a) the resolved FCM-token users, (b) tester, AND (c) all
-  // admins/super-admins (role_id 1 or 2) who may not have an FCM token yet
-  // but must still receive alert emails.
+  // Candidates: every approved user (so division users who have not opened
+  // the app yet still get emails). userMatchesLocation() below keeps only
+  // users of the alert's own division, plus the tester.
   let query = supabaseAdmin
     .from('user_master')
     .select(`
@@ -143,14 +144,15 @@ async function getEmailsForUsers(userIds, location = null) {
       zone_master!left(name),
       division_master!left(name),
       region_master!left(name)
-    `);
+    `)
+    .ilike('approval_status', 'approved');
 
-  if (ids.length > 0) {
-    // Include: exact user ids from FCM list  OR  tester  OR  any admin/super-admin
-    query = query.or(`user_id.in.(${ids.join(',')}),email.eq.tester@example.com,role_id.in.(1,2)`);
-  } else {
-    // No FCM users resolved — still send to tester + admins
-    query = query.or('email.eq.tester@example.com,role_id.in.(1,2)');
+  if (!location) {
+    // No concrete alert location: never email another division - recipients
+    // already resolved for this alert + tester only.
+    query = ids.length > 0
+      ? query.or(`user_id.in.(${ids.join(',')}),email.eq.tester@example.com`)
+      : query.eq('email', 'tester@example.com');
   }
 
   const { data, error } = await query;
@@ -256,4 +258,5 @@ module.exports = {
   allowedTypes,
   sendTransactionalEmail,
   sendAlertEmails,
+  getEmailsForUsers,
 };

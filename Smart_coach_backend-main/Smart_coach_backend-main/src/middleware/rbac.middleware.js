@@ -17,7 +17,7 @@ function requireLocation(req, res, next) {
  */
 function filterByLocation(fieldName) {
   return (req, res, next) => {
-    if (rbac.isAdmin(req.user) || !req.user) {
+    if (rbac.isUnrestrictedUser(req.user) || !req.user) {
       // Admin passes through — no filtering needed
       // Store a flag so controllers know not to apply location filter
       req.isAdminOrNoFilter = true;

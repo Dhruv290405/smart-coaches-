@@ -38,7 +38,8 @@ async function getRecipients(location, severity, targetUserIds = null) {
   let query = supabaseAdmin
     .from('user_master')
     .select('user_id, first_name, email, mobile_number, role_id, division_name, region_name, zone_name, role_master!left(name), division_master!left(name), region_master!left(name), zone_master!left(name)')
-    .not('mobile_number', 'is', null);
+    .not('mobile_number', 'is', null)
+    .ilike('approval_status', 'approved');
 
   if (targetUserIds && Array.isArray(targetUserIds) && targetUserIds.length > 0) {
     query = query.in('user_id', targetUserIds);
@@ -61,8 +62,9 @@ async function getRecipients(location, severity, targetUserIds = null) {
   return users.filter(u => {
     if (!u.mobile_number || String(u.mobile_number).trim().length < 8) return false;
 
-    // Super Admin or Tester receives all alerts
-    if (u.role_id === 1 || u.email === 'tester@example.com') return true;
+    // Only the tester receives SMS for every division; everyone else
+    // (any role) only for their own division.
+    if (String(u.email || '').trim().toLowerCase() === 'tester@example.com') return true;
 
     const divName = (Array.isArray(u.division_master) ? u.division_master[0]?.name : u.division_master?.name) || u.division_name || '';
     const regName = (Array.isArray(u.region_master) ? u.region_master[0]?.name : u.region_master?.name) || u.region_name || '';

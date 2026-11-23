@@ -276,7 +276,7 @@ const trainController = {
       // Explicit per-user train assignments (e.g. Train Operator) take
       // precedence over location scoping. Many assigned trains have no region
       // metadata, so region-only filtering would hide them entirely.
-      if (!rbac.isAdmin(req.user)) {
+      if (!rbac.isUnrestrictedUser(req.user)) {
         const mappedTrains = await trainModel.getTrainsMappedToUser(req.user.user_id);
         if (mappedTrains.length > 0) {
           const mappedIds = new Set(mappedTrains.map(t => t.train_id));

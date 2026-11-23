@@ -125,8 +125,15 @@ function normaliseLocationAlias(str) {
   return s;
 }
 
+// Location values that do not identify a division.
+function isUnknownLocation(location) {
+  const v = String(location == null ? '' : location).trim().toLowerCase();
+  return !v || v === 'unknown' || v === 'n/a' || v === 'na' || v === 'all' || v === 'null' || v === 'undefined';
+}
+
 function locationMatchesScope(userLocations, targetLocation) {
-  if (!targetLocation || targetLocation === 'unknown' || targetLocation === 'all') return true;
+  // An unknown target never matches a division (it used to match everyone).
+  if (isUnknownLocation(targetLocation)) return false;
 
   const normTarget = normaliseLocationAlias(targetLocation);
 
@@ -139,15 +146,26 @@ function locationMatchesScope(userLocations, targetLocation) {
 }
 
 function userMatchesScope(user, moduleKey, location) {
+  // Tester only: every division.
   if (rbac.isUnrestrictedUser(user)) return true;
 
   if (!rbac.getUserLocation(user)) return false;
 
+  const knownLocation = !isUnknownLocation(location);
+
+  // An alert with neither a module nor a known location cannot be attributed
+  // to a division, so it must not go to any division's users.
+  if (!moduleKey && !knownLocation) return false;
+
   if (moduleKey && !rbac.isModuleLocationOwner(user, moduleKey)) return false;
 
-  if (location) {
+  if (knownLocation) {
     const locs = rbac.getUserLocations(user);
     if (!locationMatchesScope(locs, location)) return false;
+  } else if (rbac.getModuleOwnerLocations(moduleKey).length !== 1) {
+    // No known location and the module is shared by several divisions
+    // (e.g. brake binding): it cannot be attributed -> tester only.
+    return false;
   }
   return true;
 }
@@ -167,23 +185,9 @@ async function resolveRecipients(moduleKey, location = null) {
     return { tokens: [], userIds: [] };
   }
 
-  const userIds = [...new Set((rows || []).map((r) => r.user_id).filter((id) => id != null))];
-  console.log("[push-debug] moduleKey=" + moduleKey + " location=" + location + " totalRows=" + (rows||[]).length + " userIds=" + userIds.length);
-  if (userIds.length === 0) return { tokens: [], userIds: [] };
-
-  // No scoping needed — behave exactly like before.
-  if (!moduleKey) {
-    const tokens = [];
-    const seen = new Set();
-    for (const row of (rows || [])) {
-      if (row.fcm_token && !seen.has(row.fcm_token)) {
-        seen.add(row.fcm_token);
-        tokens.push(row.fcm_token);
-      }
-    }
-    return { tokens, userIds };
-  }
-
+  // Candidates are ALL approved users (not only those with a phone token), so
+  // every user of the alert's division gets the in-app notification. Scope is
+  // then applied per user: own division only; tester sees every division.
   const { data: users, error: userErr } = await supabaseAdmin
     .from('user_master')
     .select(`
@@ -192,7 +196,8 @@ async function resolveRecipients(moduleKey, location = null) {
       division_master!left(name),
       region_master!left(name)
     `)
-    .in('user_id', userIds);
+    .ilike('approval_status', 'approved');
+  console.log("[push-debug] moduleKey=" + moduleKey + " location=" + location + " tokenRows=" + (rows || []).length + " approvedUsers=" + (users || []).length);
 
   if (userErr) {
     console.error("❌ Failed to fetch users for notification scoping:", userErr.message);

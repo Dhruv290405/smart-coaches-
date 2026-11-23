@@ -7,7 +7,7 @@ let lastCacheUpdate = 0;
 const CACHE_TTL = 5 * 60 * 1000;
 
 function applyLocationFilter(logs, user) {
-    if (!user || user.role_id === 1 || !logs || logs.length === 0) return logs;
+    if (!user || rbac.isUnrestrictedUser(user) || !logs || logs.length === 0) return logs;
     // If user's division is explicitly mapped to acp in DIVISION_MODULE_MAP,
     // skip location filter — module guard already authorizes them
     const loc = rbac.getUserLocation(user);

@@ -122,7 +122,7 @@ exports.getBreakBindingData = async (req, res) => {
         const readings = await Pneumatic.getLatestReading(filterDeviceId, req.user, limit, offset, fromDate, toDate);
 
         if (!readings || readings.length === 0) {
-            if (!filterDeviceId && req.user && req.user.role_id !== 1) {
+            if (!filterDeviceId && req.user && !rbac.isUnrestrictedUser(req.user)) {
                 const userLoc = rbac.getUserLocation(req.user);
                 if (userLoc && supabase) {
                     const { data: devs } = await supabase
@@ -572,10 +572,11 @@ exports.getCoachesByLocation = async (req, res) => {
             });
         }
 
-        const { role_id } = req.user;
+        // Only the tester sees every division (see utils/rbac.js).
+        const unrestricted = rbac.isUnrestrictedUser(req.user);
 
-        const userLocation = role_id !== 1 ? rbac.getUserLocation(req.user) : null;
-        if (role_id !== 1 && !userLocation) {
+        const userLocation = !unrestricted ? rbac.getUserLocation(req.user) : null;
+        if (!unrestricted && !userLocation) {
             return res.status(403).json({
                 success: false,
                 message: "Access denied: No region or division mapped to this user account"
@@ -615,7 +616,7 @@ exports.getCoachesByLocation = async (req, res) => {
         if (error) throw error;
 
         const coachesOldFiltered = (coachesOld || []).filter(
-            (c) => role_id === 1 || matchesLocation(c.Location)
+            (c) => unrestricted || matchesLocation(c.Location)
         );
         if (coachesOldFiltered.length > 0) {
             coaches = coachesOldFiltered;
@@ -625,7 +626,7 @@ exports.getCoachesByLocation = async (req, res) => {
                 .from('coaches_railway')
                 .select(COACH_COLUMNS);
             const coachesAdminFiltered = (coachesAdmin || []).filter(
-                (c) => role_id === 1 || matchesLocation(c.Location)
+                (c) => unrestricted || matchesLocation(c.Location)
             );
             if (coachesAdminFiltered.length > 0) {
                 coaches = coachesAdminFiltered;
@@ -646,7 +647,7 @@ exports.getCoachesByLocation = async (req, res) => {
                 'SCBB NP002': { technical_id: 'NP002', coach_no: 'NP2', Train_no: 'NAGPUR01', Location: 'Nagpur' },
                 'SCBB NP003': { technical_id: 'NP003', coach_no: 'NP3', Train_no: 'NAGPUR01', Location: 'Nagpur' },
             };
-            if (role_id !== 1) {
+            if (!unrestricted) {
                 const filtered = Object.entries(deviceMapping).filter(([_, info]) =>
                     matchesLocation(info.Location)
                 );
@@ -684,7 +685,7 @@ exports.getCoachesByLocation = async (req, res) => {
         const userLoc = rbac.getUserLocation(req.user);
         return res.status(200).json({
             success: true,
-            message: role_id === 1 ? "All coaches fetched (Admin View)" : `Coaches fetched for location: ${userLoc}`,
+            message: unrestricted ? "All coaches fetched (Admin View)" : `Coaches fetched for location: ${userLoc}`,
             count: coaches.length,
             data: coaches
         });
@@ -756,7 +757,7 @@ exports.exportFaultsPdf = async (req, res) => {
         if (deviceId) faultQuery = faultQuery.eq('device_id', deviceId);
         if (fromDate)  faultQuery = faultQuery.gte('timestamp', `${fromDate}T00:00:00`);
         if (toDate)    faultQuery = faultQuery.lte('timestamp', `${toDate}T23:59:59`);
-        if (req.user && req.user.role_id !== 1) {
+        if (req.user && !rbac.isUnrestrictedUser(req.user)) {
             const userLoc = rbac.getUserLocation(req.user);
             if (!userLoc) return res.status(403).json({ success: false, message: 'No location mapped' });
             const { data: devRows } = await (supabase || supabaseAdmin).from('coaches_railway').select('device_id').ilike('Location', userLoc);

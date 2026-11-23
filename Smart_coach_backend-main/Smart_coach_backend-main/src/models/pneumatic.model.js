@@ -115,7 +115,7 @@ async function fetchPagedRows(buildQuery, rowLimit) {
 const Pneumatic = {
 
     applyScopeFilters: (query, user) => {
-        if (!user || user.role_id === 1) return query;
+        if (!user || require('../utils/rbac').isUnrestrictedUser(user)) return query;
         const userLocation = user.division_name || user.region_name;
         if (userLocation) {
             return query.ilike('coaches_railway.Location', userLocation);
