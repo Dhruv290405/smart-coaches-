@@ -145,8 +145,8 @@ class _WashroomCardState extends State<_WashroomCard> {
                 ),
               ),
               const Spacer(),
-              Text('Odour Index (${widget.toilet.odourStatus})', style: GoogleFonts.poppins(fontSize: 10, color: ColorConstants.textSecondary)),
-              Text(widget.toilet.odourIndex.toStringAsFixed(2), style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w700, color: wc)),
+              Text('Hygiene Score (${widget.toilet.odourStatus})', style: GoogleFonts.poppins(fontSize: 10, color: ColorConstants.textSecondary)),
+              Text('${widget.toilet.hygieneScore.toStringAsFixed(0)}%', style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w700, color: wc)),
               const SizedBox(height: 4),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,

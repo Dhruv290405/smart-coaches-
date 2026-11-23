@@ -71,9 +71,9 @@ class _CoachGroupCardState extends State<_CoachGroupCard> {
   @override
   Widget build(BuildContext context) {
     final wc = _statusColor(widget.group.worstStatus);
-    final displayReading = widget.group.toilets.isNotEmpty
-        ? widget.group.toilets.map((t) => t.reading).reduce((a, b) => a > b ? a : b)
-        : 0;
+    final avgHygiene = widget.group.toilets.isNotEmpty
+        ? widget.group.toilets.map((t) => t.hygieneScore).reduce((a, b) => a + b) / widget.group.toilets.length
+        : 100.0;
 
     return GestureDetector(
       onTapDown: (_) => setState(() => _isPressed = true),
@@ -179,12 +179,12 @@ class _CoachGroupCardState extends State<_CoachGroupCard> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        Text('Odour Index', style: GoogleFonts.poppins(fontSize: 8, color: ColorConstants.textTertiary)),
+                        Text('Hygiene Score', style: GoogleFonts.poppins(fontSize: 8, color: ColorConstants.textTertiary)),
                         FittedBox(
                           fit: BoxFit.scaleDown,
                           alignment: Alignment.centerRight,
                           child: Text(
-                            displayReading.toStringAsFixed(2),
+                            '${avgHygiene.toStringAsFixed(0)}%',
                             style: GoogleFonts.poppins(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
