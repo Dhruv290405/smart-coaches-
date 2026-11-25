@@ -69,7 +69,12 @@ function getShortFaultLabel(title, type) {
 }
 
 function buildDltSmsMessage(title, data = {}) {
-  const variableText = getShortFaultLabel(title, data.type || data.module || data.fault_name || '');
+  const faultLabel = getShortFaultLabel(title, data.type || data.module || data.fault_name || '');
+  const trainNo = data.train_no || data.Train_no || data.train_number || '';
+  const coachNo = data.coach_no || data.coach_number || data.coachNo || '';
+  let variableText = faultLabel;
+  if (trainNo) variableText += ` Train ${trainNo}`;
+  if (coachNo) variableText += ` Coach ${coachNo}`;
   return `SmartCoaches Railway Coach Monitoring Alert: ${variableText}. Immediate action required for coach safety. Please check dashboard immediately. -Mirtha technology`;
 }
 
