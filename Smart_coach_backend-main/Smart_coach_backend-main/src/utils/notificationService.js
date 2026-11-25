@@ -51,27 +51,25 @@ function shouldSendSmsForAlert(type, payload = {}, severity = 'warning') {
  *
  * Formats variable as: Alert: {Fault_Name} in Train {Train_No}, Coach_Unique Id {Coach_No}
  */
+function getShortFaultLabel(title, type) {
+  const str = `${type || ''} ${title || ''}`.toUpperCase();
+  if (str.includes('BRAKE') || str.includes('BINDING')) return 'Brake Binding';
+  if (str.includes('OVERCHARGE') || str.includes('CR_OVERCHARGE')) return 'CR Overcharge';
+  if (str.includes('EMERGENCY')) return 'Emergency Brake';
+  if (str.includes('DV') && str.includes('DEFECT')) return 'DV BC Defect';
+  if (str.includes('HOT_AXLE') || str.includes('HOT AXLE') || str.includes('AXLE')) return 'Hot Axle';
+  if (str.includes('ODOUR') || str.includes('ODOR')) return 'Bad Odour';
+  if (str.includes('ACP')) return 'ACP Alert';
+  if (str.includes('WATER')) return 'Low Water';
+  if (str.includes('DIESEL') || str.includes('FUEL')) return 'Low Diesel';
+  let clean = String(title || 'Alert').trim().replace(/^Alert:\s*/i, '');
+  if (clean.includes(' in Train')) clean = clean.split(' in Train')[0].trim();
+  if (clean.length > 14) clean = clean.slice(0, 14).trim();
+  return clean || 'Critical Alert';
+}
+
 function buildDltSmsMessage(title, data = {}) {
-  let faultName = data.fault_name || '';
-  if (!faultName && typeof title === 'string') {
-    let clean = title.trim().replace(/^Alert:\s*/i, '');
-    if (clean.includes(' in Train')) {
-      clean = clean.split(' in Train')[0].trim();
-    }
-    faultName = clean;
-  }
-  if (!faultName) faultName = 'Fault Alert';
-
-  const trainNo = data.train_no || data.Train_no || data.train_number || 'Unknown';
-  const coachNo = data.coach_no || data.coach_number || data.coachNo || 'Unknown';
-
-  // Format: Alert: {Fault_Name} in Train {Train_No}, Coach_Unique Id {Coach_No}
-  let variableText = `Alert: ${faultName} in Train ${trainNo}, Coach_Unique Id ${coachNo}`
-    .replace(/[|]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .replace(/\.+$/, '');
-
+  const variableText = getShortFaultLabel(title, data.type || data.module || data.fault_name || '');
   return `SmartCoaches Railway Coach Monitoring Alert: ${variableText}. Immediate action required for coach safety. Please check dashboard immediately. -Mirtha technology`;
 }
 
