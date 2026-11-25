@@ -155,7 +155,8 @@ async function startBrakeFaultWatcher() {
 
         const isSevereOrEmergency = fnUpper.includes('SEVERE')
           || fnUpper.includes('OVERCHARG')
-          || fnUpper.includes('EMERGENCY');
+          || fnUpper.includes('EMERGENCY')
+          || fnUpper.includes('BINDING');
 
         console.log(`🚀 [BrakeFaultWatcher] Dispatching alert for device ${deviceKey}: ${title} at ${istTime}`);
 

@@ -341,6 +341,8 @@ const startServer = async () => {
     startOdourAlertWatcher();
     const { startAcpAlertWatcher } = require('./src/services/acpAlertWatcher');
     startAcpAlertWatcher();
+    const { startHamsAlertWatcher } = require('./src/services/hamsAlertWatcher');
+    startHamsAlertWatcher();
     const { startWeeklyReportScheduler } = require('./src/services/weeklyReport.service');
     startWeeklyReportScheduler();
 

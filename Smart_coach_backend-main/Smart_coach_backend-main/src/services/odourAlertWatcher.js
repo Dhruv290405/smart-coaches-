@@ -197,11 +197,11 @@ async function dispatch(row, fire) {
       fault_name: faultName,
       odour_index: fire.ev.index,
       severity: isCritical || fire.level === 'GasCritical' ? 'critical' : 'warning',
-      send_sms: isCritical,
+      send_sms: isCritical || fire.level === 'GasCritical',
       location: info.location,
     },
-    // Medium warning: in-app + push. Gas over limit: + email. Critical: + email + SMS.
-    { module: 'odour', location: info.location, email: sendEmail, sms: isCritical }
+    // Medium warning: in-app + push. Gas over limit: + email + SMS. Critical: + email + SMS.
+    { module: 'odour', location: info.location, email: sendEmail, sms: isCritical || fire.level === 'GasCritical' }
   );
 }
 
