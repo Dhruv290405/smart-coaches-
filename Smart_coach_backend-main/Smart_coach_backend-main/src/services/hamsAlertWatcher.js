@@ -17,12 +17,13 @@ const supabaseOld = require('../config/supabaseOld');
 const supabaseAdmin = require('../config/supabaseAdmin');
 const { broadcastPushNotification, UNREGISTERED_LOCATION } = require('../utils/notificationService');
 const { formatIST } = require('./brakeFaultWatcher');
+const { clearCooldown: clearSmsCooldown } = require('./smsAlert.service');
 
 const TABLE = 'hams_data';
 const POLL_INTERVAL_MS = 30 * 1000;
 const BATCH_LIMIT = 500;
 const REARM_READINGS = 3;
-const REMINDER_MS = 2 * 60 * 60 * 1000;
+const REMINDER_MS = 30 * 60 * 1000; // 30 min — safety-critical
 const SEED_ROWS = 100;
 
 const THRESHOLDS = { sensorFault: 150, hot: 90, warm: 70 };
@@ -77,7 +78,10 @@ function evaluate(row) {
     if (s) {
       if (level === 'Normal') {
         s.normalCount = (s.normalCount || 0) + 1;
-        if (s.normalCount >= REARM_READINGS) s.alerted = 'Normal';
+        if (s.normalCount >= REARM_READINGS) {
+          s.alerted = 'Normal';
+          clearSmsCooldown(deviceId);
+        }
       }
       _state.set(deviceId, s);
     }

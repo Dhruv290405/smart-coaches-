@@ -7,7 +7,7 @@ const DEFAULT_DLT_TEMPLATE_ID = process.env.DLT_TEMPLATE_ID || '1077529980085199
 
 // Rate limiting: 2-hour cooldown per unique coach + fault combination to prevent credit drainage
 const _smsCooldown = new Map();
-const SMS_COOLDOWN_MS = 2 * 60 * 60 * 1000; // 2 hours (120 minutes)
+const SMS_COOLDOWN_MS = 30 * 60 * 1000; // 30 minutes — matches shortest watcher reminder
 
 function isThrottled(dedupKey) {
   if (!dedupKey) return false;
@@ -98,4 +98,13 @@ async function sendLocationAlert(location, severity, message, templateId, target
   return results;
 }
 
-module.exports = { getRecipients, sendLocationAlert, DEFAULT_DLT_TEMPLATE_ID };
+function clearCooldown(pattern) {
+  for (const key of _smsCooldown.keys()) {
+    if (key.includes(pattern)) {
+      console.log(`[SMS] Cooldown cleared for "${key}" (device re-armed)`);
+      _smsCooldown.delete(key);
+    }
+  }
+}
+
+module.exports = { getRecipients, sendLocationAlert, clearCooldown, DEFAULT_DLT_TEMPLATE_ID };

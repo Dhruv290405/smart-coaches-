@@ -138,7 +138,7 @@ async function startBrakeFaultWatcher() {
         const timeSinceLastNotification = Date.now() - (last ? last.notifiedAt : 0);
 
         // Rule: No repeat messages for the same defect on a device until a new one arises (or 2-hour reminder)
-        if (isSameFault && timeSinceLastNotification < (2 * 60 * 60 * 1000)) {
+        if (isSameFault && timeSinceLastNotification < (30 * 60 * 1000)) {
           console.log(`[BrakeFaultWatcher] Suppressing duplicate "${faultName}" for device ${deviceKey}. Already notified at ${new Date(last.notifiedAt).toISOString()}`);
           continue;
         }

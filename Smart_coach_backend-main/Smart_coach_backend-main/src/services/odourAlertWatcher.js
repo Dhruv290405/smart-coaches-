@@ -24,6 +24,7 @@ const supabaseAdmin = require('../config/supabaseAdmin');
 const { broadcastPushNotification, UNREGISTERED_LOCATION } = require('../utils/notificationService');
 const { evaluateOdourReading } = require('../utils/odourIndex');
 const { formatIST } = require('./brakeFaultWatcher');
+const { clearCooldown: clearSmsCooldown } = require('./smsAlert.service');
 
 const TABLE = 'bad_odour_data';
 const COACHES_TABLE = 'coaches_Bad_Odour';
@@ -31,7 +32,7 @@ const POLL_INTERVAL_MS = 30 * 1000;
 const BATCH_LIMIT = 1000;
 const CONFIRM_READINGS = 1; // spec: a single reading above threshold is CRITICAL
 const REARM_READINGS = 3;
-const REMINDER_MS = 2 * 60 * 60 * 1000;
+const REMINDER_MS = 60 * 60 * 1000; // 1 hour — hygiene
 const SEED_ROWS = 300;
 // Warning     = Medium phase (index 90-249, Hygiene Score 37.5-77.5 %): in-app + push only.
 // GasCritical = any single gas over its limit (NH3 > 10, CH4 > 15, H2S > 5 ppm)
@@ -119,7 +120,10 @@ function evaluate(row, now = Date.now()) {
     s.upMinRank = 99;
     if (rank === 0) {
       s.normalCount += 1;
-      if (s.normalCount >= REARM_READINGS) s.alerted = 'Normal';
+      if (s.normalCount >= REARM_READINGS) {
+        s.alerted = 'Normal';
+        clearSmsCooldown(device);
+      }
     } else {
       s.normalCount = 0;
       // Still at the alerted level: periodic reminder.

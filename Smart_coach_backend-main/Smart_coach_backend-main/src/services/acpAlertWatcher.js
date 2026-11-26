@@ -26,7 +26,7 @@ const { formatIST } = require('./brakeFaultWatcher');
 const TABLE = 'railway_acp_data';
 const POLL_INTERVAL_MS = 30 * 1000;
 const BATCH_LIMIT = 1000;
-const REMINDER_MS = 2 * 60 * 60 * 1000;
+const REMINDER_MS = 30 * 60 * 1000; // 30 min — safety-critical
 const SEED_ROWS = 500;
 // ACP is a Danapur module (rbac DIVISION_MODULE_MAP); admins + tester always receive.
 const ACP_LOCATION = process.env.ACP_ALERT_LOCATION || 'Danapur';
