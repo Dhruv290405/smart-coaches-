@@ -1,11 +1,11 @@
 {
-    "name": "smart_coach_new",
-    "short_name": "smart_coach_new",
+    "name": "Smart Coaches",
+    "short_name": "Smart Coaches",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Smart Coaches - Railway Monitoring Dashboard",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

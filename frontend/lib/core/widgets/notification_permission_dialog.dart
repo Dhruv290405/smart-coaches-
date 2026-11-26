@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:sizer/sizer.dart';
@@ -8,6 +9,7 @@ class NotificationPermissionDialog extends StatefulWidget {
 
   /// Check permission and show the dialog if not already granted (or if forced).
   static Future<void> showIfNeeded(BuildContext context, {bool force = false}) async {
+    if (kIsWeb) return;
     try {
       final status = await Permission.notification.status;
       if (force || !status.isGranted) {

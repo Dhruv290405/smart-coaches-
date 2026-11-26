@@ -10,7 +10,10 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sizer/sizer.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:smart_coach_new/core/di/inject.dart';
+import 'package:smart_coach_new/core/widgets/responsive_web_wrapper.dart';
+import 'package:smart_coach_new/core/widgets/in_app_notification_banner.dart';
 import 'package:smart_coach_new/core/permissions/bloc/permission_bloc.dart';
 import 'package:smart_coach_new/core/services/socket_service.dart';
 import 'package:smart_coach_new/core/utils/logger.dart';
@@ -147,16 +150,46 @@ class MyApp extends StatelessWidget {
         BlocProvider(create: (_) => GetIt.I<NotificationBloc>()),
       ],
       child: _AppBootstrap(
-        child: Sizer(
-          builder: (context, orientation, deviceType) {
-            return MaterialApp.router(
-              theme: AppTheme.lightTheme,
-              debugShowCheckedModeBanner: false,
-              builder: EasyLoading.init(),
-              routerConfig: AppRouter.router,
-            );
-          },
-        ),
+        child: kIsWeb
+          ? Builder(
+              builder: (context) {
+                final screenWidth = MediaQuery.of(context).size.width;
+                if (screenWidth <= 600) {
+                  return Sizer(
+                    builder: (context, orientation, deviceType) {
+                      return MaterialApp.router(
+                        theme: AppTheme.lightTheme,
+                        debugShowCheckedModeBanner: false,
+                        builder: EasyLoading.init(),
+                        routerConfig: AppRouter.router,
+                      );
+                    },
+                  );
+                }
+                return ResponsiveWebWrapper(
+                  child: Sizer(
+                    builder: (context, orientation, deviceType) {
+                      return MaterialApp.router(
+                        theme: AppTheme.lightTheme,
+                        debugShowCheckedModeBanner: false,
+                        builder: EasyLoading.init(),
+                        routerConfig: AppRouter.router,
+                      );
+                    },
+                  ),
+                );
+              },
+            )
+          : Sizer(
+              builder: (context, orientation, deviceType) {
+                return MaterialApp.router(
+                  theme: AppTheme.lightTheme,
+                  debugShowCheckedModeBanner: false,
+                  builder: EasyLoading.init(),
+                  routerConfig: AppRouter.router,
+                );
+              },
+            ),
       ),
     );
   }
@@ -200,14 +233,22 @@ class _AppBootstrapState extends State<_AppBootstrap> {
           if (notification == null) return;
           if (!mounted) return;
 
+          final title = notification.title ?? '';
+          final body = notification.body ?? '';
+          final type = message.data['type'] as String? ?? 'info';
+
           context.read<NotificationBloc>().add(
-                FcmNotificationReceived(
-                  title: notification.title ?? '',
-                  body: notification.body ?? '',
-                  type: message.data['type'] as String? ?? 'info',
-                ),
+                FcmNotificationReceived(title: title, body: body, type: type),
               );
-          FCMService.showLocalNotification(message);
+          if (!kIsWeb) FCMService.showLocalNotification(message);
+
+          InAppNotificationBanner.show(
+            context,
+            title: title,
+            body: body,
+            type: type,
+            onTap: () => AppRouter.router.go('/notifications'),
+          );
         },
       );
 
