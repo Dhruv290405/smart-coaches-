@@ -17,7 +17,8 @@
  *  - The coach is re-armed after REARM_READINGS consecutive non-critical readings.
  *  - Before sending, user_notifications is checked so a server restart/deploy
  *    does not resend an alert already sent within REMINDER_MS.
- *  - SMS has its own 2 h cooldown per coach + fault in smsAlert.service.
+ *  - SMS has its own 30 min cooldown per coach + fault in smsAlert.service
+ *    (cleared on re-arm so fresh episodes always get a fresh SMS).
  */
 const acpSupabase = require('../config/supabaseAcp');
 const supabaseAdmin = require('../config/supabaseAdmin');
@@ -183,7 +184,7 @@ async function recentlySent(title) {
 async function dispatch(row, fire) {
   const { info, faultName, title, body } = buildMessage(row, fire);
   if (await recentlySent(title)) {
-    console.log(`[OdourAlertWatcher] Skipping "${title}" — already sent within the last 2 h.`);
+    console.log(`[OdourAlertWatcher] Skipping "${title}" — already sent within the last 1 h.`);
     return;
   }
   const isCritical = fire.level === 'Critical';

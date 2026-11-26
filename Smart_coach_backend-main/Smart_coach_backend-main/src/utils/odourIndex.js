@@ -4,8 +4,7 @@
  *
  * 1. Individual gas limits (each gas checked independently, strictly greater than):
  *      NH3 > 10 ppm, CH4 > 15 ppm, H2S > 5 ppm  -> "gas over limit"
- *    Shown in the app and reports only; since 21 Nov 2026 they do NOT send
- *    notifications on their own (decision: alert on the Hygiene Score only).
+ *    Triggers GasCritical alert with in-app + push + email + SMS.
  *
  * 2. Combined Odour Index:
  *      Index = [(NH3/10 + CH4/15 + H2S/5) / 3] x 100   (rounded to 2 dp)
@@ -20,9 +19,10 @@
  * 4. VOC (voc_index) is kept as the original sensor value; it is NOT part of
  *    the index and does not raise notifications.
  *
- * Notifications (in-app + push + email + SMS) are sent for CRITICAL only:
- * combined Index >= 250 (Hygiene Score <= 37.5 %). MEDIUM and gas-over-limit
- * are shown in the app and reports. The app mirrors this in odour_model.dart.
+ * Notifications: CRITICAL (index >= 250) and GasCritical (gas over limit)
+ * both trigger in-app + push + email + SMS. MEDIUM is shown in the app and
+ * reports only (in-app + push, no email/SMS). The app mirrors this in
+ * odour_model.dart.
  */
 
 const GAS_THRESHOLDS = { nh3: 10, ch4: 15, h2s: 5 };

@@ -119,7 +119,7 @@ async function dispatch(row) {
   const { coach, train, title, body } = buildMessage(row);
   const location = alertLocation(row);
   if (await recentlySent(title)) {
-    console.log(`[AcpAlertWatcher] Skipping "${title}" — already sent within the last 2 h.`);
+    console.log(`[AcpAlertWatcher] Skipping "${title}" — already sent within the last 30 min.`);
     return;
   }
   console.log(`🚀 [AcpAlertWatcher] ${title} | count=${row.count_value}`);

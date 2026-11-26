@@ -138,7 +138,7 @@ async function dispatch(row, fire) {
     (isCritical ? 'Immediate inspection required - bearing failure risk.' : 'Monitor closely, inspect at next halt.');
 
   if (await recentlySent(title)) {
-    console.log(`[HAMSAlertWatcher] Skipping "${title}" - already sent within 2h.`);
+    console.log(`[HAMSAlertWatcher] Skipping "${title}" - already sent within 30 min.`);
     return;
   }
 
