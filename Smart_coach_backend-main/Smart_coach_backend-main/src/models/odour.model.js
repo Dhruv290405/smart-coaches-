@@ -493,6 +493,43 @@ class OdourModel {
     async getAggregatedHistory(deviceId, startDate, endDate, bucketMinutes = 15) {
         try {
             if (!deviceId || !startDate || !endDate) return { buckets: [], totalRaw: 0 };
+
+            // Try Supabase RPC first (server-side aggregation in PostgreSQL — scales to any device count)
+            try {
+                const { data: rpcData, error: rpcError } = await acpSupabase.rpc('aggregate_odour_history', {
+                    p_device_id: deviceId,
+                    p_start_date: new Date(startDate).toISOString(),
+                    p_end_date: new Date(endDate).toISOString(),
+                    p_bucket_minutes: bucketMinutes,
+                });
+                if (!rpcError && rpcData && rpcData.length > 0) {
+                    let totalRaw = 0;
+                    const buckets = rpcData.map(r => {
+                        totalRaw += Number(r.readings_count || 0);
+                        const voc = Number(r.avg_voc || 0);
+                        const nh3 = Number(r.avg_nh3 || 0);
+                        const h2s = Number(r.avg_h2s || 0);
+                        return {
+                            timestamp: r.bucket_start,
+                            voc, nh3, h2s,
+                            methane: Number(r.avg_methane || 0),
+                            temperature: Number(r.avg_temperature || 0),
+                            humidity: Number(r.avg_humidity || 0),
+                            odour_index: computeOdourIndex({ voc_index: voc, nh3_ppm: nh3, h2s_ppm: h2s }),
+                            max_odour_index: computeOdourIndex({ voc_index: Number(r.max_voc || 0), nh3_ppm: Number(r.max_nh3 || 0), h2s_ppm: Number(r.max_h2s || 0) }),
+                            readings_count: Number(r.readings_count || 0),
+                            odour_status: overallLevel({ voc_index: voc, nh3_ppm: nh3, h2s_ppm: h2s }),
+                            hygiene_score: hygieneScore(voc),
+                        };
+                    });
+                    console.log(`[OdourModel] RPC aggregation: ${buckets.length} buckets, ${totalRaw} raw rows for ${deviceId}`);
+                    return { buckets, totalRaw, bucketMinutes };
+                }
+            } catch (rpcErr) {
+                console.log(`[OdourModel] RPC not available, falling back to JS aggregation: ${rpcErr.message}`);
+            }
+
+            // Fallback: fetch raw data and aggregate in JS
             const raw = await this._getSection1HistoryDateRange(deviceId, startDate, endDate);
             if (!raw || raw.length === 0) return { buckets: [], totalRaw: 0 };
 

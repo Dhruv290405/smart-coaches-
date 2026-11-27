@@ -38,7 +38,7 @@ const POLL_INTERVAL_MS = 30 * 1000;
 const BATCH_LIMIT = 1000;
 const CONFIRM_READINGS = 1; // spec: a single reading above threshold is CRITICAL
 const REARM_READINGS = 3;
-const REMINDER_MS = 60 * 60 * 1000; // 1 hour — hygiene
+const REMINDER_MS = 30 * 60 * 1000; // 30 minutes
 const SEED_ROWS = 300;
 // Warning     = Medium phase (VOC 100-249, Hygiene Score 20-40 %): in-app + push only.
 // GasCritical = any single gas over its limit (NH3 > 10, CH4 > 15, H2S > 5 ppm)
@@ -124,7 +124,7 @@ function evaluate(row, now = Date.now(), prime = false) {
       s.firedAt = now;
       s.upCount = 0;
       s.upMinRank = 99;
-      if (!prime) fire = { level: s.alerted, ev };
+      if (!prime) fire = { level: s.alerted, ev, isReminder: false };
     }
   } else {
     s.upCount = 0;
@@ -140,7 +140,7 @@ function evaluate(row, now = Date.now(), prime = false) {
       // Still at the alerted level: periodic reminder.
       if (rank === alertedRank && now - s.firedAt >= REMINDER_MS) {
         s.firedAt = now;
-        if (!prime) fire = { level: s.alerted, ev };
+        if (!prime) fire = { level: s.alerted, ev, isReminder: true };
       }
     }
   }
@@ -151,14 +151,14 @@ function evaluate(row, now = Date.now(), prime = false) {
 
 function buildMessage(row, fire) {
   const info = coachInfo(row);
-  const { level, ev } = fire;
+  const { level, ev, isReminder } = fire;
   const faultName = FAULT_NAMES[level] || 'Odour Warning';
-  const title = `Alert: ${faultName} in Train ${info.train_no}, Coach_Unique Id ${info.coach_no}`;
+  const prefix = isReminder ? 'REMINDER' : 'Alert';
+  const title = `${prefix}: ${faultName} in Train ${info.train_no}, Coach_Unique Id ${info.coach_no}`;
   const severityWord = level === 'Warning' ? 'Warning' : 'Critical';
   const at = formatIST(row.timestamp || new Date());
-  // Plain, user-facing message: severity, fault, coach, train, timestamp and
-  // the overall value only — no index/band/gas-reading internals.
-  const body = `${severityWord}: ${faultName} on Coach ${info.coach_no}, Train ${info.train_no} at ${at}. Overall Hygiene Score: ${ev.hygiene}%.`;
+  const reminderNote = isReminder ? ' Issue still not resolved.' : '';
+  const body = `${severityWord}: ${faultName} on Coach ${info.coach_no}, Train ${info.train_no} at ${at}. Overall Hygiene Score: ${ev.hygiene}%.${reminderNote}`;
   return { info, faultName, title, body };
 }
 
@@ -182,7 +182,7 @@ async function recentlySent(title) {
 async function dispatch(row, fire) {
   const { info, faultName, title, body } = buildMessage(row, fire);
   if (await recentlySent(title)) {
-    console.log(`[OdourAlertWatcher] Skipping "${title}" — already sent within the last 1 h.`);
+    console.log(`[OdourAlertWatcher] Skipping "${title}" — already sent within the last 30 min.`);
     return;
   }
   const isCritical = fire.level === 'Critical';

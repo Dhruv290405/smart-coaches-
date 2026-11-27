@@ -14,6 +14,14 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:share_plus/share_plus.dart';
 import 'package:smart_coach_new/features/reports_and_alerts/shared/report_pdf_theme.dart';
 
+int _smartBucketMinutes(DateTime start, DateTime end) {
+  final days = end.difference(start).inDays;
+  if (days <= 7) return 5;
+  if (days <= 14) return 10;
+  if (days <= 30) return 15;
+  return 30;
+}
+
 class OdourReportGenerator {
   static Future<void> generate(BuildContext context, List<OdourCoachModel> coaches, {String title = 'Odour Monitoring Report'}) async {
     final period = await _showPeriodPicker(context);
@@ -39,7 +47,7 @@ class OdourReportGenerator {
     if (format == null) return;
     if (!context.mounted) return;
 
-    final int bucketMinutes = period.duration.inDays > 7 ? 15 : 5;
+    final int bucketMinutes = _smartBucketMinutes(period.start, period.end);
 
     showDialog(
       context: context,
@@ -250,6 +258,16 @@ String _toIst(String? ts) {
 
 String _fmtDate(DateTime d) => DateFormat('dd/MM/yyyy').format(d);
 
+String _dayLabel(String? ts) {
+  if (ts == null || ts.isEmpty) return 'Unknown';
+  try {
+    final normalized = ts.contains('T') ? ts : ts.replaceFirst(' ', 'T');
+    return DateFormat('dd MMM yyyy (EEEE)').format(DateTime.parse(normalized).toLocal());
+  } catch (_) {
+    return ts;
+  }
+}
+
 void _header(Sheet sheet, int row, int col, String text) {
   final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row));
   cell.value = TextCellValue(text);
@@ -427,15 +445,14 @@ Future<List<int>> _buildPdfReportIsolate(_ReportPdfParams p) async {
     if (rows.isEmpty) continue;
     final totalRaw = (devData['totalRaw'] as int?) ?? rows.length;
 
-    final maxPdfRows = 500;
-    final displayRows = rows.length > maxPdfRows ? rows.sublist(0, maxPdfRows) : rows;
-    final truncated = rows.length > maxPdfRows;
-
-    final tableData = <List<String>>[];
-    for (var i = 0; i < displayRows.length; i++) {
-      final r = displayRows[i] as Map<String, dynamic>;
+    // Group rows by day for structured PDF
+    final Map<String, List<List<String>>> dayGroups = {};
+    for (var i = 0; i < rows.length; i++) {
+      final r = rows[i] as Map<String, dynamic>;
       final vocVal = (r['voc'] as num?)?.toDouble() ?? 0;
-      tableData.add([
+      final dayKey = _dayLabel(r['timestamp']?.toString());
+      dayGroups.putIfAbsent(dayKey, () => []);
+      dayGroups[dayKey]!.add([
         (i + 1).toString(),
         _toIst(r['timestamp']?.toString()),
         vocVal.toStringAsFixed(0),
@@ -447,28 +464,41 @@ Future<List<int>> _buildPdfReportIsolate(_ReportPdfParams p) async {
       ]);
     }
 
-    pdf.addPage(
-      pw.MultiPage(
-        pageFormat: PdfPageFormat.a4.landscape,
-        margin: const pw.EdgeInsets.all(20),
-        build: (pw.Context context) => [
-          pw.Text('$deviceId — ${devData['coach_no'] ?? '--'} | Train: ${devData['train_no'] ?? '--'}',
-            style: ReportPdfTheme.sectionTitle),
-          pw.SizedBox(height: 4),
-          pw.Text('Total: $totalRaw raw readings${truncated ? ' (showing first $maxPdfRows in PDF — use Excel for full data)' : ''}$aggNote',
-            style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700)),
-          pw.SizedBox(height: 6),
-          pw.TableHelper.fromTextArray(
-            headers: ['#', 'Timestamp (IST)', 'Odour Index', 'Level', 'VOC', 'NH3', 'H2S', 'CH4'],
-            data: tableData,
-            headerStyle: ReportPdfTheme.tableHeader,
-            headerDecoration: ReportPdfTheme.tableHeaderDecoration,
-            cellStyle: ReportPdfTheme.tableCellStyle,
-            cellHeight: 18,
+    for (final dayEntry in dayGroups.entries) {
+      pdf.addPage(
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.a4.landscape,
+          margin: const pw.EdgeInsets.all(20),
+          header: (pw.Context context) => pw.Container(
+            margin: const pw.EdgeInsets.only(bottom: 8),
+            child: pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text('${dayEntry.key}',
+                    style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
+                pw.Text('$deviceId — ${devData['coach_no'] ?? '--'} | Train: ${devData['train_no'] ?? '--'}',
+                    style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey600)),
+              ],
+            ),
           ),
-        ],
-      ),
-    );
+          footer: (pw.Context context) => pw.Container(
+            alignment: pw.Alignment.centerRight,
+            child: pw.Text('$totalRaw raw readings$aggNote',
+                style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey500)),
+          ),
+          build: (pw.Context context) => [
+            pw.TableHelper.fromTextArray(
+              headers: ['#', 'Timestamp (IST)', 'Odour Index', 'Level', 'VOC', 'NH3', 'H2S', 'CH4'],
+              data: dayEntry.value,
+              headerStyle: ReportPdfTheme.tableHeader,
+              headerDecoration: ReportPdfTheme.tableHeaderDecoration,
+              cellStyle: ReportPdfTheme.tableCellStyle,
+              cellHeight: 18,
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   return await pdf.save();
