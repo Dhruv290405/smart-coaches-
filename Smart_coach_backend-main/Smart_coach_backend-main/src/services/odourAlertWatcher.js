@@ -19,6 +19,11 @@
  *    does not resend an alert already sent within REMINDER_MS.
  *  - SMS has its own 30 min cooldown per coach + fault in smsAlert.service
  *    (cleared on re-arm so fresh episodes always get a fresh SMS).
+ *  - On startup, seed() silently replays recent history to rebuild in-memory
+ *    state (which device is currently alerted, re-armed, etc.) WITHOUT
+ *    dispatching — a restart/redeploy never re-notifies for a condition that
+ *    was already known before the restart. Only readings seen after startup
+ *    can trigger a real alert.
  */
 const acpSupabase = require('../config/supabaseAcp');
 const supabaseAdmin = require('../config/supabaseAdmin');
@@ -93,8 +98,13 @@ function coachInfo(row) {
 /**
  * Feed one reading into the per-device state machine.
  * Returns { level, ev } to alert on, or null.
+ *
+ * `prime=true` (used only when replaying history on startup) updates all the
+ * same bookkeeping but never returns a fire — so a restart can rebuild its
+ * knowledge of "what's already alerted" without re-notifying anyone for a
+ * condition that was already known before the restart.
  */
-function evaluate(row, now = Date.now()) {
+function evaluate(row, now = Date.now(), prime = false) {
   const device = row.device_ID;
   if (!device) return null;
   const ev = evaluateOdourReading(row);
@@ -114,7 +124,7 @@ function evaluate(row, now = Date.now()) {
       s.firedAt = now;
       s.upCount = 0;
       s.upMinRank = 99;
-      fire = { level: s.alerted, ev };
+      if (!prime) fire = { level: s.alerted, ev };
     }
   } else {
     s.upCount = 0;
@@ -123,14 +133,14 @@ function evaluate(row, now = Date.now()) {
       s.normalCount += 1;
       if (s.normalCount >= REARM_READINGS) {
         s.alerted = 'Normal';
-        clearSmsCooldown(device);
+        if (!prime) clearSmsCooldown(device);
       }
     } else {
       s.normalCount = 0;
       // Still at the alerted level: periodic reminder.
       if (rank === alertedRank && now - s.firedAt >= REMINDER_MS) {
         s.firedAt = now;
-        fire = { level: s.alerted, ev };
+        if (!prime) fire = { level: s.alerted, ev };
       }
     }
   }
@@ -198,10 +208,10 @@ async function dispatch(row, fire) {
   );
 }
 
-async function processRows(rows) {
+async function processRows(rows, prime = false) {
   for (const row of rows) {
     if (_lastId == null || row.id > _lastId) _lastId = row.id;
-    const fire = evaluate(row);
+    const fire = evaluate(row, Date.now(), prime);
     if (fire) {
       try { await dispatch(row, fire); } catch (e) { console.error('[OdourAlertWatcher] Dispatch error:', e.message); }
     }
@@ -211,8 +221,11 @@ async function processRows(rows) {
 const SELECT_COLS = 'id, timestamp, device_ID, Coach_ID, Coach_no, Train_No, location, voc_index, nh3_ppm, h2s_ppm, methane_ppm, Status_VOC';
 
 async function seed() {
-  // Replay the most recent readings so coaches that are ALREADY critical get
-  // alerted right after startup. recentlySent() prevents duplicates on restart.
+  // Replay the most recent readings to silently rebuild in-memory state (which
+  // device is currently alerted, re-armed, etc.) — prime=true means this never
+  // dispatches, so a restart/redeploy never re-notifies for a condition that
+  // was already known before the restart. Only readings seen after startup
+  // (the poll loop below) can trigger a real alert.
   const { data, error } = await acpSupabase
     .from(TABLE)
     .select(SELECT_COLS)
@@ -221,7 +234,7 @@ async function seed() {
   if (error) throw error;
   const rows = (data || []).reverse();
   if (rows.length === 0) { _lastId = 0; return; }
-  await processRows(rows);
+  await processRows(rows, true);
 }
 
 async function startOdourAlertWatcher() {
