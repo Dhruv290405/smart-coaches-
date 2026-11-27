@@ -436,6 +436,58 @@ class OdourRepository {
     return null;
   }
 
+  Future<Map<String, dynamic>?> getAggregatedHistory(
+    String deviceId,
+    String section, {
+    required DateTime startDate,
+    required DateTime endDate,
+    int bucketMinutes = 15,
+  }) async {
+    try {
+      final apiClient = GetIt.I<ApiClient>();
+      final response = await apiClient.get(
+        ApiConstants.odourAggregatedHistoryApiEndpoint,
+        queryParams: {
+          'deviceId': deviceId,
+          'section': section,
+          'startDate': startDate.toUtc().toIso8601String(),
+          'endDate': endDate.toUtc().toIso8601String(),
+          'bucketMinutes': bucketMinutes.toString(),
+        },
+      );
+      if (response is Map && response['success'] == true) {
+        return Map<String, dynamic>.from(response);
+      }
+    } catch (e) {
+      _log.warn('Aggregated odour history unavailable ($e).');
+    }
+    return null;
+  }
+
+  Future<Map<String, dynamic>?> getAggregatedReportData(
+    DateTime startDate,
+    DateTime endDate, {
+    int bucketMinutes = 15,
+  }) async {
+    try {
+      final apiClient = GetIt.I<ApiClient>();
+      final response = await apiClient.get(
+        ApiConstants.odourAggregatedReportDataApiEndpoint,
+        queryParams: {
+          'startDate': startDate.toUtc().toIso8601String(),
+          'endDate': endDate.toUtc().toIso8601String(),
+          'bucketMinutes': bucketMinutes.toString(),
+        },
+      );
+      if (response is Map && response['success'] == true) {
+        return Map<String, dynamic>.from(response);
+      }
+    } catch (e) {
+      _log.warn('Aggregated odour report data unavailable ($e).');
+    }
+    return null;
+  }
+
   Future<void> sendOdourData(Map<String, dynamic> payload) async {
     final dbPayload = {
       "device_id": payload['source']?['deviceId'] ?? 'Unknown',

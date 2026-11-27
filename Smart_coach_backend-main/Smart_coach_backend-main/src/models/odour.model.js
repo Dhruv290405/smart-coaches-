@@ -490,6 +490,97 @@ class OdourModel {
         }
     }
 
+    async getAggregatedHistory(deviceId, startDate, endDate, bucketMinutes = 15) {
+        try {
+            if (!deviceId || !startDate || !endDate) return { buckets: [], totalRaw: 0 };
+            const raw = await this._getSection1HistoryDateRange(deviceId, startDate, endDate);
+            if (!raw || raw.length === 0) return { buckets: [], totalRaw: 0 };
+
+            const bucketMs = bucketMinutes * 60 * 1000;
+            const map = new Map();
+
+            for (const r of raw) {
+                const ts = new Date(r.timestamp).getTime();
+                const key = Math.floor(ts / bucketMs) * bucketMs;
+                if (!map.has(key)) {
+                    map.set(key, { sum_voc: 0, sum_nh3: 0, sum_h2s: 0, sum_methane: 0, sum_temp: 0, sum_hum: 0, sum_odour: 0, max_odour: 0, count: 0 });
+                }
+                const b = map.get(key);
+                b.sum_voc += (r.voc ?? 0);
+                b.sum_nh3 += (r.nh3 ?? 0);
+                b.sum_h2s += (r.h2s ?? 0);
+                b.sum_methane += (r.methane ?? 0);
+                b.sum_temp += (r.temperature ?? 0);
+                b.sum_hum += (r.humidity ?? 0);
+                b.sum_odour += (r.odour_index ?? 0);
+                if ((r.odour_index ?? 0) > b.max_odour) b.max_odour = r.odour_index ?? 0;
+                b.count++;
+            }
+
+            const buckets = [];
+            for (const [key, b] of map) {
+                const n = b.count;
+                buckets.push({
+                    timestamp: new Date(key).toISOString(),
+                    voc: +(b.sum_voc / n).toFixed(2),
+                    nh3: +(b.sum_nh3 / n).toFixed(2),
+                    h2s: +(b.sum_h2s / n).toFixed(2),
+                    methane: +(b.sum_methane / n).toFixed(2),
+                    temperature: +(b.sum_temp / n).toFixed(2),
+                    humidity: +(b.sum_hum / n).toFixed(2),
+                    odour_index: +(b.sum_odour / n).toFixed(2),
+                    max_odour_index: b.max_odour,
+                    readings_count: n,
+                    odour_status: overallLevel({ voc_index: b.sum_voc / n, nh3_ppm: b.sum_nh3 / n, h2s_ppm: b.sum_h2s / n }),
+                    hygiene_score: hygieneScore(b.sum_voc / n),
+                });
+            }
+            buckets.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+            return { buckets, totalRaw: raw.length, bucketMinutes };
+        } catch (err) {
+            console.error("Odour Aggregated History Error:", err.message);
+            return { buckets: [], totalRaw: 0 };
+        }
+    }
+
+    async getAggregatedReportData(location, startDate, endDate, bucketMinutes = 15) {
+        try {
+            let normalizedLoc = location ? location.trim() : null;
+            if (normalizedLoc && normalizedLoc.toLowerCase().includes('nagpur')) {
+                normalizedLoc = 'Nagpur';
+            }
+
+            let coachesQuery = acpSupabase.from(SECTION1_COACHES_TABLE).select('*');
+            if (normalizedLoc) {
+                coachesQuery = coachesQuery.ilike('location', `%${normalizedLoc}%`);
+            }
+            const { data: coaches, error: coachesError } = await coachesQuery;
+            if (coachesError) throw coachesError;
+
+            const devices = (coaches || []).filter(c => c.device_ID);
+            if (devices.length === 0) return { devices: [], data: {} };
+
+            const result = {};
+            for (const coach of devices) {
+                const { buckets, totalRaw } = await this.getAggregatedHistory(coach.device_ID, startDate, endDate, bucketMinutes);
+                result[coach.device_ID] = {
+                    coach_no: coach.Coach_no || coach.coach_number || coach.device_ID,
+                    train_no: coach.Train_No || coach.train_no || coach.train_number || '--',
+                    coach_type: coach.coach_type || coach.Coach_type || '--',
+                    location: coach.location || coach.Location || '--',
+                    rows: buckets,
+                    totalRaw,
+                };
+            }
+
+            return { devices: devices.map(c => c.device_ID), data: result, bucketMinutes };
+        } catch (err) {
+            console.error("Odour Aggregated Report Data Error:", err.message);
+            return { devices: [], data: {} };
+        }
+    }
+
     async getCoachesByDeviceIds(deviceIds) {
         try {
             if (!deviceIds || deviceIds.length === 0) return [];

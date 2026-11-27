@@ -158,6 +158,43 @@ const odourController = {
         }
     },
 
+    getAggregatedHistory: async (req, res) => {
+        try {
+            if (!rbac.isModuleLocationOwner(req.user, 'odour')) {
+                return res.status(200).json({ success: true, buckets: [], totalRaw: 0 });
+            }
+            const { deviceId, startDate, endDate, bucketMinutes } = req.query;
+            if (!deviceId || !startDate || !endDate) {
+                return res.status(400).json({ success: false, error: 'deviceId, startDate and endDate are required' });
+            }
+            const bucket = parseInt(bucketMinutes, 10) || 15;
+            const result = await OdourModel.getAggregatedHistory(deviceId, startDate, endDate, bucket);
+            return res.status(200).json({ success: true, ...result });
+        } catch (error) {
+            console.error("Odour Aggregated History Error:", error.message);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    },
+
+    getAggregatedReportData: async (req, res) => {
+        try {
+            if (!rbac.isModuleLocationOwner(req.user, 'odour')) {
+                return res.status(200).json({ success: true, devices: [], data: {} });
+            }
+            const location = rbac.isUnrestrictedUser(req.user) ? (req.query.location || null) : rbac.getUserLocation(req.user);
+            const { startDate, endDate, bucketMinutes } = req.query;
+            if (!startDate || !endDate) {
+                return res.status(400).json({ success: false, error: 'startDate and endDate are required' });
+            }
+            const bucket = parseInt(bucketMinutes, 10) || 15;
+            const result = await OdourModel.getAggregatedReportData(location, startDate, endDate, bucket);
+            return res.status(200).json({ success: true, ...result });
+        } catch (error) {
+            console.error("Odour Aggregated Report Data Error:", error.message);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    },
+
     getSection2Data: async (req, res) => {
         try {
             // Bad Odour is strictly restricted to Nagpur installed devices (Section 1).

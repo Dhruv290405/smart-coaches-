@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:excel/excel.dart' hide Border;
@@ -38,6 +39,8 @@ class OdourReportGenerator {
     if (format == null) return;
     if (!context.mounted) return;
 
+    final int bucketMinutes = period.duration.inDays > 7 ? 15 : 5;
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -50,9 +53,9 @@ class OdourReportGenerator {
             children: [
               const CircularProgressIndicator(color: ColorConstants.primary),
               const SizedBox(height: 16),
-              Text('Fetching data & generating report...', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500)),
+              Text('Fetching aggregated data & generating report...', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500)),
               const SizedBox(height: 8),
-              Text('This may take a moment for large date ranges', style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey)),
+              Text('Summarising into $bucketMinutes-min intervals', style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey)),
             ],
           ),
         ),
@@ -61,7 +64,14 @@ class OdourReportGenerator {
 
     try {
       final repo = OdourRepository();
-      final reportData = await repo.getReportData(period.start, period.end);
+
+      Map<String, dynamic>? reportData = await repo.getAggregatedReportData(
+        period.start, period.end, bucketMinutes: bucketMinutes,
+      );
+
+      if (reportData == null || reportData['devices'] == null || (reportData['devices'] as List).isEmpty) {
+        reportData = await repo.getReportData(period.start, period.end);
+      }
 
       if (!context.mounted) return;
 
@@ -73,11 +83,31 @@ class OdourReportGenerator {
         return;
       }
 
+      final dir = await getApplicationDocumentsDirectory();
+
       File file;
       if (format == 'xlsx') {
-        file = await _buildExcelReport(coaches, reportData, period, title: title);
+        final bytes = await compute(_buildExcelReportIsolate, _ReportExcelParams(
+          reportData: reportData,
+          rangeStart: period.start,
+          rangeEnd: period.end,
+          title: title,
+          bucketMinutes: reportData.containsKey('bucketMinutes') ? (reportData['bucketMinutes'] as int?) : null,
+        ));
+        final fileName = 'Odour_Report_${_fileDate(period.start)}_${_fileDate(period.end)}.xlsx';
+        file = File('${dir.path}/$fileName');
+        await file.writeAsBytes(bytes);
       } else {
-        file = await _buildPdfReport(coaches, reportData, period, title: title);
+        final bytes = await compute(_buildPdfReportIsolate, _ReportPdfParams(
+          reportData: reportData,
+          rangeStart: period.start,
+          rangeEnd: period.end,
+          title: title,
+          bucketMinutes: reportData.containsKey('bucketMinutes') ? (reportData['bucketMinutes'] as int?) : null,
+        ));
+        final fileName = 'Odour_Report_${_fileDate(period.start)}_${_fileDate(period.end)}.pdf';
+        file = File('${dir.path}/$fileName');
+        await file.writeAsBytes(bytes);
       }
 
       if (context.mounted) Navigator.pop(context);
@@ -157,250 +187,6 @@ class OdourReportGenerator {
     );
   }
 
-  static String _toIst(String? ts) {
-    if (ts == null || ts.isEmpty) return 'N/A';
-    try {
-      final dt = DateTime.parse(ts).toLocal();
-      return DateFormat('dd/MM/yyyy HH:mm:ss').format(dt);
-    } catch (_) {
-      return ts;
-    }
-  }
-
-  static Future<File> _buildExcelReport(
-    List<OdourCoachModel> coaches,
-    Map<String, dynamic> reportData,
-    DateTimeRange range,
-    {String title = 'Odour Monitoring Report'}
-  ) async {
-    final excel = Excel.createExcel();
-    final summary = excel['Summary'];
-    excel.setDefaultSheet('Summary');
-
-    final devices = (reportData['devices'] as List).cast<String>();
-    final data = reportData['data'] as Map<String, dynamic>;
-
-    _header(summary, 0, 0, title);
-    _header(summary, 1, 0, 'Period: ${_fmtDate(range.start)}  →  ${_fmtDate(range.end)}');
-    _header(summary, 2, 0, 'Generated: ${DateFormat('dd/MM/yyyy HH:mm:ss').format(DateTime.now())}');
-    _blankRow(summary, 3);
-
-    final summaryHeaders = ['Device ID', 'Coach No.', 'Train No.', 'Coach Type', 'Location', 'Total Readings', 'Avg Odour Index', 'Max Odour Index', 'Critical Count'];
-    for (var i = 0; i < summaryHeaders.length; i++) {
-      _colHeader(summary, 4, i, summaryHeaders[i]);
-    }
-
-    var summaryRow = 5;
-    for (final deviceId in devices) {
-      final devData = data[deviceId] as Map<String, dynamic>?;
-      if (devData == null) continue;
-      final rows = (devData['rows'] as List?) ?? [];
-
-      double avgIndex = 0;
-      double maxIndex = 0;
-      int criticalCount = 0;
-      for (final r in rows) {
-        final idx = (r['odour_index'] as num?)?.toDouble() ?? 0;
-        avgIndex += idx;
-        if (idx > maxIndex) maxIndex = idx;
-        if (idx >= 250) criticalCount++;
-      }
-      if (rows.isNotEmpty) avgIndex /= rows.length;
-
-      _cell(summary, summaryRow, 0, deviceId);
-      _cell(summary, summaryRow, 1, devData['coach_no']?.toString() ?? '--');
-      _cell(summary, summaryRow, 2, devData['train_no']?.toString() ?? '--');
-      _cell(summary, summaryRow, 3, devData['coach_type']?.toString() ?? '--');
-      _cell(summary, summaryRow, 4, devData['location']?.toString() ?? '--');
-      _cell(summary, summaryRow, 5, rows.length.toString());
-      _cell(summary, summaryRow, 6, avgIndex.toStringAsFixed(2));
-      _cell(summary, summaryRow, 7, maxIndex.toStringAsFixed(2));
-      _cell(summary, summaryRow, 8, criticalCount.toString());
-      summaryRow++;
-    }
-
-    for (final deviceId in devices) {
-      final devData = data[deviceId] as Map<String, dynamic>?;
-      if (devData == null) continue;
-      final rows = (devData['rows'] as List?) ?? [];
-
-      final sheetName = deviceId.length > 31 ? deviceId.substring(0, 31) : deviceId;
-      final sheet = excel[sheetName];
-
-      _header(sheet, 0, 0, 'Device: $deviceId');
-      _header(sheet, 1, 0, 'Coach No: ${devData['coach_no'] ?? '--'} | Train: ${devData['train_no'] ?? '--'}');
-      _header(sheet, 2, 0, 'Total Readings: ${rows.length}');
-      _blankRow(sheet, 3);
-
-      final dataHeaders = ['S.No.', 'Timestamp (IST)', 'Odour Index', 'Level', 'VOC', 'NH3 (ppm)', 'H2S (ppm)', 'CH4 (ppm)', 'Temperature', 'Humidity'];
-      for (var i = 0; i < dataHeaders.length; i++) {
-        _colHeader(sheet, 4, i, dataHeaders[i]);
-      }
-
-      for (var i = 0; i < rows.length; i++) {
-        final r = rows[i] as Map<String, dynamic>;
-        final vocVal = (r['voc'] as num?)?.toDouble() ?? 0;
-        final row = 5 + i;
-        _cell(sheet, row, 0, (i + 1).toString());
-        _cell(sheet, row, 1, _toIst(r['timestamp']?.toString()));
-        _cell(sheet, row, 2, vocVal.toStringAsFixed(0));
-        _cell(sheet, row, 3, OdourIndex.level(vocVal));
-        _cell(sheet, row, 4, vocVal.toStringAsFixed(0));
-        _cell(sheet, row, 5, (r['nh3'] ?? 0).toString());
-        _cell(sheet, row, 6, (r['h2s'] ?? 0).toString());
-        _cell(sheet, row, 7, (r['methane'] ?? 0).toString());
-        _cell(sheet, row, 8, (r['temperature'] ?? 0).toString());
-        _cell(sheet, row, 9, (r['humidity'] ?? 0).toString());
-      }
-    }
-
-    final dir = await getApplicationDocumentsDirectory();
-    final fileName = 'Odour_Report_${_fileDate(range.start)}_${_fileDate(range.end)}.xlsx';
-    final file = File('${dir.path}/$fileName');
-    final bytes = excel.encode()!;
-    await file.writeAsBytes(bytes);
-    return file;
-  }
-
-  static Future<File> _buildPdfReport(
-    List<OdourCoachModel> coaches,
-    Map<String, dynamic> reportData,
-    DateTimeRange range,
-    {String title = 'Odour Monitoring Report'}
-  ) async {
-    final pdf = pw.Document();
-    final now = DateTime.now();
-    final devices = (reportData['devices'] as List).cast<String>();
-    final data = reportData['data'] as Map<String, dynamic>;
-
-    final summaryRows = <List<String>>[];
-    for (final deviceId in devices) {
-      final devData = data[deviceId] as Map<String, dynamic>?;
-      if (devData == null) continue;
-      final rows = (devData['rows'] as List?) ?? [];
-      double avgIndex = 0, maxIndex = 0;
-      int criticalCount = 0;
-      for (final r in rows) {
-        final idx = (r['odour_index'] as num?)?.toDouble() ?? 0;
-        avgIndex += idx;
-        if (idx > maxIndex) maxIndex = idx;
-        if (idx >= 250) criticalCount++;
-      }
-      if (rows.isNotEmpty) avgIndex /= rows.length;
-      summaryRows.add([
-        deviceId,
-        devData['coach_no']?.toString() ?? '--',
-        devData['train_no']?.toString() ?? '--',
-        rows.length.toString(),
-        avgIndex.toStringAsFixed(2),
-        maxIndex.toStringAsFixed(2),
-        criticalCount.toString(),
-      ]);
-    }
-
-    pdf.addPage(
-      pw.MultiPage(
-        pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(28),
-        build: (pw.Context context) => [
-          ...ReportPdfTheme.header(
-            title: title,
-            summary: 'Period: ${_fmtDate(range.start)} → ${_fmtDate(range.end)} | Devices: ${devices.length}',
-            generatedAt: now,
-          ),
-          pw.Text('Device Summary', style: ReportPdfTheme.sectionTitle),
-          pw.SizedBox(height: 6),
-          pw.TableHelper.fromTextArray(
-            headers: ['Device ID', 'Coach No.', 'Train No.', 'Readings', 'Avg Index', 'Max Index', 'Critical'],
-            data: summaryRows,
-            headerStyle: ReportPdfTheme.tableHeader,
-            headerDecoration: ReportPdfTheme.tableHeaderDecoration,
-            cellStyle: ReportPdfTheme.tableCellStyle,
-            cellHeight: 22,
-          ),
-        ],
-      ),
-    );
-
-    for (final deviceId in devices) {
-      final devData = data[deviceId] as Map<String, dynamic>?;
-      if (devData == null) continue;
-      final rows = (devData['rows'] as List?) ?? [];
-      if (rows.isEmpty) continue;
-
-      final maxPdfRows = 500;
-      final displayRows = rows.length > maxPdfRows ? rows.sublist(0, maxPdfRows) : rows;
-      final truncated = rows.length > maxPdfRows;
-
-      final tableData = <List<String>>[];
-      for (var i = 0; i < displayRows.length; i++) {
-        final r = displayRows[i] as Map<String, dynamic>;
-        final vocVal = (r['voc'] as num?)?.toDouble() ?? 0;
-        tableData.add([
-          (i + 1).toString(),
-          _toIst(r['timestamp']?.toString()),
-          vocVal.toStringAsFixed(0),
-          OdourIndex.level(vocVal),
-          vocVal.toStringAsFixed(0),
-          (r['nh3'] ?? 0).toString(),
-          (r['h2s'] ?? 0).toString(),
-          (r['methane'] ?? 0).toString(),
-        ]);
-      }
-
-      pdf.addPage(
-        pw.MultiPage(
-          pageFormat: PdfPageFormat.a4.landscape,
-          margin: const pw.EdgeInsets.all(20),
-          build: (pw.Context context) => [
-            pw.Text('$deviceId — ${devData['coach_no'] ?? '--'} | Train: ${devData['train_no'] ?? '--'}',
-              style: ReportPdfTheme.sectionTitle),
-            pw.SizedBox(height: 4),
-            pw.Text('Total: ${rows.length} readings${truncated ? ' (showing first $maxPdfRows in PDF — use Excel for full data)' : ''}',
-              style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700)),
-            pw.SizedBox(height: 6),
-            pw.TableHelper.fromTextArray(
-              headers: ['#', 'Timestamp (IST)', 'Odour Index', 'Level', 'VOC', 'NH3', 'H2S', 'CH4'],
-              data: tableData,
-              headerStyle: ReportPdfTheme.tableHeader,
-              headerDecoration: ReportPdfTheme.tableHeaderDecoration,
-              cellStyle: ReportPdfTheme.tableCellStyle,
-              cellHeight: 18,
-            ),
-          ],
-        ),
-      );
-    }
-
-    final dir = await getApplicationDocumentsDirectory();
-    final fileName = 'Odour_Report_${_fileDate(range.start)}_${_fileDate(range.end)}.pdf';
-    final file = File('${dir.path}/$fileName');
-    await file.writeAsBytes(await pdf.save());
-    return file;
-  }
-
-  static void _header(Sheet sheet, int row, int col, String text) {
-    final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row));
-    cell.value = TextCellValue(text);
-    cell.cellStyle = CellStyle(bold: true, fontSize: 12);
-  }
-
-  static void _colHeader(Sheet sheet, int row, int col, String text) {
-    final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row));
-    cell.value = TextCellValue(text);
-    cell.cellStyle = CellStyle(bold: true, backgroundColorHex: ExcelColor.fromHexString('#1565C0'), fontColorHex: ExcelColor.fromHexString('#FFFFFF'));
-  }
-
-  static void _cell(Sheet sheet, int row, int col, String text) {
-    final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row));
-    cell.value = TextCellValue(text);
-  }
-
-  static void _blankRow(Sheet sheet, int row) {
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row)).value = TextCellValue('');
-  }
-
-  static String _fmtDate(DateTime d) => DateFormat('dd/MM/yyyy').format(d);
   static String _fileDate(DateTime d) => DateFormat('yyyyMMdd').format(d);
 
   static void _showSuccess(BuildContext context, String path) {
@@ -426,4 +212,264 @@ class OdourReportGenerator {
       onTap: () => Navigator.pop(context, value),
     );
   }
+}
+
+// ---------------------------------------------------------------------------
+// Data classes for compute() isolate
+// ---------------------------------------------------------------------------
+
+class _ReportExcelParams {
+  final Map<String, dynamic> reportData;
+  final DateTime rangeStart, rangeEnd;
+  final String title;
+  final int? bucketMinutes;
+  _ReportExcelParams({required this.reportData, required this.rangeStart, required this.rangeEnd, required this.title, this.bucketMinutes});
+}
+
+class _ReportPdfParams {
+  final Map<String, dynamic> reportData;
+  final DateTime rangeStart, rangeEnd;
+  final String title;
+  final int? bucketMinutes;
+  _ReportPdfParams({required this.reportData, required this.rangeStart, required this.rangeEnd, required this.title, this.bucketMinutes});
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+String _toIst(String? ts) {
+  if (ts == null || ts.isEmpty) return 'N/A';
+  try {
+    final dt = DateTime.parse(ts).toLocal();
+    return DateFormat('dd/MM/yyyy HH:mm:ss').format(dt);
+  } catch (_) {
+    return ts;
+  }
+}
+
+String _fmtDate(DateTime d) => DateFormat('dd/MM/yyyy').format(d);
+
+void _header(Sheet sheet, int row, int col, String text) {
+  final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row));
+  cell.value = TextCellValue(text);
+  cell.cellStyle = CellStyle(bold: true, fontSize: 12);
+}
+
+void _colHeader(Sheet sheet, int row, int col, String text) {
+  final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row));
+  cell.value = TextCellValue(text);
+  cell.cellStyle = CellStyle(bold: true, backgroundColorHex: ExcelColor.fromHexString('#1565C0'), fontColorHex: ExcelColor.fromHexString('#FFFFFF'));
+}
+
+void _cell(Sheet sheet, int row, int col, String text) {
+  final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row));
+  cell.value = TextCellValue(text);
+}
+
+void _blankRow(Sheet sheet, int row) {
+  sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row)).value = TextCellValue('');
+}
+
+// ---------------------------------------------------------------------------
+// compute() entry points — MUST be top-level functions
+// ---------------------------------------------------------------------------
+
+List<int> _buildExcelReportIsolate(_ReportExcelParams p) {
+  final excel = Excel.createExcel();
+  final summary = excel['Summary'];
+  excel.setDefaultSheet('Summary');
+
+  final devices = (p.reportData['devices'] as List).cast<String>();
+  final data = p.reportData['data'] as Map<String, dynamic>;
+  final aggNote = p.bucketMinutes != null ? ' (${p.bucketMinutes}-min aggregated)' : '';
+
+  _header(summary, 0, 0, '${p.title}$aggNote');
+  _header(summary, 1, 0, 'Period: ${_fmtDate(p.rangeStart)}  →  ${_fmtDate(p.rangeEnd)}');
+  _header(summary, 2, 0, 'Generated: ${DateFormat('dd/MM/yyyy HH:mm:ss').format(DateTime.now())}');
+  _blankRow(summary, 3);
+
+  final summaryHeaders = ['Device ID', 'Coach No.', 'Train No.', 'Coach Type', 'Location', 'Total Readings', 'Avg Odour Index', 'Max Odour Index', 'Critical Count'];
+  for (var i = 0; i < summaryHeaders.length; i++) {
+    _colHeader(summary, 4, i, summaryHeaders[i]);
+  }
+
+  var summaryRow = 5;
+  for (final deviceId in devices) {
+    final devData = data[deviceId] as Map<String, dynamic>?;
+    if (devData == null) continue;
+    final rows = (devData['rows'] as List?) ?? [];
+    final totalRaw = (devData['totalRaw'] as int?) ?? rows.length;
+
+    double avgIndex = 0;
+    double maxIndex = 0;
+    int criticalCount = 0;
+    for (final r in rows) {
+      final idx = (r['odour_index'] as num?)?.toDouble() ?? 0;
+      avgIndex += idx;
+      if (idx > maxIndex) maxIndex = idx;
+      if (idx >= 250) criticalCount++;
+    }
+    if (rows.isNotEmpty) avgIndex /= rows.length;
+
+    _cell(summary, summaryRow, 0, deviceId);
+    _cell(summary, summaryRow, 1, devData['coach_no']?.toString() ?? '--');
+    _cell(summary, summaryRow, 2, devData['train_no']?.toString() ?? '--');
+    _cell(summary, summaryRow, 3, devData['coach_type']?.toString() ?? '--');
+    _cell(summary, summaryRow, 4, devData['location']?.toString() ?? '--');
+    _cell(summary, summaryRow, 5, totalRaw.toString());
+    _cell(summary, summaryRow, 6, avgIndex.toStringAsFixed(2));
+    _cell(summary, summaryRow, 7, maxIndex.toStringAsFixed(2));
+    _cell(summary, summaryRow, 8, criticalCount.toString());
+    summaryRow++;
+  }
+
+  for (final deviceId in devices) {
+    final devData = data[deviceId] as Map<String, dynamic>?;
+    if (devData == null) continue;
+    final rows = (devData['rows'] as List?) ?? [];
+    final totalRaw = (devData['totalRaw'] as int?) ?? rows.length;
+
+    final sheetName = deviceId.length > 31 ? deviceId.substring(0, 31) : deviceId;
+    final sheet = excel[sheetName];
+
+    _header(sheet, 0, 0, 'Device: $deviceId');
+    _header(sheet, 1, 0, 'Coach No: ${devData['coach_no'] ?? '--'} | Train: ${devData['train_no'] ?? '--'}');
+    _header(sheet, 2, 0, 'Rows: ${rows.length}${p.bucketMinutes != null ? ' buckets (${totalRaw} raw readings)' : ' readings'}');
+    _blankRow(sheet, 3);
+
+    final dataHeaders = ['S.No.', 'Timestamp (IST)', 'Odour Index', 'Level', 'VOC', 'NH3 (ppm)', 'H2S (ppm)', 'CH4 (ppm)', 'Temperature', 'Humidity'];
+    for (var i = 0; i < dataHeaders.length; i++) {
+      _colHeader(sheet, 4, i, dataHeaders[i]);
+    }
+
+    for (var i = 0; i < rows.length; i++) {
+      final r = rows[i] as Map<String, dynamic>;
+      final vocVal = (r['voc'] as num?)?.toDouble() ?? 0;
+      final row = 5 + i;
+      _cell(sheet, row, 0, (i + 1).toString());
+      _cell(sheet, row, 1, _toIst(r['timestamp']?.toString()));
+      _cell(sheet, row, 2, vocVal.toStringAsFixed(0));
+      _cell(sheet, row, 3, OdourIndex.level(vocVal));
+      _cell(sheet, row, 4, vocVal.toStringAsFixed(0));
+      _cell(sheet, row, 5, (r['nh3'] ?? 0).toString());
+      _cell(sheet, row, 6, (r['h2s'] ?? 0).toString());
+      _cell(sheet, row, 7, (r['methane'] ?? 0).toString());
+      _cell(sheet, row, 8, (r['temperature'] ?? 0).toString());
+      _cell(sheet, row, 9, (r['humidity'] ?? 0).toString());
+    }
+  }
+
+  return excel.encode()!;
+}
+
+Future<List<int>> _buildPdfReportIsolate(_ReportPdfParams p) async {
+  final pdf = pw.Document();
+  final now = DateTime.now();
+  final devices = (p.reportData['devices'] as List).cast<String>();
+  final data = p.reportData['data'] as Map<String, dynamic>;
+  final aggNote = p.bucketMinutes != null ? ' | ${p.bucketMinutes}-min aggregated' : '';
+
+  final summaryRows = <List<String>>[];
+  for (final deviceId in devices) {
+    final devData = data[deviceId] as Map<String, dynamic>?;
+    if (devData == null) continue;
+    final rows = (devData['rows'] as List?) ?? [];
+    final totalRaw = (devData['totalRaw'] as int?) ?? rows.length;
+    double avgIndex = 0, maxIndex = 0;
+    int criticalCount = 0;
+    for (final r in rows) {
+      final idx = (r['odour_index'] as num?)?.toDouble() ?? 0;
+      avgIndex += idx;
+      if (idx > maxIndex) maxIndex = idx;
+      if (idx >= 250) criticalCount++;
+    }
+    if (rows.isNotEmpty) avgIndex /= rows.length;
+    summaryRows.add([
+      deviceId,
+      devData['coach_no']?.toString() ?? '--',
+      devData['train_no']?.toString() ?? '--',
+      totalRaw.toString(),
+      avgIndex.toStringAsFixed(2),
+      maxIndex.toStringAsFixed(2),
+      criticalCount.toString(),
+    ]);
+  }
+
+  pdf.addPage(
+    pw.MultiPage(
+      pageFormat: PdfPageFormat.a4,
+      margin: const pw.EdgeInsets.all(28),
+      build: (pw.Context context) => [
+        ...ReportPdfTheme.header(
+          title: p.title,
+          summary: 'Period: ${_fmtDate(p.rangeStart)} → ${_fmtDate(p.rangeEnd)} | Devices: ${devices.length}$aggNote',
+          generatedAt: now,
+        ),
+        pw.Text('Device Summary', style: ReportPdfTheme.sectionTitle),
+        pw.SizedBox(height: 6),
+        pw.TableHelper.fromTextArray(
+          headers: ['Device ID', 'Coach No.', 'Train No.', 'Readings', 'Avg Index', 'Max Index', 'Critical'],
+          data: summaryRows,
+          headerStyle: ReportPdfTheme.tableHeader,
+          headerDecoration: ReportPdfTheme.tableHeaderDecoration,
+          cellStyle: ReportPdfTheme.tableCellStyle,
+          cellHeight: 22,
+        ),
+      ],
+    ),
+  );
+
+  for (final deviceId in devices) {
+    final devData = data[deviceId] as Map<String, dynamic>?;
+    if (devData == null) continue;
+    final rows = (devData['rows'] as List?) ?? [];
+    if (rows.isEmpty) continue;
+    final totalRaw = (devData['totalRaw'] as int?) ?? rows.length;
+
+    final maxPdfRows = 500;
+    final displayRows = rows.length > maxPdfRows ? rows.sublist(0, maxPdfRows) : rows;
+    final truncated = rows.length > maxPdfRows;
+
+    final tableData = <List<String>>[];
+    for (var i = 0; i < displayRows.length; i++) {
+      final r = displayRows[i] as Map<String, dynamic>;
+      final vocVal = (r['voc'] as num?)?.toDouble() ?? 0;
+      tableData.add([
+        (i + 1).toString(),
+        _toIst(r['timestamp']?.toString()),
+        vocVal.toStringAsFixed(0),
+        OdourIndex.level(vocVal),
+        vocVal.toStringAsFixed(0),
+        (r['nh3'] ?? 0).toString(),
+        (r['h2s'] ?? 0).toString(),
+        (r['methane'] ?? 0).toString(),
+      ]);
+    }
+
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4.landscape,
+        margin: const pw.EdgeInsets.all(20),
+        build: (pw.Context context) => [
+          pw.Text('$deviceId — ${devData['coach_no'] ?? '--'} | Train: ${devData['train_no'] ?? '--'}',
+            style: ReportPdfTheme.sectionTitle),
+          pw.SizedBox(height: 4),
+          pw.Text('Total: $totalRaw raw readings${truncated ? ' (showing first $maxPdfRows in PDF — use Excel for full data)' : ''}$aggNote',
+            style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700)),
+          pw.SizedBox(height: 6),
+          pw.TableHelper.fromTextArray(
+            headers: ['#', 'Timestamp (IST)', 'Odour Index', 'Level', 'VOC', 'NH3', 'H2S', 'CH4'],
+            data: tableData,
+            headerStyle: ReportPdfTheme.tableHeader,
+            headerDecoration: ReportPdfTheme.tableHeaderDecoration,
+            cellStyle: ReportPdfTheme.tableCellStyle,
+            cellHeight: 18,
+          ),
+        ],
+      ),
+    );
+  }
+
+  return await pdf.save();
 }
