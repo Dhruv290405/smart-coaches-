@@ -42,28 +42,59 @@ class _OdourHistoryScreenState extends State<OdourHistoryScreen> {
     return DateTime.now();
   }
 
+  int _smartBucketMinutes(DateTime start, DateTime end) {
+    final days = end.difference(start).inDays;
+    if (days <= 7) return 5;
+    if (days <= 14) return 10;
+    if (days <= 30) return 15;
+    return 30;
+  }
+
+  int? _totalRaw;
+
   Future<void> _load() async {
     setState(() {
       _isLoading = true;
       _error = null;
     });
     try {
-      final points = await OdourRepository().getOdourHistory(
+      final repo = OdourRepository();
+      final bucketMin = _smartBucketMinutes(_startDate, _endDate);
+
+      List<OdourHistoryPoint> points = [];
+      int? rawCount;
+
+      final aggResult = await repo.getAggregatedHistory(
         widget.toilet.deviceId,
         widget.toilet.section,
         startDate: _startDate,
         endDate: _endDate,
+        bucketMinutes: bucketMin,
       );
-      final sorted = points.toList()
-        ..sort((a, b) {
-          final ta = DateTime.tryParse(a.timestamp);
-          final tb = DateTime.tryParse(b.timestamp);
-          if (ta == null || tb == null) return 0;
-          return tb.compareTo(ta);
-        });
+      if (aggResult != null && aggResult['buckets'] is List && (aggResult['buckets'] as List).isNotEmpty) {
+        points = (aggResult['buckets'] as List)
+            .map((e) => OdourHistoryPoint.fromJson(e as Map<String, dynamic>))
+            .toList();
+        rawCount = (aggResult['totalRaw'] as int?) ?? points.length;
+      } else {
+        points = await repo.getOdourHistory(
+          widget.toilet.deviceId,
+          widget.toilet.section,
+          startDate: _startDate,
+          endDate: _endDate,
+        );
+      }
+
+      points.sort((a, b) {
+        final ta = DateTime.tryParse(a.timestamp);
+        final tb = DateTime.tryParse(b.timestamp);
+        if (ta == null || tb == null) return 0;
+        return tb.compareTo(ta);
+      });
       if (mounted) {
         setState(() {
-          _points = sorted;
+          _points = points;
+          _totalRaw = rawCount;
           _isLoading = false;
         });
       }
@@ -130,7 +161,17 @@ class _OdourHistoryScreenState extends State<OdourHistoryScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         titleSpacing: 4,
-        title: Text('${widget.toilet.coachNumber} - History Logs', style: AppTextStyles.header1),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('${widget.toilet.coachNumber} - History Logs', style: AppTextStyles.header1),
+            if (_totalRaw != null && !_isLoading)
+              Text(
+                '${_points.length} intervals from $_totalRaw readings',
+                style: GoogleFonts.poppins(fontSize: 10, color: ColorConstants.textTertiary),
+              ),
+          ],
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.download, color: ColorConstants.primary),

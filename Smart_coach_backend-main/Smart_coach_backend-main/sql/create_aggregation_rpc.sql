@@ -40,7 +40,7 @@ AS $$
     MAX(h2s_ppm) AS max_h2s,
     COUNT(*) AS readings_count
   FROM bad_odour_data
-  WHERE device_ID = p_device_id
+  WHERE "device_ID" = p_device_id
     AND timestamp >= p_start_date
     AND timestamp < p_end_date
   GROUP BY bucket_start
