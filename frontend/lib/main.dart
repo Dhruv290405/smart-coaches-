@@ -221,6 +221,18 @@ class _AppBootstrapState extends State<_AppBootstrap> {
     }
   }
 
+  static String _routeForNotificationType(String? type) {
+    if (type == null || type.isEmpty) return '/notifications';
+    final t = type.toUpperCase();
+    if (t.contains('ODOUR') || t.contains('ODOR')) return '/odour_management';
+    if (t.contains('BRAKE') || t.contains('OVERCHARGE')) return '/break_binding';
+    if (t.contains('ACP')) return '/acp_monitoring';
+    if (t.contains('HOT_AXLE') || t.contains('AXLE')) return '/hot_axle_monitoring';
+    if (t.contains('WATER')) return '/water_tank_monitoring';
+    if (t.contains('DIESEL') || t.contains('FUEL')) return '/diesel_level_monitoring';
+    return '/notifications';
+  }
+
   Future<void> _initFcm() async {
     try {
       await FCMService.initializeFCM();
@@ -247,7 +259,7 @@ class _AppBootstrapState extends State<_AppBootstrap> {
             title: title,
             body: body,
             type: type,
-            onTap: () => AppRouter.router.go('/notifications'),
+            onTap: () => AppRouter.router.go(_routeForNotificationType(type)),
           );
         },
       );
@@ -255,8 +267,8 @@ class _AppBootstrapState extends State<_AppBootstrap> {
       // Background tap: user tapped notification while app was backgrounded
       FCMService.listenNotificationTap(
         onTap: (RemoteMessage message) {
-          final route = message.data['route'] as String? ?? '/notifications';
-          AppRouter.router.go(route);
+          final type = message.data['type'] as String? ?? message.data['module'] as String?;
+          AppRouter.router.go(_routeForNotificationType(type));
         },
       );
 
@@ -264,16 +276,15 @@ class _AppBootstrapState extends State<_AppBootstrap> {
       final RemoteMessage? initialMessage =
           await FCMService.getInitialNotification();
       if (initialMessage != null) {
-        final route =
-            initialMessage.data['route'] as String? ?? '/notifications';
+        final type = initialMessage.data['type'] as String? ?? initialMessage.data['module'] as String?;
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          AppRouter.router.go(route);
+          AppRouter.router.go(_routeForNotificationType(type));
         });
       }
 
-      // Foreground local notification tap
-      FCMService.setOnLocalNotificationTap(() {
-        AppRouter.router.go('/notifications');
+      // Foreground local notification tap — receives type from notification payload
+      FCMService.setOnLocalNotificationTap((String? type) {
+        AppRouter.router.go(_routeForNotificationType(type));
       });
     } catch (e) {
       _log.warn('FCM init failed (non-critical)', e);
