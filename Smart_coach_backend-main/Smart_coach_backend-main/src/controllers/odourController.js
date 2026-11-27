@@ -127,14 +127,33 @@ const odourController = {
             if (!deviceId) {
                 return res.status(400).json({ success: false, error: 'deviceId is required' });
             }
+            const { startDate, endDate } = req.query;
 
             const data = section === '2'
                 ? await OdourModel.getSection2History(deviceId)
-                : await OdourModel.getSection1History(deviceId);
+                : await OdourModel.getSection1History(deviceId, 1000, startDate || null, endDate || null);
 
             return res.status(200).json({ success: true, data });
         } catch (error) {
             console.error("Odour History Controller Error:", error.message);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    },
+
+    getReportData: async (req, res) => {
+        try {
+            if (!rbac.isModuleLocationOwner(req.user, 'odour')) {
+                return res.status(200).json({ success: true, devices: [], data: {} });
+            }
+            const location = rbac.isUnrestrictedUser(req.user) ? (req.query.location || null) : rbac.getUserLocation(req.user);
+            const { startDate, endDate } = req.query;
+            if (!startDate || !endDate) {
+                return res.status(400).json({ success: false, error: 'startDate and endDate are required' });
+            }
+            const result = await OdourModel.getReportData(location, startDate, endDate);
+            return res.status(200).json({ success: true, ...result });
+        } catch (error) {
+            console.error("Odour Report Data Controller Error:", error.message);
             res.status(500).json({ success: false, error: error.message });
         }
     },

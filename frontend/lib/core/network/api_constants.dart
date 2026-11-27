@@ -32,6 +32,7 @@ class ApiConstants {
   static const String odourCoachesApiEndpoint = '/odour-logs/coaches';
   static const String odourSection2ApiEndpoint = '/odour-logs/section2-coaches';
   static const String odourHistoryApiEndpoint = '/odour-logs/history';
+  static const String odourReportDataApiEndpoint = '/odour-logs/report-data';
   static const String fsdsReceiveDataApiEndpoint = '/fsds/receive-data';
   static const String fsdsGetDataApiEndpoint = '/fsds/get-data';
   static const String fsdsBaseUrl = 'https://api.vaspsystemic.com/smart_coach_api/api';
@@ -66,14 +67,14 @@ class ApiConstants {
       'https://api.vaspsystemic.com/smart_coach_api/api'; // Railway backend - Supabase
   static String activeBaseUrl = devUrl;
 
+  // LOCAL: comment above and uncomment below to use local backend (port 3000)
+  // static const String devUrl = 'http://10.0.2.2:3000/smart_coach_api/api';   // Android emulator
+  // static const String devUrl = 'http://localhost:3000/smart_coach_api/api';  // Web / iOS sim
+
   static String normalizeBaseUrl(String value) {
     return value.trim().replaceFirst(RegExp(r'/+$'), '');
   }
 
   static String get bootstrapConfigUrl =>
       '${normalizeBaseUrl(devUrl)}/app-config';
-
-  // LOCAL: comment above and uncomment below to use local backend (port 3000)
-  // static const String devUrl = 'http://10.0.2.2:3000/smart_coach_api/api';   // Android emulator
-  // static const String devUrl = 'http://localhost:3000/smart_coach_api/api';  // Web / iOS sim
 }

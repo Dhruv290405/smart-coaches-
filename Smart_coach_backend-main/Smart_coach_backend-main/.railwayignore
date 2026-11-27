@@ -1,5 +1,13 @@
 .env
 .env.*
+node_modules
+docs
+scripts
+*.pdf
+*.csv
+*.log
+*.zip
+*.tar.gz
 check_api.js
 check_api2.js
 check_deployed.js

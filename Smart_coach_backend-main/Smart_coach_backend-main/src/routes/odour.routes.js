@@ -8,5 +8,6 @@ router.post("/receive-data", odourController.receiveData);
 router.get("/coaches", authenticate, requireLocation, odourController.getDashboardStatus);
 router.get("/section2-coaches", authenticate, requireLocation, odourController.getSection2Data);
 router.get("/history", authenticate, requireLocation, odourController.getHistory);
+router.get("/report-data", authenticate, requireLocation, odourController.getReportData);
 
 module.exports = router;

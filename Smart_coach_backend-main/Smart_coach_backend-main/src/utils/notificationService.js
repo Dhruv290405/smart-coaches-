@@ -51,14 +51,16 @@ function shouldSendSmsForAlert(type, payload = {}, severity = 'warning') {
  *
  * Formats variable as: Alert: {Fault_Name} in Train {Train_No}, Coach_Unique Id {Coach_No}
  */
-function getShortFaultLabel(title, type) {
+function getShortFaultLabel(title, type, severity) {
   const str = `${type || ''} ${title || ''}`.toUpperCase();
   if (str.includes('BRAKE') || str.includes('BINDING')) return 'Brake Binding';
   if (str.includes('OVERCHARGE') || str.includes('CR_OVERCHARGE')) return 'CR Overcharge';
   if (str.includes('EMERGENCY')) return 'Emergency Brake';
   if (str.includes('DV') && str.includes('DEFECT')) return 'DV BC Defect';
   if (str.includes('HOT_AXLE') || str.includes('HOT AXLE') || str.includes('AXLE')) return 'Hot Axle';
-  if (str.includes('ODOUR') || str.includes('ODOR')) return 'Bad Odour';
+  if (str.includes('ODOUR') || str.includes('ODOR')) {
+    return String(severity || '').toLowerCase() === 'critical' ? 'Critical Bad Odour' : 'Bad Odour';
+  }
   if (str.includes('ACP')) return 'ACP Alert';
   if (str.includes('WATER')) return 'Low Water';
   if (str.includes('DIESEL') || str.includes('FUEL')) return 'Low Diesel';
@@ -69,7 +71,7 @@ function getShortFaultLabel(title, type) {
 }
 
 function buildDltSmsMessage(title, data = {}) {
-  const faultLabel = getShortFaultLabel(title, data.type || data.module || data.fault_name || '');
+  const faultLabel = getShortFaultLabel(title, data.type || data.module || data.fault_name || '', data.severity);
   const trainNo = data.train_no || data.Train_no || data.train_number || '';
   const coachNo = data.coach_no || data.coach_number || data.coachNo || '';
   let variableText = faultLabel;

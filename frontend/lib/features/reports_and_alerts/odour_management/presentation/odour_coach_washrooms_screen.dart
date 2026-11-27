@@ -149,17 +149,10 @@ class _WashroomCardState extends State<_WashroomCard> {
               Text('${widget.toilet.hygieneScore.toStringAsFixed(0)}%', style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w700, color: wc)),
               const SizedBox(height: 4),
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                mainAxisAlignment: MainAxisAlignment.start,
                 children: [
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Door', style: GoogleFonts.poppins(fontSize: 9, color: ColorConstants.textSecondary)),
-                      Text(widget.toilet.doorStatus, style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600, color: widget.toilet.doorStatus.toLowerCase() == 'open' ? ColorConstants.statusWarning : Colors.green)),
-                    ],
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text('VOC', style: GoogleFonts.poppins(fontSize: 9, color: ColorConstants.textSecondary)),
                       Text(widget.toilet.voc.toStringAsFixed(2), style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600, color: ColorConstants.textPrimary)),

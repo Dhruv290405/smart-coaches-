@@ -44,9 +44,9 @@ class _OdourAlertsViewState extends State<OdourAlertsView> {
   List<OdourAlertItem> _generateAlerts() {
     final alerts = <OdourAlertItem>[];
     for (var r in widget.records) {
-      // Alert rule: Overall Hygiene Score 37.5 % or below (odour index >= 250)
+      // Alert rule: Overall Hygiene Score 20 % or below (VOC >= 250)
       // -> CRITICAL "Bad Odour Alert" (same condition that sends in-app /
-      // phone / email / SMS). Index 90-<250 -> warning. A single gas over its
+      // phone / email / SMS). VOC 100-<250 -> warning. A single gas over its
       // limit is listed as a warning only.
       void gas(String name, double v, double limit) {
         if (v > limit) {
@@ -71,7 +71,7 @@ class _OdourAlertsViewState extends State<OdourAlertsView> {
           alertType: 'Bad Odour Alert',
           sensorName: 'Overall Hygiene Score',
           currentReading: '${r.hygieneScore.toStringAsFixed(0)}%',
-          threshold: '<= 37.5%',
+          threshold: '<= 20%',
           severity: 'Critical',
         ));
       } else if (idxLevel == 'Medium') {
@@ -80,15 +80,9 @@ class _OdourAlertsViewState extends State<OdourAlertsView> {
           alertType: 'Bad Odour Increasing',
           sensorName: 'Overall Hygiene Score',
           currentReading: '${r.hygieneScore.toStringAsFixed(0)}%',
-          threshold: '<= 77.5%',
+          threshold: '20% - 40%',
           severity: 'Warning',
         ));
-      }
-      if (r.smoke >= r.smokeThreshold) alerts.add(OdourAlertItem(record: r, alertType: 'Threshold Exceeded', sensorName: 'Smoke', currentReading: '${r.smoke.toStringAsFixed(2)} ppm', threshold: '${r.smokeThreshold.toStringAsFixed(2)} ppm', severity: 'Critical'));
-
-
-      if (r.doorStatus.toLowerCase() == 'open') {
-        alerts.add(OdourAlertItem(record: r, alertType: 'Door Open', sensorName: 'Limit Switch', currentReading: 'Open', threshold: 'Closed', severity: 'Warning'));
       }
     }
     return alerts;

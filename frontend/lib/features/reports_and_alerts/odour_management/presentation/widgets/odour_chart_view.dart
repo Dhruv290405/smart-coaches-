@@ -59,17 +59,11 @@ class OdourChartView extends StatelessWidget {
   }
 
   Widget _buildTopSummaryCards(BuildContext context) {
-    int doorEvents = 0;
-    for (var r in records) {
-      doorEvents += r.doorOpenEventsToday;
-    }
-
     return Wrap(
       spacing: 12,
       runSpacing: 12,
       children: [
         _summaryMetricCard(context, 'Total Alerts', '$alertCount', Icons.notification_important, const Color(0xFFD32F2F)),
-        _summaryMetricCard(context, 'Door Events', '$doorEvents', Icons.door_front_door, Colors.blueAccent),
         _summaryMetricCard(context, 'Active Devices', '$activeCount', Icons.sensors, const Color(0xFF34C700)),
       ],
     );
@@ -349,23 +343,21 @@ class OdourChartView extends StatelessWidget {
   }
 
   Widget _buildFleetSensorAverages() {
-    double avgVoc = 0, avgNh3 = 0, avgH2s = 0, avgSmoke = 0, avgTemp = 0, avgHum = 0;
+    double avgVoc = 0, avgNh3 = 0, avgH2s = 0, avgTemp = 0, avgHum = 0;
     final wm = records.isNotEmpty ? records.first : null;
-    
+
     for (var r in records) {
       avgVoc += r.voc;
       avgNh3 += r.nh3;
       avgH2s += r.h2s;
-      avgSmoke += r.smoke;
       avgTemp += r.temperature;
       avgHum += r.humidity;
     }
-    
+
     int count = records.isEmpty ? 1 : records.length;
     avgVoc /= count;
     avgNh3 /= count;
     avgH2s /= count;
-    avgSmoke /= count;
     avgTemp /= count;
     avgHum /= count;
 
@@ -380,7 +372,6 @@ class OdourChartView extends StatelessWidget {
         _avgSensorTile('Avg VOC', avgVoc, 'ppm', const Color(0xFF4285F4), wm?.vocThreshold ?? 500.0),
         _avgSensorTile('Avg NH₃', avgNh3, 'ppm', const Color(0xFFFBBC05), wm?.nh3Threshold ?? 1.0),
         _avgSensorTile('Avg H₂S', avgH2s, 'ppm', const Color(0xFFEA4335), wm?.h2sThreshold ?? 0.1),
-        _avgSensorTile('Avg Smoke', avgSmoke, 'ppm', Colors.grey.shade700, wm?.smokeThreshold ?? 10.0),
         _avgSensorTile('Avg Temp', avgTemp, '°C', const Color(0xFFFA7B17), 50.0),
         _avgSensorTile('Avg Humidity', avgHum, '% RH', const Color(0xFF34A853), 100.0),
       ],

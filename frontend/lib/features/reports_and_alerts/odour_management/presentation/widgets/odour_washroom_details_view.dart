@@ -9,6 +9,7 @@ import 'package:smart_coach_new/core/utils/app_text_styles.dart';
 import 'package:smart_coach_new/core/utils/color_constants.dart';
 import '../../data/models/odour_model.dart';
 import '../../data/repository/odour_repository.dart';
+import '../odour_history_screen.dart';
 import 'odour_sensor_modal.dart';
 
 class OdourWashroomDetailsView extends StatelessWidget {
@@ -98,13 +99,35 @@ class OdourWashroomDetailsView extends StatelessWidget {
                 _card(child: _sensorSection(currentToilet)),
                 const SizedBox(height: 10),
 
-                _card(child: _doorSection(currentToilet)),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => OdourHistoryScreen(toilet: currentToilet),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.history, size: 18, color: ColorConstants.primary),
+                    label: Text(
+                      'View History Logs',
+                      style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: ColorConstants.primary),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      side: const BorderSide(color: ColorConstants.primary),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 10),
 
                 _card(child: _deviceInfoSection(currentToilet)),
                 const SizedBox(height: 10),
 
-                _card(child: _systemHealthSection(currentToilet)),
+                _card(child: _deviceStatusSection(currentToilet)),
                 const SizedBox(height: 10),
                 _card(child: _HistoryChart(toilet: currentToilet)),
                 const SizedBox(height: 20),
@@ -221,7 +244,6 @@ class OdourWashroomDetailsView extends StatelessWidget {
             _circularSensorTile('NH₃', wm.nh3, 'ppm', wm.nh3Threshold, wm.nh3Status),
             _circularSensorTile('H₂S', wm.h2s, 'ppm', wm.h2sThreshold, wm.h2sStatus),
             _circularSensorTile('CH₄', wm.methane, 'ppm', wm.methaneThreshold, wm.methaneStatus),
-            _circularSensorTile('Smoke', wm.smoke, 'ppm', wm.smokeThreshold, wm.smokeStatus),
             _circularSensorTile('Temp', wm.temperature, '°C', 40.0, wm.tempStatus),
             _circularSensorTile('Humidity', wm.humidity, '% RH', 90.0, wm.humidityStatus),
           ],
@@ -313,119 +335,6 @@ class OdourWashroomDetailsView extends StatelessWidget {
     );
   }
 
-  Widget _doorSection(OdourCoachModel wm) {
-    final isOpen = wm.doorStatus.toLowerCase() == 'open';
-    final doorColor = isOpen ? ColorConstants.statusWarning : Colors.green;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Door Activity', style: AppTextStyles.header2),
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: doorColor.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: doorColor.withValues(alpha: 0.2)),
-          ),
-          child: Row(
-            children: [
-              Icon(isOpen ? Icons.door_front_door : Icons.door_front_door_outlined, size: 28, color: doorColor),
-              const SizedBox(width: 12),
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('Current State', style: AppTextStyles.bodySmall),
-                Text(wm.doorStatus.toUpperCase(), style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w700, color: doorColor)),
-              ]),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.blue.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.blue.withValues(alpha: 0.2)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.water_drop, size: 14, color: Colors.blue),
-                        const SizedBox(width: 4),
-                        Text('U Count', style: AppTextStyles.bodySmall),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text('${wm.uCount}', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.blue)),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.brown.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.brown.withValues(alpha: 0.2)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.spa, size: 14, color: Colors.brown),
-                        const SizedBox(width: 4),
-                        Text('F Count', style: AppTextStyles.bodySmall),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text('${wm.fCount}', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.brown)),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        _dataRow('Open Events Today', '${wm.doorOpenEventsToday}'),
-        const Divider(color: ColorConstants.divider),
-        _dataRow('Total Cycles Today', '${wm.totalDoorCyclesToday}'),
-        const Divider(color: ColorConstants.divider),
-        _dataRow('Average Open Duration', wm.averageOpenDuration),
-        const Divider(color: ColorConstants.divider),
-        _dataRow('Longest Open Duration', wm.longestOpenDuration),
-        const SizedBox(height: 16),
-        Text('Recent Events', style: AppTextStyles.header2.copyWith(fontSize: 14)),
-        const SizedBox(height: 8),
-        if (wm.recentDoorEventsTimeline.isEmpty)
-          Text('No recent events', style: AppTextStyles.bodyMedium.copyWith(color: ColorConstants.textSecondary)),
-        ...wm.recentDoorEventsTimeline.map((e) {
-          final isClose = e['event']?.contains('Closed') ?? false;
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Row(
-              children: [
-                Icon(isClose ? Icons.check_circle : Icons.door_front_door, size: 14, color: isClose ? Colors.green : ColorConstants.primary),
-                const SizedBox(width: 8),
-                Text(e['time'] ?? '', style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: ColorConstants.textPrimary)),
-                const SizedBox(width: 8),
-                Text(e['event'] ?? '', style: GoogleFonts.poppins(fontSize: 12, color: ColorConstants.textSecondary)),
-              ],
-            ),
-          );
-        }),
-      ],
-    );
-  }
-
   Widget _deviceInfoSection(OdourCoachModel wm) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -443,24 +352,28 @@ class OdourWashroomDetailsView extends StatelessWidget {
     );
   }
 
-  Widget _systemHealthSection(OdourCoachModel wm) {
-    final onlineColor = wm.isOnline ? Colors.green : ColorConstants.statusCritical;
+  Widget _deviceStatusSection(OdourCoachModel wm) {
+    String statusStr = wm.isActive ? 'Active' : 'Inactive';
+    if (wm.hasAlert) statusStr = 'Alert';
+    final statusColor = statusStr == 'Alert'
+        ? ColorConstants.statusCritical
+        : statusStr == 'Inactive'
+            ? ColorConstants.statusWarning
+            : Colors.green;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('System Health', style: AppTextStyles.header2),
+        Text('Device Status', style: AppTextStyles.header2),
         const SizedBox(height: 12),
         Row(children: [
           Container(
             width: 10, height: 10,
-            decoration: BoxDecoration(shape: BoxShape.circle, color: onlineColor),
+            decoration: BoxDecoration(shape: BoxShape.circle, color: statusColor),
           ),
           const SizedBox(width: 8),
-          Text(wm.isOnline ? 'Online' : 'Offline', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: onlineColor)),
+          Text(statusStr, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: statusColor)),
         ]),
         const SizedBox(height: 8),
-        _dataRow('Communication', wm.communicationStatus),
-        const Divider(color: ColorConstants.divider),
         _dataRow('Last Data Received', _fmtDt(wm.lastDataReceived)),
       ],
     );

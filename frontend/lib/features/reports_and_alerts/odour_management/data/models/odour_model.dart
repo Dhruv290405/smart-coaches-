@@ -1,13 +1,10 @@
 /// BODR – Bad Odour Detection System (spec: "Bad Odour mathematic logic").
 ///
-/// Combined Odour Index = [(NH3/10 + CH4/15 + H2S/5) / 3] x 100  (2 dp)
-///   >= 250 CRITICAL (alert) | 90-<250 MEDIUM | < 90 Normal
-/// Overall Hygiene Score % = 100 - index / 4 (index 400+ = 0 %), so the alert
-/// fires at Hygiene Score 37.5 % or below.
+/// Alert level is VOC-based: VOC >= 250 CRITICAL | VOC 100-249 MEDIUM | < 100 Normal.
+/// Overall Hygiene Score % is a piecewise-linear function of VOC (see
+/// hygieneScore getter below), so the alert fires at Hygiene Score 20 % or below.
 /// Individual gas limits (NH3 > 10, CH4 > 15, H2S > 5 ppm) are shown as
 /// "gas over limit" only; they do not raise alerts on their own.
-/// VOC index is the original sensor value; VOC > 90 = MEDIUM (bad odour
-/// generation), it is not part of the combined index.
 /// Must match backend `src/utils/odourIndex.js`.
 class OdourIndex {
   static const double nh3Limit = 10;
@@ -15,9 +12,11 @@ class OdourIndex {
   static const double h2sLimit = 5;
   static const double vocLimit = 90;
 
+  static const double vocCritical = 250;
+  static const double vocMedium = 100;
+
   static const double medium = 90;
   static const double critical = 250;
-  static const double high = critical; // HIGH band merged into CRITICAL
 
   static double compute({double nh3 = 0, double ch4 = 0, double h2s = 0}) {
     double p(double v) => v.isFinite && v > 0 ? v : 0;
@@ -25,10 +24,10 @@ class OdourIndex {
     return (idx * 100).round() / 100;
   }
 
-  /// Combined-index level.
-  static String level(double index) {
-    if (index >= critical) return 'Critical';
-    if (index >= medium) return 'Medium';
+  /// Fallback level based on VOC (backend is authoritative).
+  static String level(double vocValue) {
+    if (vocValue >= vocCritical) return 'Critical';
+    if (vocValue >= vocMedium) return 'Medium';
     return 'Normal';
   }
 
@@ -126,29 +125,35 @@ class OdourCoachModel {
   double get odourIndex =>
       serverOdourIndex ?? OdourIndex.compute(nh3: nh3, ch4: methane, h2s: h2s);
 
-  /// Level of the combined index alone: Normal / Medium / High / Critical.
-  String get indexLevel => OdourIndex.level(odourIndex);
+  /// VOC-based level: Normal / Medium / Critical.
+  String get indexLevel => OdourIndex.level(voc);
 
-  /// Gases above their configured limit (each is an individual CRITICAL alert).
+  /// Gases above their configured limit.
   List<String> get gasAlerts => [
         if (nh3 > OdourIndex.nh3Limit) 'NH3',
         if (methane > OdourIndex.ch4Limit) 'CH4',
         if (h2s > OdourIndex.h2sLimit) 'H2S',
       ];
 
-  /// Overall status = combined index level (Normal / Medium / Critical).
+  /// Overall status based on VOC level.
   String get odourStatus => indexLevel;
-  double get odourThreshold => OdourIndex.critical;
+  double get odourThreshold => OdourIndex.vocCritical;
 
-  /// Same rule the backend uses to send notifications: index >= 250,
-  /// i.e. Overall Hygiene Score 37.5 % or below.
+  /// Same rule the backend uses to send notifications: VOC >= 250,
+  /// i.e. Overall Hygiene Score 20 % or below.
   bool get hasAlert => odourStatus == 'Critical';
 
-  /// Overall Hygiene Score % from the combined odour index, linear:
-  /// index 0 -> 100 %, index 400 or more -> 0 %  (score = 100 - index / 4).
+  /// Hygiene Score % — uses backend-computed value; fallback to VOC-based.
   double get hygieneScore {
     if (serverHygieneScore != null) return serverHygieneScore!;
-    return (100 - odourIndex / 4).clamp(0.0, 100.0);
+    final v = voc;
+    if (v >= 500) return 15;
+    if (v >= 250) return 15 + (500 - v) / (500 - 250) * 5;
+    if (v >= 200) return 20 + (250 - v) / 50 * 10;
+    if (v >= 100) return 30 + (200 - v) / 100 * 10;
+    if (v >= 95)  return 40 + (100 - v) / 5 * 40;
+    if (v >= 60)  return 80 + (95 - v) / 35 * 20;
+    return 100;
   }
 
   // Per-sensor status (BODR spec).
@@ -185,8 +190,6 @@ class OdourCoachModel {
 
   String get locationAddress => address;
 
-  bool get isOnline => true;
-  String get communicationStatus => 'Stable';
   String get lastDataReceived => timestamp;
 }
 
@@ -200,6 +203,8 @@ class OdourHistoryPoint {
   final double smoke;
   final double temperature;
   final double humidity;
+  final double? serverHygieneScore;
+  final String? serverOdourStatus;
 
   OdourHistoryPoint({
     required this.timestamp,
@@ -211,7 +216,25 @@ class OdourHistoryPoint {
     this.smoke = 0.0,
     this.temperature = 0.0,
     this.humidity = 0.0,
+    this.serverHygieneScore,
+    this.serverOdourStatus,
   });
+
+  /// Hygiene Score % — uses the backend-computed value; falls back to the
+  /// VOC-based formula only when the backend didn't provide one.
+  double get hygieneScore {
+    if (serverHygieneScore != null) return serverHygieneScore!;
+    final v = voc;
+    if (v >= 500) return 15;
+    if (v >= 250) return 15 + (500 - v) / (500 - 250) * 5;
+    if (v >= 200) return 20 + (250 - v) / 50 * 10;
+    if (v >= 100) return 30 + (200 - v) / 100 * 10;
+    if (v >= 95) return 40 + (100 - v) / 5 * 40;
+    if (v >= 60) return 80 + (95 - v) / 35 * 20;
+    return 100;
+  }
+
+  String get status => serverOdourStatus ?? OdourIndex.level(voc);
 
   factory OdourHistoryPoint.fromJson(Map<String, dynamic> j) {
     double d(dynamic v, [double def = 0.0]) =>
@@ -232,6 +255,8 @@ class OdourHistoryPoint {
       smoke: d(j['smoke']),
       temperature: d(j['temperature']),
       humidity: d(j['humidity']),
+      serverHygieneScore: j['hygiene_score'] != null ? d(j['hygiene_score']) : null,
+      serverOdourStatus: j['odour_status']?.toString(),
     );
   }
 }

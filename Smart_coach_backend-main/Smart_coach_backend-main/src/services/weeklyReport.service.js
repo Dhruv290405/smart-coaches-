@@ -498,7 +498,7 @@ async function buildOdour(ctx) {
       row.Coach_ID || row.Coach_no || '',
       row.Train_No || '',
       String(row.odour_index),
-      getOdourLevel(row.odour_index).level,
+      getOdourLevel(row.voc_index ?? row.voc ?? 0).level,
       row.ev.gases.map((g) => g.gas).join(', ') || '-',
       row.nh3_ppm == null ? '' : String(row.nh3_ppm),
       row.methane_ppm == null ? '' : String(row.methane_ppm),

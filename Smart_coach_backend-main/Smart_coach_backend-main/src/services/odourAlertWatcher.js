@@ -35,10 +35,10 @@ const CONFIRM_READINGS = 1; // spec: a single reading above threshold is CRITICA
 const REARM_READINGS = 3;
 const REMINDER_MS = 60 * 60 * 1000; // 1 hour — hygiene
 const SEED_ROWS = 300;
-// Warning     = Medium phase (index 90-249, Hygiene Score 37.5-77.5 %): in-app + push only.
+// Warning     = Medium phase (VOC 100-249, Hygiene Score 20-40 %): in-app + push only.
 // GasCritical = any single gas over its limit (NH3 > 10, CH4 > 15, H2S > 5 ppm)
-//               while index < 250: in-app + push + email (no SMS).
-// Critical    = index >= 250 (Hygiene Score <= 37.5 %): in-app + push + email + SMS.
+//               while VOC < 250: in-app + push + email (no SMS).
+// Critical    = VOC >= 250 (Hygiene Score <= 20 %): in-app + push + email + SMS.
 // One notification per coach per level; all gases over limit are listed together.
 const LEVELS = ['Normal', 'Warning', 'GasCritical', 'Critical'];
 
@@ -144,23 +144,11 @@ function buildMessage(row, fire) {
   const { level, ev } = fire;
   const faultName = FAULT_NAMES[level] || 'Odour Warning';
   const title = `Alert: ${faultName} in Train ${info.train_no}, Coach_Unique Id ${info.coach_no}`;
-  const r2 = (v) => Math.round(v * 100) / 100;
+  const severityWord = level === 'Warning' ? 'Warning' : 'Critical';
   const at = formatIST(row.timestamp || new Date());
-  const where = `on Coach ${info.coach_no} (Train ${info.train_no}) at ${at}. `;
-  // One combined notification per coach: every gas over its limit is listed
-  // together instead of sending a separate notification per gas.
-  const gasList = ev.gases.length
-    ? `Gases over limit: ${ev.gases.map((g) => `${g.gas} ${r2(g.value)} ppm (limit ${g.threshold})`).join(', ')}. `
-    : '';
-  let head;
-  if (level === 'Critical') {
-    head = `CRITICAL ${faultName} ${where}Overall Hygiene Score ${ev.hygiene}% (alert at 37.5% or below), Odour Index ${ev.index}. ${gasList}`;
-  } else if (level === 'GasCritical') {
-    head = `CRITICAL gas level ${where}${gasList}Overall Hygiene Score ${ev.hygiene}%, Odour Index ${ev.index}. `;
-  } else {
-    head = `WARNING: bad odour increasing (Medium) ${where}Overall Hygiene Score ${ev.hygiene}% (Medium: 37.5% - 77.5%), Odour Index ${ev.index}. ${gasList}`;
-  }
-  const body = head + `Readings: NH3 ${r2(ev.nh3)} ppm, CH4 ${r2(ev.ch4)} ppm, H2S ${r2(ev.h2s)} ppm.`;
+  // Plain, user-facing message: severity, fault, coach, train, timestamp and
+  // the overall value only — no index/band/gas-reading internals.
+  const body = `${severityWord}: ${faultName} on Coach ${info.coach_no}, Train ${info.train_no} at ${at}. Overall Hygiene Score: ${ev.hygiene}%.`;
   return { info, faultName, title, body };
 }
 

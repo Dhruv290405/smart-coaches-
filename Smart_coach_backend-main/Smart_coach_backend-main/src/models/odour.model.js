@@ -4,7 +4,7 @@ const acpSupabase = _acpSupabase || { from: () => ({ select: () => ({ order: () 
 const _odour2Supabase = require('../config/supabaseOdour2');
 const odour2Supabase = _odour2Supabase || null;
 
-const { computeOdourIndex, getOdourLevel, overallLevel, gasAlerts } = require('../utils/odourIndex');
+const { computeOdourIndex, getOdourLevel, overallLevel, gasAlerts, hygieneScore } = require('../utils/odourIndex');
 
 const TABLE = 'iot_bad_odour';
 const SECTION1_TABLE = 'bad_odour_data';
@@ -183,6 +183,18 @@ class OdourModel {
         }
     }
 
+    // A device counts as Active only when its latest reading is recent
+    // (within the staleness window below); no reading at all, or a stale
+    // one, is Inactive. Replaces the previous hardcoded 'Active'.
+    // BODR devices report every ~5s, so 30s (~6 missed beats) catches a real
+    // outage almost immediately without flickering on a single delayed row.
+    _isRowActive(ts) {
+        if (!ts) return false;
+        const t = new Date(ts).getTime();
+        if (Number.isNaN(t)) return false;
+        return (Date.now() - t) <= 30 * 1000; // 30 s staleness window
+    }
+
     _mapBadOdourRow(row) {
         const dur = (v) => (v != null ? `${v}s` : 'N/A');
         const firstValue = (...values) => values.find((value) => (
@@ -216,11 +228,11 @@ class OdourModel {
         );
         const trainName = firstValue(row.train_name, row.Train_Name, trainNumber);
         const odourIndex = computeOdourIndex(row);
+        const vocValue = row.voc_index ?? row.voc ?? 0;
 
         return {
             odour_index: odourIndex,
-            odour_index_level: getOdourLevel(odourIndex).level,
-            // Worst of combined-index level and individual gas alerts.
+            odour_index_level: getOdourLevel(vocValue).level,
             odour_status: overallLevel(row),
             gas_alerts: gasAlerts(row).map((a) => a.gas),
             device_id: row.device_ID ?? null,
@@ -228,8 +240,8 @@ class OdourModel {
             coach_number: coachNumber,
             coach_type: coachType,
             toilet_position: row.Coach_ID ?? 'N/A',
-            status: 'Active',
-            voc_index: row.voc_index ?? 0,
+            status: this._isRowActive(row.timestamp ?? row.received_at) ? 'Active' : 'Inactive',
+            voc_index: row.voc_index ?? row.voc ?? 0,
             h2s_ppm: row.h2s_ppm ?? 0,
             nh3_ppm: row.nh3_ppm ?? 0,
             methane_ppm: row.methane_ppm ?? 0,
@@ -250,7 +262,7 @@ class OdourModel {
             total_door_cycles_today: row.Door_Count ?? 0,
             average_open_duration: dur(row.Door_Open_Duration_Seconds),
             longest_open_duration: dur(row.Door_Closed_Duration_Seconds),
-            hygiene_score: null,
+            hygiene_score: hygieneScore(row.voc_index ?? row.voc ?? 0),
             voc_status: row.Status_VOC ?? null,
             nh3_status: null,
             h2s_status: null,
@@ -310,13 +322,14 @@ class OdourModel {
         return points;
     }
 
-    async getSection1History(deviceId, limit = 1000) {
+    async getSection1History(deviceId, limit = 1000, startDate = null, endDate = null) {
         try {
             if (!deviceId) return [];
-            // Newest `limit` readings (Supabase caps a request at 1000 rows, so
-            // the old ascending query returned the OLDEST 1000 readings, e.g.
-            // September data). Fetch newest-first, then return oldest -> newest
-            // as before. Served by index bad_odour_data(device_ID, timestamp DESC).
+
+            if (startDate && endDate) {
+                return this._getSection1HistoryDateRange(deviceId, startDate, endDate);
+            }
+
             const { data, error } = await acpSupabase
                 .from(SECTION1_TABLE)
                 .select('timestamp, voc_index, h2s_ppm, nh3_ppm, methane_ppm, temperature, humidity')
@@ -334,12 +347,59 @@ class OdourModel {
                 smoke: 0,
                 temperature: r.temperature ?? 0,
                 humidity: r.humidity ?? 0,
+                hygiene_score: hygieneScore(r.voc_index ?? 0),
+                odour_status: overallLevel(r),
             }));
             return mapped;
         } catch (err) {
             console.error("Odour Section 1 History Error:", err.message);
             return [];
         }
+    }
+
+    async _getSection1HistoryDateRange(deviceId, startDate, endDate) {
+        const all = [];
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        const dayMs = 24 * 60 * 60 * 1000;
+
+        for (let d = new Date(start); d < end; d = new Date(d.getTime() + dayMs)) {
+            const dayStart = d.toISOString();
+            const dayEnd = new Date(d.getTime() + dayMs).toISOString();
+            let lastId = 0;
+
+            while (true) {
+                const { data, error } = await acpSupabase
+                    .from(SECTION1_TABLE)
+                    .select('id, timestamp, voc_index, h2s_ppm, nh3_ppm, methane_ppm, temperature, humidity')
+                    .eq('device_ID', deviceId)
+                    .gte('timestamp', dayStart)
+                    .lt('timestamp', dayEnd)
+                    .gt('id', lastId)
+                    .order('id', { ascending: true })
+                    .limit(1000);
+                if (error) { console.error('Report chunk error:', error.message); break; }
+                if (!data || data.length === 0) break;
+                for (const r of data) {
+                    all.push({
+                        timestamp: r.timestamp,
+                        odour_index: computeOdourIndex(r),
+                        voc: r.voc_index ?? 0,
+                        nh3: r.nh3_ppm ?? 0,
+                        h2s: r.h2s_ppm ?? 0,
+                        methane: r.methane_ppm ?? 0,
+                        smoke: 0,
+                        temperature: r.temperature ?? 0,
+                        humidity: r.humidity ?? 0,
+                        hygiene_score: hygieneScore(r.voc_index ?? 0),
+                        odour_status: overallLevel(r),
+                    });
+                }
+                lastId = data[data.length - 1].id;
+                if (data.length < 1000) break;
+            }
+        }
+        return all;
     }
 
     async getSection2History(deviceId, limit = 10000) {
@@ -391,6 +451,42 @@ class OdourModel {
         } catch (err) {
             console.error("Odour Section 2 History Error:", err.message);
             return [];
+        }
+    }
+
+    async getReportData(location, startDate, endDate) {
+        try {
+            let normalizedLoc = location ? location.trim() : null;
+            if (normalizedLoc && normalizedLoc.toLowerCase().includes('nagpur')) {
+                normalizedLoc = 'Nagpur';
+            }
+
+            let coachesQuery = acpSupabase.from(SECTION1_COACHES_TABLE).select('*');
+            if (normalizedLoc) {
+                coachesQuery = coachesQuery.ilike('location', `%${normalizedLoc}%`);
+            }
+            const { data: coaches, error: coachesError } = await coachesQuery;
+            if (coachesError) throw coachesError;
+
+            const devices = (coaches || []).filter(c => c.device_ID);
+            if (devices.length === 0) return { devices: [], data: {} };
+
+            const result = {};
+            for (const coach of devices) {
+                const rows = await this._getSection1HistoryDateRange(coach.device_ID, startDate, endDate);
+                result[coach.device_ID] = {
+                    coach_no: coach.Coach_no || coach.coach_number || coach.device_ID,
+                    train_no: coach.Train_No || coach.train_no || coach.train_number || '--',
+                    coach_type: coach.coach_type || coach.Coach_type || '--',
+                    location: coach.location || coach.Location || '--',
+                    rows,
+                };
+            }
+
+            return { devices: devices.map(c => c.device_ID), data: result };
+        } catch (err) {
+            console.error("Odour Report Data Error:", err.message);
+            return { devices: [], data: {} };
         }
     }
 

@@ -335,16 +335,23 @@ const startServer = async () => {
     }
 
     startSupabaseListener();
-    const { startBrakeFaultWatcher } = require('./src/services/brakeFaultWatcher');
-    startBrakeFaultWatcher();
-    const { startOdourAlertWatcher } = require('./src/services/odourAlertWatcher');
-    startOdourAlertWatcher();
-    const { startAcpAlertWatcher } = require('./src/services/acpAlertWatcher');
-    startAcpAlertWatcher();
-    const { startHamsAlertWatcher } = require('./src/services/hamsAlertWatcher');
-    startHamsAlertWatcher();
-    const { startWeeklyReportScheduler } = require('./src/services/weeklyReport.service');
-    startWeeklyReportScheduler();
+    // Local/dev testing against the production DB must never re-dispatch live
+    // alerts (push/SMS/email) to real users. Set DISABLE_WATCHERS=true to skip
+    // starting every alert watcher while still running the HTTP API normally.
+    if (process.env.DISABLE_WATCHERS === 'true') {
+      console.log('⏸️  DISABLE_WATCHERS=true — skipping all alert watchers (odour/ACP/brake/HAMS/weekly report). API routes still work normally.');
+    } else {
+      const { startBrakeFaultWatcher } = require('./src/services/brakeFaultWatcher');
+      startBrakeFaultWatcher();
+      const { startOdourAlertWatcher } = require('./src/services/odourAlertWatcher');
+      startOdourAlertWatcher();
+      const { startAcpAlertWatcher } = require('./src/services/acpAlertWatcher');
+      startAcpAlertWatcher();
+      const { startHamsAlertWatcher } = require('./src/services/hamsAlertWatcher');
+      startHamsAlertWatcher();
+      const { startWeeklyReportScheduler } = require('./src/services/weeklyReport.service');
+      startWeeklyReportScheduler();
+    }
 
     const server = httpServer.listen(PORT, () => {
       console.log(`\nServer live: http://localhost:${PORT}`);
