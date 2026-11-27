@@ -58,9 +58,7 @@ function getShortFaultLabel(title, type, severity) {
   if (str.includes('EMERGENCY')) return 'Emergency Brake';
   if (str.includes('DV') && str.includes('DEFECT')) return 'DV BC Defect';
   if (str.includes('HOT_AXLE') || str.includes('HOT AXLE') || str.includes('AXLE')) return 'Hot Axle';
-  if (str.includes('ODOUR') || str.includes('ODOR')) {
-    return String(severity || '').toLowerCase() === 'critical' ? 'Critical Bad Odour' : 'Bad Odour';
-  }
+  if (str.includes('ODOUR') || str.includes('ODOR')) return 'Bad Odour';
   if (str.includes('ACP')) return 'ACP Alert';
   if (str.includes('WATER')) return 'Low Water';
   if (str.includes('DIESEL') || str.includes('FUEL')) return 'Low Diesel';
