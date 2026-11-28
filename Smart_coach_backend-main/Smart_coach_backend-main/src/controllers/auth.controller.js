@@ -58,9 +58,9 @@ const authController = {
         return res.status(400).json({ errors: errors.array() });
       }
 
-      const { email, password } = req.body;
+      const { email: identifier, password } = req.body;
 
-      const user = await userModel.findByEmail(email);
+      const user = await userModel.findByEmailOrMobile(identifier);
       if (!user) {
         return errorResponse(res, 'Invalid credentials', 401);
       }

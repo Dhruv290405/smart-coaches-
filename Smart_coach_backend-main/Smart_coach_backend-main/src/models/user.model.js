@@ -79,6 +79,21 @@ class UserModel extends BaseModel {
     return user || null;
   }
 
+  // Login accepts either an email or a 10-digit mobile number - look up by whichever was given.
+  async findByEmailOrMobile(identifier) {
+    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier);
+    const column = isEmail ? 'email' : 'mobile_number';
+    const value = isEmail ? identifier : String(identifier).replace(/[\s\-+]/g, '');
+
+    const { data: user, error } = await supabaseAdmin
+      .from('user_master')
+      .select('*')
+      .eq(column, value)
+      .maybeSingle();
+    if (error) throw error;
+    return user || null;
+  }
+
   async validatePassword(user, password) {
     return await bcrypt.compare(password, user.password_hash);
   }

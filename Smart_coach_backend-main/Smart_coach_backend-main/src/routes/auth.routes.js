@@ -57,7 +57,16 @@ const validateRegister = [
 ];
 
 const validateLogin = [
-  body('email').isEmail().withMessage('Please include a valid email'),
+  body('email')
+    .notEmpty().withMessage('Email or phone number is required')
+    .custom((value) => {
+      const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+      const isMobile = /^[6-9]\d{9}$/.test(String(value).replace(/[\s\-+]/g, ''));
+      if (!isEmail && !isMobile) {
+        throw new Error('Please enter a valid email or 10-digit mobile number');
+      }
+      return true;
+    }),
   body('password').exists().withMessage('Password is required')
 ];
 
