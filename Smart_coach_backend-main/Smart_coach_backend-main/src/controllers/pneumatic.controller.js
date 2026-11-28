@@ -713,7 +713,18 @@ exports.exportHistoryPdf = async (req, res) => {
             return res.status(404).json({ success: false, message: 'No data found for selected range' });
         }
 
-        // Look up coach metadata (train, location, coach_no) from coaches_railway
+        // Look up coach metadata (train, location, coach_no) from coaches_railway,
+        // falling back to the known device registry when a device isn't in that table.
+        const FALLBACK_DEVICE_INFO = {
+            'Raspberry4_3': { coach_no: 'D3', Train_no: '13009', Location: 'Howrah' },
+            'Raspberry4_2': { coach_no: 'S3', Train_no: '12273', Location: 'Howrah' },
+            'Raspberry5_5': { coach_no: 'S5', Train_no: '12273', Location: 'Howrah' },
+            'Raspberry4_5': { coach_no: 'B2', Train_no: '12345', Location: 'Jaipur_N1' },
+            'Raspberry4_6': { coach_no: 'S3', Train_no: '19711', Location: 'Jaipur_N2' },
+            'Raspberry4_7': { coach_no: 'LWSCZ-AC', Train_no: '1207069', Location: 'Nagpur' },
+            'Raspberry4_8': { coach_no: 'B2', Train_no: '240697', Location: 'Mumbai' },
+        };
+
         let coachLookup = {};
         try {
             const client = supabase || supabaseAdmin;
@@ -728,15 +739,18 @@ exports.exportHistoryPdf = async (req, res) => {
             }
         } catch (_) { /* non-critical */ }
 
+        const resolveCoach = (rawDeviceId) =>
+            coachLookup[rawDeviceId] || FALLBACK_DEVICE_INFO[rawDeviceId] || {};
+
         // Enrich rows with mapped device ID, train, location from coach registry
         for (const row of rows) {
-            const coach = coachLookup[row.device_id] || {};
+            const coach = resolveCoach(row.device_id);
             row.device_id = mapDeviceId(row.device_id);
             if (!row.train_no && !row.Train_no) row.train_no = coach.Train_no || '';
             if (!row.location && !row.Location) row.location = coach.Location || '';
         }
 
-        const firstCoach = deviceId ? (coachLookup[deviceId] || {}) : {};
+        const firstCoach = deviceId ? resolveCoach(deviceId) : {};
         const trainNo = firstCoach.Train_no || rows[0]?.train_no || rows[0]?.Train_no || 'N/A';
         const location = firstCoach.Location || rows[0]?.location || rows[0]?.Location || 'N/A';
 
