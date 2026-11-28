@@ -233,6 +233,7 @@ class _BrakeBindingScreenState extends State<BrakeBindingScreen> {
                                 ?.toString() ??
                             "N/A",
                         deviceId: state.selectedDeviceId ?? "N/A",
+                        location: state.pneumaticStatus?.context?.location?.toString() ?? state.coachList.where((c) => c.deviceId?.toString() == state.selectedDeviceId).firstOrNull?.location?.toString() ?? "N/A",
                         initialEvents: state.pneumaticStatus?.recentEvents,
                         historyData: state.pneumaticStatus?.history?.data,
                         activeFaults: allFaults,
@@ -1686,6 +1687,7 @@ class _BrakeBindingScreenState extends State<BrakeBindingScreen> {
                             ? state.pneumaticStatus!.context!.trainNo.toString()
                             : "N/A",
                         deviceId: state.selectedDeviceId?.toString() ?? "N/A",
+                        location: state.pneumaticStatus?.context?.location?.toString() ?? state.coachList.where((c) => c.deviceId?.toString() == state.selectedDeviceId).firstOrNull?.location?.toString() ?? "N/A",
                         historyData: historyData,
                         activeFaults: state.pneumaticStatus?.activeFaults,
                         initialTabIndex: 0,

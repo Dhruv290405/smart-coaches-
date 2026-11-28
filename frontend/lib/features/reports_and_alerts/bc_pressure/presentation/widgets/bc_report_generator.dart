@@ -33,11 +33,12 @@ class BCReportGenerator {
     if (format == null) return;
     if (!context.mounted) return;
 
+    final now = DateTime.now();
     final DateTimeRange? range = await showDateRangePicker(
       context: context,
-      firstDate: DateTime(2026, 1, 1),
-      lastDate: DateTime(2026, 3, 12),
-      initialDateRange: DateTimeRange(start: DateTime(2026, 3, 5), end: DateTime(2026, 3, 12)),
+      firstDate: DateTime(2024),
+      lastDate: now.add(const Duration(days: 1)),
+      initialDateRange: DateTimeRange(start: now.subtract(const Duration(days: 7)), end: now),
       builder: (ctx, child) => Theme(
         data: Theme.of(ctx).copyWith(colorScheme: const ColorScheme.light(primary: ColorConstants.primary)),
         child: child!,
@@ -71,7 +72,7 @@ class BCReportGenerator {
       if (format == 'xlsx') {
         file = await _buildExcel(coaches, range);
       } else {
-        file = await _buildPdf(coaches);
+        file = await _buildPdf(coaches, range);
       }
 
       if (context.mounted) Navigator.pop(context);
@@ -85,7 +86,7 @@ class BCReportGenerator {
     }
   }
 
-  static Future<File> _buildPdf(List<BCPressureModel> coaches) async {
+  static Future<File> _buildPdf(List<BCPressureModel> coaches, DateTimeRange range) async {
     final pdf = pw.Document();
     final now = DateTime.now();
     pdf.addPage(pw.MultiPage(
@@ -93,9 +94,11 @@ class BCReportGenerator {
       margin: const pw.EdgeInsets.all(28),
       build: (context) => [
         ...ReportPdfTheme.header(
-          title: 'BC Pressure Monitoring Report',
+          title: 'Brake Cylinder Pressure Monitoring Report',
           summary: 'Total Coaches: ${coaches.length}',
           generatedAt: now,
+          periodStart: range.start,
+          periodEnd: range.end,
         ),
         pw.Text('Coach Summary', style: ReportPdfTheme.sectionTitle),
         pw.SizedBox(height: 6),
@@ -122,20 +125,21 @@ class BCReportGenerator {
     excel.setDefaultSheet('Summary');
 
     final trainLabel = coaches.isNotEmpty ? 'Train ${coaches.first.trainNumber}' : '';
-    _hdr(summary, 0, 0, 'BC Pressure Monitoring Report${trainLabel.isNotEmpty ? ' — $trainLabel' : ''}');
-    _hdr(summary, 1, 0, 'Period: ${_fmt(range.start)}  →  ${_fmt(range.end)}');
-    _hdr(summary, 2, 0, 'Generated: ${_fmt(DateTime.now())} | Last Updated: ${DateFormat('HH:mm:ss').format(DateTime.now())}');
-    _blank(summary, 3);
+    _hdr(summary, 0, 0, 'Indian Railways — Smart Coach Monitoring System');
+    _hdr(summary, 1, 0, 'Brake Cylinder Pressure Monitoring Report${trainLabel.isNotEmpty ? ' — $trainLabel' : ''}');
+    _hdr(summary, 2, 0, 'Period: ${_fmt(range.start)}  →  ${_fmt(range.end)}');
+    _hdr(summary, 3, 0, 'Generated: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())} IST');
+    _blank(summary, 4);
 
     final h1 = ['Coach No.', 'Sensor ID', 'Pressure (Kg/cm²)', 'Status', 'Brake Applied', 'Brake Released', 'Warning', 'Last Updated'];
     for (var i = 0; i < h1.length; i++) {
-      _col(summary, 4, i, h1[i]);
+      _col(summary, 5, i, h1[i]);
     }
 
     for (var r = 0; r < coaches.length; r++) {
       final c = coaches[r];
       final id = int.tryParse(c.coachNumber.replaceAll('Coach ', '')) ?? r + 1;
-      final row = 5 + r;
+      final row = 6 + r;
       _cell(summary, row, 0, c.coachNumber);
       _cell(summary, row, 1, 'BC-B7-${id.toString().padLeft(2, '0')}');
       _cell(summary, row, 2, c.pressure.toString(), color: c.pressure < 1.5 ? 'D32F2F' : c.pressure < 3.5 ? 'BE8B22' : '2E7D32');

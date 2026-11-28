@@ -41,7 +41,7 @@ class _SplashScreenState extends State<SplashScreen> {
       await getIt<ApiClient>().get(ApiConstants.profileApiEndpoint);
       await minSplash;
       if (!mounted) return;
-      context.go(AppRouter.dashboardRoute);
+      _goPostAuth();
     } on ApiException catch (e) {
       await minSplash;
       final msg = (e.message ?? '').toLowerCase();
@@ -56,12 +56,23 @@ class _SplashScreenState extends State<SplashScreen> {
       } else {
         // Server-side error while validating — keep the session and continue.
         if (!mounted) return;
-        context.go(AppRouter.dashboardRoute);
+        _goPostAuth();
       }
     } catch (_) {
       // Network/offline issue — keep the session and continue.
       await minSplash;
       if (!mounted) return;
+      _goPostAuth();
+    }
+  }
+
+  void _goPostAuth() {
+    if (!mounted) return;
+    final pending = AppRouter.pendingNotificationRoute;
+    if (pending != null) {
+      AppRouter.pendingNotificationRoute = null;
+      context.go(pending);
+    } else {
       context.go(AppRouter.dashboardRoute);
     }
   }

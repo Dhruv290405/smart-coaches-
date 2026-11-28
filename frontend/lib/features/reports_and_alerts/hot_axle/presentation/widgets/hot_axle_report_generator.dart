@@ -34,11 +34,12 @@ class HotAxleReportGenerator {
     if (format == null) return;
     if (!context.mounted) return;
 
+    final now = DateTime.now();
     final DateTimeRange? range = await showDateRangePicker(
       context: context,
-      firstDate: DateTime(2026, 1, 1),
-      lastDate: DateTime(2026, 3, 12),
-      initialDateRange: DateTimeRange(start: DateTime(2026, 3, 5), end: DateTime(2026, 3, 12)),
+      firstDate: DateTime(2024),
+      lastDate: now.add(const Duration(days: 1)),
+      initialDateRange: DateTimeRange(start: now.subtract(const Duration(days: 7)), end: now),
       builder: (ctx, child) => Theme(
         data: Theme.of(ctx).copyWith(colorScheme: const ColorScheme.light(primary: ColorConstants.primary)),
         child: child!,
@@ -72,7 +73,7 @@ class HotAxleReportGenerator {
       if (format == 'xlsx') {
         file = await _buildExcel(coaches, range);
       } else {
-        file = await _buildPdf(coaches);
+        file = await _buildPdf(coaches, range);
       }
 
       if (context.mounted) Navigator.pop(context);
@@ -86,7 +87,7 @@ class HotAxleReportGenerator {
     }
   }
 
-  static Future<File> _buildPdf(List<HotAxleCoachModel> coaches) async {
+  static Future<File> _buildPdf(List<HotAxleCoachModel> coaches, DateTimeRange range) async {
     final pdf = pw.Document();
     final now = DateTime.now();
     pdf.addPage(pw.MultiPage(
@@ -94,9 +95,11 @@ class HotAxleReportGenerator {
       margin: const pw.EdgeInsets.all(28),
       build: (context) => [
         ...ReportPdfTheme.header(
-          title: 'Hot Axle Monitoring Report',
+          title: 'Hot Axle Temperature Monitoring Report',
           summary: 'Total Coaches: ${coaches.length}',
           generatedAt: now,
+          periodStart: range.start,
+          periodEnd: range.end,
         ),
         pw.Text('Coach Summary', style: ReportPdfTheme.sectionTitle),
         pw.SizedBox(height: 6),
@@ -123,19 +126,20 @@ class HotAxleReportGenerator {
     excel.setDefaultSheet('Coach Summary');
 
     final trainLabel = coaches.isNotEmpty ? 'Train ${coaches.first.trainNo}' : '';
-    _hdr(summary, 0, 0, 'Hot Axle Monitoring Report${trainLabel.isNotEmpty ? ' — $trainLabel' : ''}');
-    _hdr(summary, 1, 0, 'Period: ${_fmt(range.start)}  →  ${_fmt(range.end)}');
-    _hdr(summary, 2, 0, 'Generated: ${_fmt(DateTime.now())} | Last Updated: ${DateFormat('HH:mm:ss').format(DateTime.now())}');
-    _blank(summary, 3);
+    _hdr(summary, 0, 0, 'Indian Railways — Smart Coach Monitoring System');
+    _hdr(summary, 1, 0, 'Hot Axle Temperature Monitoring Report${trainLabel.isNotEmpty ? ' — $trainLabel' : ''}');
+    _hdr(summary, 2, 0, 'Period: ${_fmt(range.start)}  →  ${_fmt(range.end)}');
+    _hdr(summary, 3, 0, 'Generated: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())} IST');
+    _blank(summary, 4);
 
     final h1 = ['Coach No.', 'Status', 'Max Temp (°C)', 'Axles Monitored', 'Axles With Issue', 'Last Updated'];
     for (var i = 0; i < h1.length; i++) {
-      _col(summary, 4, i, h1[i]);
+      _col(summary, 5, i, h1[i]);
     }
 
     for (var r = 0; r < coaches.length; r++) {
       final c   = coaches[r];
-      final row = 5 + r;
+      final row = 6 + r;
       final statusColor = c.status == 'Critical' ? 'D32F2F' : c.status == 'Warning' ? 'BE8B22' : '2E7D32';
       _cell(summary, row, 0, c.coachNumber);
       _cell(summary, row, 1, c.status,             color: statusColor);
@@ -145,7 +149,7 @@ class HotAxleReportGenerator {
       _cell(summary, row, 5, c.updateTime);
     }
 
-    final totalRow = 5 + coaches.length + 1;
+    final totalRow = 6 + coaches.length + 1;
     final good     = coaches.where((c) => c.status == 'Good').length;
     final warning  = coaches.where((c) => c.status == 'Warning').length;
     final critical = coaches.where((c) => c.status == 'Critical').length;

@@ -24,9 +24,25 @@ int _smartBucketMinutes(DateTime start, DateTime end) {
 
 class OdourReportGenerator {
   static Future<void> generate(BuildContext context, List<OdourCoachModel> coaches, {String title = 'Odour Monitoring Report'}) async {
-    final period = await _showPeriodPicker(context);
-    if (period == null) return;
-    if (!context.mounted) return;
+    final now = DateTime.now();
+    final period = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2024),
+      lastDate: now.add(const Duration(days: 1)),
+      initialDateRange: DateTimeRange(start: now.subtract(const Duration(days: 7)), end: now),
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: const ColorScheme.light(primary: ColorConstants.primary),
+        ),
+        child: child!,
+      ),
+    );
+    if (period == null || !context.mounted) return;
+
+    final adjustedPeriod = DateTimeRange(
+      start: period.start,
+      end: DateTime(period.end.year, period.end.month, period.end.day, 23, 59, 59),
+    );
 
     final String? format = await showDialog<String>(
       context: context,
@@ -47,7 +63,7 @@ class OdourReportGenerator {
     if (format == null) return;
     if (!context.mounted) return;
 
-    final int bucketMinutes = _smartBucketMinutes(period.start, period.end);
+    final int bucketMinutes = _smartBucketMinutes(adjustedPeriod.start, adjustedPeriod.end);
 
     showDialog(
       context: context,
@@ -74,12 +90,8 @@ class OdourReportGenerator {
       final repo = OdourRepository();
 
       Map<String, dynamic>? reportData = await repo.getAggregatedReportData(
-        period.start, period.end, bucketMinutes: bucketMinutes,
+        adjustedPeriod.start, adjustedPeriod.end, bucketMinutes: bucketMinutes,
       );
-
-      if (reportData == null || reportData['devices'] == null || (reportData['devices'] as List).isEmpty) {
-        reportData = await repo.getReportData(period.start, period.end);
-      }
 
       if (!context.mounted) return;
 
@@ -97,23 +109,23 @@ class OdourReportGenerator {
       if (format == 'xlsx') {
         final bytes = await compute(_buildExcelReportIsolate, _ReportExcelParams(
           reportData: reportData,
-          rangeStart: period.start,
-          rangeEnd: period.end,
+          rangeStart: adjustedPeriod.start,
+          rangeEnd: adjustedPeriod.end,
           title: title,
           bucketMinutes: reportData.containsKey('bucketMinutes') ? (reportData['bucketMinutes'] as int?) : null,
         ));
-        final fileName = 'Odour_Report_${_fileDate(period.start)}_${_fileDate(period.end)}.xlsx';
+        final fileName = 'Odour_Report_${_fileDate(adjustedPeriod.start)}_${_fileDate(adjustedPeriod.end)}.xlsx';
         file = File('${dir.path}/$fileName');
         await file.writeAsBytes(bytes);
       } else {
         final bytes = await compute(_buildPdfReportIsolate, _ReportPdfParams(
           reportData: reportData,
-          rangeStart: period.start,
-          rangeEnd: period.end,
+          rangeStart: adjustedPeriod.start,
+          rangeEnd: adjustedPeriod.end,
           title: title,
           bucketMinutes: reportData.containsKey('bucketMinutes') ? (reportData['bucketMinutes'] as int?) : null,
         ));
-        final fileName = 'Odour_Report_${_fileDate(period.start)}_${_fileDate(period.end)}.pdf';
+        final fileName = 'Odour_Report_${_fileDate(adjustedPeriod.start)}_${_fileDate(adjustedPeriod.end)}.pdf';
         file = File('${dir.path}/$fileName');
         await file.writeAsBytes(bytes);
       }
@@ -129,70 +141,6 @@ class OdourReportGenerator {
         );
       }
     }
-  }
-
-  static Future<DateTimeRange?> _showPeriodPicker(BuildContext context) async {
-    final choice = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('Select Report Period', style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 18)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _periodOption(ctx, 'Last 7 Days', Icons.calendar_view_week, Colors.blue, () => Navigator.pop(ctx, '7')),
-            const SizedBox(height: 10),
-            _periodOption(ctx, 'Last 30 Days', Icons.calendar_month, Colors.indigo, () => Navigator.pop(ctx, '30')),
-            const SizedBox(height: 10),
-            _periodOption(ctx, 'Custom Date Range', Icons.date_range, Colors.deepPurple, () => Navigator.pop(ctx, 'custom')),
-          ],
-        ),
-      ),
-    );
-
-    if (choice == null || !context.mounted) return null;
-
-    final now = DateTime.now();
-    if (choice == '7') {
-      return DateTimeRange(start: now.subtract(const Duration(days: 7)), end: now);
-    }
-    if (choice == '30') {
-      return DateTimeRange(start: now.subtract(const Duration(days: 30)), end: now);
-    }
-
-    final picked = await showDateRangePicker(
-      context: context,
-      firstDate: DateTime(2024),
-      lastDate: now,
-      initialDateRange: DateTimeRange(start: now.subtract(const Duration(days: 7)), end: now),
-      builder: (context, child) => Theme(
-        data: Theme.of(context).copyWith(
-          colorScheme: const ColorScheme.light(primary: ColorConstants.primary),
-        ),
-        child: child!,
-      ),
-    );
-    if (picked == null) return null;
-    return DateTimeRange(
-      start: picked.start,
-      end: DateTime(picked.end.year, picked.end.month, picked.end.day, 23, 59, 59),
-    );
-  }
-
-  static Widget _periodOption(BuildContext context, String label, IconData icon, Color color, VoidCallback onTap) {
-    return ListTile(
-      leading: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Icon(icon, color: color, size: 22),
-      ),
-      title: Text(label, style: GoogleFonts.poppins(fontWeight: FontWeight.w500)),
-      trailing: const Icon(Icons.chevron_right),
-      onTap: onTap,
-    );
   }
 
   static String _fileDate(DateTime d) => DateFormat('yyyyMMdd').format(d);
@@ -302,17 +250,18 @@ List<int> _buildExcelReportIsolate(_ReportExcelParams p) {
   final data = p.reportData['data'] as Map<String, dynamic>;
   final aggNote = p.bucketMinutes != null ? ' (${p.bucketMinutes}-min aggregated)' : '';
 
-  _header(summary, 0, 0, '${p.title}$aggNote');
-  _header(summary, 1, 0, 'Period: ${_fmtDate(p.rangeStart)}  →  ${_fmtDate(p.rangeEnd)}');
-  _header(summary, 2, 0, 'Generated: ${DateFormat('dd/MM/yyyy HH:mm:ss').format(DateTime.now())}');
-  _blankRow(summary, 3);
+  _header(summary, 0, 0, 'Indian Railways — Smart Coach Monitoring System');
+  _header(summary, 1, 0, 'Bad Odour Monitoring Report$aggNote');
+  _header(summary, 2, 0, 'Period: ${_fmtDate(p.rangeStart)}  →  ${_fmtDate(p.rangeEnd)}');
+  _header(summary, 3, 0, 'Generated: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())} IST');
+  _blankRow(summary, 4);
 
   final summaryHeaders = ['Device ID', 'Coach No.', 'Train No.', 'Coach Type', 'Location', 'Total Readings', 'Avg Odour Index', 'Max Odour Index', 'Critical Count'];
   for (var i = 0; i < summaryHeaders.length; i++) {
-    _colHeader(summary, 4, i, summaryHeaders[i]);
+    _colHeader(summary, 5, i, summaryHeaders[i]);
   }
 
-  var summaryRow = 5;
+  var summaryRow = 6;
   for (final deviceId in devices) {
     final devData = data[deviceId] as Map<String, dynamic>?;
     if (devData == null) continue;
@@ -420,9 +369,11 @@ Future<List<int>> _buildPdfReportIsolate(_ReportPdfParams p) async {
       margin: const pw.EdgeInsets.all(28),
       build: (pw.Context context) => [
         ...ReportPdfTheme.header(
-          title: p.title,
-          summary: 'Period: ${_fmtDate(p.rangeStart)} → ${_fmtDate(p.rangeEnd)} | Devices: ${devices.length}$aggNote',
+          title: 'Bad Odour Monitoring Report',
+          summary: 'Devices: ${devices.length}$aggNote',
           generatedAt: now,
+          periodStart: p.rangeStart,
+          periodEnd: p.rangeEnd,
         ),
         pw.Text('Device Summary', style: ReportPdfTheme.sectionTitle),
         pw.SizedBox(height: 6),

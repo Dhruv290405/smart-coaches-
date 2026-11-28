@@ -230,6 +230,7 @@ class _AppBootstrapState extends State<_AppBootstrap> {
     if (t.contains('HOT_AXLE') || t.contains('AXLE')) return '/hot_axle_monitoring';
     if (t.contains('WATER')) return '/water_tank_monitoring';
     if (t.contains('DIESEL') || t.contains('FUEL')) return '/diesel_level_monitoring';
+    if (t.contains('PRESSURE')) return '/break_binding';
     return '/notifications';
   }
 
@@ -272,14 +273,14 @@ class _AppBootstrapState extends State<_AppBootstrap> {
         },
       );
 
-      // Terminated tap: user tapped notification that launched the app
+      // Terminated tap: user tapped notification that launched the app.
+      // Store the route — splash screen will consume it after auth check,
+      // avoiding the race where splash overwrites the navigation.
       final RemoteMessage? initialMessage =
           await FCMService.getInitialNotification();
       if (initialMessage != null) {
         final type = initialMessage.data['type'] as String? ?? initialMessage.data['module'] as String?;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          AppRouter.router.go(_routeForNotificationType(type));
-        });
+        AppRouter.pendingNotificationRoute = _routeForNotificationType(type);
       }
 
       // Foreground local notification tap — receives type from notification payload

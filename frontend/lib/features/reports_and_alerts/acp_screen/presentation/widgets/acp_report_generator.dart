@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:open_file/open_file.dart';
 import 'package:smart_coach_new/core/utils/color_constants.dart';
 import 'package:smart_coach_new/features/reports_and_alerts/acp_screen/data/models/acp_model.dart';
+import 'package:smart_coach_new/features/reports_and_alerts/shared/report_pdf_theme.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:intl/intl.dart';
@@ -32,10 +33,18 @@ class AcpReportGenerator {
     if (format == null) return;
     if (!context.mounted) return;
 
-    final range = DateTimeRange(
-      start: DateTime.now().subtract(const Duration(days: 1)),
-      end: DateTime.now(),
+    final now = DateTime.now();
+    final range = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2024),
+      lastDate: now.add(const Duration(days: 1)),
+      initialDateRange: DateTimeRange(start: now.subtract(const Duration(days: 7)), end: now),
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(colorScheme: const ColorScheme.light(primary: ColorConstants.primary)),
+        child: child!,
+      ),
     );
+    if (range == null || !context.mounted) return;
 
     // Show loading
     showDialog(
@@ -69,7 +78,7 @@ class AcpReportGenerator {
       if (format == 'xlsx') {
         file = await _buildExcel(coaches, range, title: title);
       } else {
-        file = await _buildPdf(coaches, title: title);
+        file = await _buildPdf(coaches, range, title: title);
       }
       
       if (context.mounted) Navigator.pop(context); // close loading
@@ -94,22 +103,23 @@ class AcpReportGenerator {
     final summary = excel['Summary'];
     excel.setDefaultSheet('Summary');
 
-    _header(summary, 0, 0, title);
-    _header(summary, 1, 0, 'Generated: ${_fmt(now)} ${DateFormat('HH:mm:ss').format(now)}');
-    _header(summary, 2, 0, 'Total Coaches in Report: ${coaches.length}');
-    _blankRow(summary, 3);
+    _header(summary, 0, 0, 'Indian Railways — Smart Coach Monitoring System');
+    _header(summary, 1, 0, 'ACP Chain Pull Monitoring Report');
+    _header(summary, 2, 0, 'Period: ${_fmt(range.start)}  →  ${_fmt(range.end)}');
+    _header(summary, 3, 0, 'Generated: ${DateFormat('dd/MM/yyyy HH:mm').format(now)} IST');
+    _blankRow(summary, 4);
 
     final headers = [
       'Coach No.', 'Tech Coach (Unique ID)', 'Device ID', 'Train No.',
       'Location', 'Status', 'Today Count', 'Total Count', 'Last Trigger', 'Last Updated',
     ];
     for (var i = 0; i < headers.length; i++) {
-      _colHeader(summary, 4, i, headers[i]);
+      _colHeader(summary, 5, i, headers[i]);
     }
 
     for (var r = 0; r < coaches.length; r++) {
       final c = coaches[r];
-      final row = 5 + r;
+      final row = 6 + r;
       _cell(summary, row, 0, c.coachNumber);
       _cell(summary, row, 1, c.sensorId);
       _cell(summary, row, 2, c.deviceId);
@@ -125,7 +135,7 @@ class AcpReportGenerator {
       _cell(summary, row, 9, c.updateTime);
     }
 
-    final totalRow = 5 + coaches.length + 1;
+    final totalRow = 6 + coaches.length + 1;
     _colHeader(summary, totalRow, 0, 'Total Coaches');
     _cell(summary, totalRow, 1, '${coaches.length}');
     _colHeader(summary, totalRow + 1, 0, 'Pulled');
@@ -154,7 +164,7 @@ class AcpReportGenerator {
     return file;
   }
 
-  static Future<File> _buildPdf(List<AcpCoachModel> coaches, {String title = 'ACP Monitoring Report'}) async {
+  static Future<File> _buildPdf(List<AcpCoachModel> coaches, DateTimeRange range, {String title = 'ACP Chain Pull Monitoring Report'}) async {
     final pdf = pw.Document();
     final now = DateTime.now();
     final pulledCoaches = coaches.where((c) => c.isChainPulled).toList();
@@ -165,18 +175,13 @@ class AcpReportGenerator {
         margin: const pw.EdgeInsets.all(28),
         build: (pw.Context context) {
           return [
-            // Title
-            pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-              children: [
-                pw.Text(title, style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: PdfColors.blue900)),
-                pw.Text(DateFormat('dd/MM/yyyy HH:mm:ss').format(now), style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey600)),
-              ],
+            ...ReportPdfTheme.header(
+              title: title,
+              summary: 'Total Coaches: ${coaches.length}  |  Pulled: ${pulledCoaches.length}  |  Not Pulled: ${coaches.length - pulledCoaches.length}',
+              generatedAt: now,
+              periodStart: range.start,
+              periodEnd: range.end,
             ),
-            pw.SizedBox(height: 4),
-            pw.Text('Total Coaches: ${coaches.length}  |  Pulled: ${pulledCoaches.length}  |  Not Pulled: ${coaches.length - pulledCoaches.length}',
-              style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700)),
-            pw.SizedBox(height: 16),
 
             // All coaches table
             pw.Text('Coach Summary', style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold, color: PdfColors.blue900)),

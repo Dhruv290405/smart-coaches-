@@ -22,7 +22,7 @@ class DeviceIdMapper {
     }
 
     // Hide any raw Raspberry Pi mentions if they leak from backend
-    if (deviceId.toLowerCase().contains('raspberry')) {
+    if (deviceId.toLowerCase().contains('raspberry') || deviceId.toLowerCase().contains('rasberry')) {
       return 'Smart Hub';
     }
 

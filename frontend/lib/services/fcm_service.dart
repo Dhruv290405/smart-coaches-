@@ -23,7 +23,7 @@ class FCMService {
   // Using a new channel ID so existing installs get the upgraded importance
   // without needing to uninstall (Android caches channel settings on first create).
   static const AndroidNotificationChannel _channel = AndroidNotificationChannel(
-    'critical_alert_channel',
+    'high_importance_channel',
     'Critical Railway Alerts',
     description: 'Heads-up alerts for brake, odour, hot axle and ACP events.',
     importance: Importance.max,
@@ -104,7 +104,7 @@ class FCMService {
 
     final AndroidNotificationDetails androidDetails =
         AndroidNotificationDetails(
-      'critical_alert_channel',
+      'high_importance_channel',
       'Critical Railway Alerts',
       importance: Importance.max,
       priority: Priority.max,
@@ -135,7 +135,7 @@ class FCMService {
     // Show/update the group summary notification so Android groups them
     final AndroidNotificationDetails summaryDetails =
         AndroidNotificationDetails(
-      'critical_alert_channel',
+      'high_importance_channel',
       'Critical Railway Alerts',
       importance: Importance.max,
       priority: Priority.max,

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -53,7 +54,7 @@ class ApiClient {
     final response = await http.get(
       uri,
       headers: await _getHeaders(includeAuth: includeAuthHeaders),
-    );
+    ).timeout(const Duration(seconds: 30));
     return _processResponse(response);
   }
 
@@ -69,7 +70,7 @@ class ApiClient {
       uri,
       headers: await _getHeaders(includeAuth: includeAuthHeaders),
       body: jsonEncode(data),
-    );
+    ).timeout(const Duration(seconds: 30));
     return _processResponse(response);
   }
 
@@ -84,7 +85,7 @@ class ApiClient {
       uri,
       headers: await _getHeaders(includeAuth: includeAuthHeaders),
       body: jsonEncode(data),
-    );
+    ).timeout(const Duration(seconds: 30));
     return _processResponse(response);
   }
 

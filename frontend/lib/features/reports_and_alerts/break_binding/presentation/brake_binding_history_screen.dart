@@ -22,6 +22,7 @@ import 'bloc/break_binding_bloc.dart';
 class BrakeBindingHistoryScreen extends StatefulWidget {
   final String trainNo;
   final String deviceId;
+  final String location;
   final List<PneumaticEvent>? initialEvents;
   final List<PneumaticHistoryData>? historyData;
   final List<PneumaticFault>? activeFaults;
@@ -31,6 +32,7 @@ class BrakeBindingHistoryScreen extends StatefulWidget {
     super.key,
     this.trainNo = "N/A",
     this.deviceId = "N/A",
+    this.location = "N/A",
     this.initialEvents,
     this.historyData,
     this.activeFaults,
@@ -60,7 +62,7 @@ class _BrakeBindingHistoryScreenState extends State<BrakeBindingHistoryScreen> w
     super.initState();
     _bloc = context.read<BrakeBindingBloc>();
     _tabController = TabController(length: 2, vsync: this, initialIndex: widget.initialTabIndex);
-    _selectedDeviceId = null; // Default to 'All'
+    _selectedDeviceId = (widget.deviceId != 'N/A') ? widget.deviceId : null;
     
     // Trigger initial fetch from API
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1212,8 +1214,8 @@ class _BrakeBindingHistoryScreenState extends State<BrakeBindingHistoryScreen> w
   String _getLocation(BrakeBindingState state) {
     if (_selectedDeviceId == null) return "Global View";
     final ctx = state.historyPneumaticStatus?.context;
-    if (ctx == null) return "N/A";
-    final l = ctx.location;
-    return (l == null || l.toString() == "NULL") ? "N/A" : l.toString();
+    final l = ctx?.location;
+    if (l != null && l.toString() != "NULL" && l.toString().isNotEmpty) return l.toString();
+    return (widget.location != 'N/A') ? widget.location : 'N/A';
   }
 }

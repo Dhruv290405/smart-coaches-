@@ -45,6 +45,7 @@ import '../features/coach_dashboard/presentation/coach_dashboard_screen.dart';
 import '../features/passenger_service/presentation/hardware_issue_report_screen.dart';
 
 class AppRouter {
+  static String? pendingNotificationRoute;
   static const String splashRoute = '/';
   static const String loginRoute = '/login';
   static const String registerRoute = '/register';
