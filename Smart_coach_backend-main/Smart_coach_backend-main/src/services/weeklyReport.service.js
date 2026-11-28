@@ -294,7 +294,7 @@ async function buildBrakeBinding(ctx) {
       'timestamp,coach_no,device_id,fault_name,fault_duration',
       apply,
       'timestamp',
-      25
+      5000
     ),
   ]);
 
@@ -338,7 +338,7 @@ async function buildHotAxleSection1(ctx) {
       'created_at,device_id,temperature,temp_state,battery_status',
       apply,
       'created_at',
-      2000
+      5000
     ),
   ]);
 
@@ -356,7 +356,7 @@ async function buildHotAxleSection1(ctx) {
       { label: 'Max temperature', value: maxTemperature == null ? 'N/A' : `${maxTemperature.toFixed(1)} C` },
     ],
     columns: ['Timestamp', 'Device', 'Temperature', 'State', 'Battery'],
-    rows: sample.value.slice(0, 25).map((row) => [
+    rows: sample.value.map((row) => [
       formatIST(row.created_at),
       row.device_id || '',
       row.temperature == null ? '' : `${Number(row.temperature).toFixed(1)} C`,
@@ -381,13 +381,12 @@ async function buildHotAxleSection2(ctx) {
       'timestamp,coach_number,device_id,train_no,alert_status,a11_temp,a12_temp,a21_temp,a22_temp,a31_temp,a32_temp,a41_temp,a42_temp',
       apply,
       'timestamp',
-      2000
+      5000
     ),
   ]);
 
   const alertRows = sample.value
-    .filter((row) => row.alert_status && row.alert_status !== 'Good')
-    .slice(0, 25);
+    .filter((row) => row.alert_status && row.alert_status !== 'Good');
   const temperatures = sample.value
     .map(maxAxleTemperature)
     .filter((value) => value != null);
@@ -434,7 +433,7 @@ async function buildAcp(ctx) {
       'created_at,metric_timestamp,loc_name,asset_name,coach_no,count_value,device_id',
       (query) => apply(query).gt('count_value', 0),
       'created_at',
-      25
+      5000
     ),
   ]);
 
@@ -492,7 +491,7 @@ async function buildOdour(ctx) {
       { label: 'Registered coaches', value: formatNumber(registered.value) },
     ],
     columns: ['Timestamp', 'Device', 'Coach', 'Train', 'Odour Index', 'Index Level', 'Gas Alerts', 'NH3', 'CH4', 'H2S'],
-    rows: alertRows.slice(0, 25).map((row) => [
+    rows: alertRows.map((row) => [
       formatIST(row.timestamp),
       row.device_ID || '',
       row.Coach_ID || row.Coach_no || '',
@@ -547,7 +546,7 @@ async function buildBcPressure(ctx) {
       'timestamp,coach_number,train_number,brake_status,brake_fault,brake_pressure as bp',
       apply,
       'timestamp',
-      25
+      5000
     ),
   ]);
 
