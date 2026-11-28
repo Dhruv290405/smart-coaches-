@@ -591,15 +591,21 @@ class OdourModel {
             if (normalizedLoc && normalizedLoc.toLowerCase().includes('nagpur')) {
                 normalizedLoc = 'Nagpur';
             }
+            console.log(`[OdourModel] getAggregatedReportData: rawLocation="${location}", normalizedLoc="${normalizedLoc}"`);
 
             let coachesQuery = acpSupabase.from(SECTION1_COACHES_TABLE).select('*');
             if (normalizedLoc) {
                 coachesQuery = coachesQuery.ilike('location', `%${normalizedLoc}%`);
             }
             const { data: coaches, error: coachesError } = await coachesQuery;
-            if (coachesError) throw coachesError;
+            if (coachesError) {
+                console.error(`[OdourModel] coachesQuery error: ${coachesError.message}`);
+                throw coachesError;
+            }
+            console.log(`[OdourModel] coachesQuery returned ${(coaches || []).length} rows. Sample locations: ${(coaches || []).slice(0, 5).map(c => c.location || c.Location).join(', ')}`);
 
             const devices = (coaches || []).filter(c => c.device_ID);
+            console.log(`[OdourModel] ${devices.length} rows have non-null device_ID out of ${(coaches || []).length} total`);
             if (devices.length === 0) return { devices: [], data: {} };
 
             const result = {};
