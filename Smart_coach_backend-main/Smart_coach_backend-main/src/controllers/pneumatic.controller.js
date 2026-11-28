@@ -712,6 +712,34 @@ exports.exportHistoryPdf = async (req, res) => {
         if (!rows || rows.length === 0) {
             return res.status(404).json({ success: false, message: 'No data found for selected range' });
         }
+
+        // Look up coach metadata (train, location, coach_no) from coaches_railway
+        let coachLookup = {};
+        try {
+            const client = supabase || supabaseAdmin;
+            if (client) {
+                const { data: coachRows } = await client.from('coaches_railway')
+                    .select('device_id, Train_no, Location, coach_no');
+                if (coachRows) {
+                    for (const c of coachRows) {
+                        if (c.device_id) coachLookup[c.device_id] = c;
+                    }
+                }
+            }
+        } catch (_) { /* non-critical */ }
+
+        // Enrich rows with mapped device ID, train, location from coach registry
+        for (const row of rows) {
+            const coach = coachLookup[row.device_id] || {};
+            row.device_id = mapDeviceId(row.device_id);
+            if (!row.train_no && !row.Train_no) row.train_no = coach.Train_no || '';
+            if (!row.location && !row.Location) row.location = coach.Location || '';
+        }
+
+        const firstCoach = deviceId ? (coachLookup[deviceId] || {}) : {};
+        const trainNo = firstCoach.Train_no || rows[0]?.train_no || rows[0]?.Train_no || 'N/A';
+        const location = firstCoach.Location || rows[0]?.location || rows[0]?.Location || 'N/A';
+
         const fmtDate = (d) => {
             if (!d) return '';
             try {
@@ -728,7 +756,7 @@ exports.exportHistoryPdf = async (req, res) => {
             meta: {
                 title:     'Brake Binding Monitoring Report',
                 period:    fromDate && toDate ? `Period: ${fmtDate(fromDate)} to ${fmtDate(toDate)}` : `Period: Latest ${rows.length} records`,
-                metadata:  `Train: ${rows[0]?.train_no || rows[0]?.Train_no || 'N/A'}  |  Location: ${rows[0]?.location || rows[0]?.Location || 'N/A'}  |  Device: ${deviceId ? mapDeviceId(deviceId) : 'All Devices'}`,
+                metadata:  `Train: ${trainNo}  |  Location: ${location}  |  Device: ${deviceId ? mapDeviceId(deviceId) : 'All Devices'}`,
                 generated: `Generated: ${p(now.getDate())}/${p(now.getMonth()+1)}/${now.getFullYear()} ${p(now.getHours())}:${p(now.getMinutes())}  |  Total Records: ${rows.length}`,
                 filename:  `brake_binding_history_${ts}.pdf`,
             },
@@ -768,6 +796,9 @@ exports.exportFaultsPdf = async (req, res) => {
         const { data: faults, error } = await faultQuery;
         if (error) throw error;
         if (!faults || faults.length === 0) return res.status(404).json({ success: false, message: 'No fault data found' });
+        for (const f of faults) {
+            if (f.device_id) f.device_id = mapDeviceId(f.device_id);
+        }
         const now = new Date();
         const p = (n) => String(n).padStart(2, '0');
         const ts = `${now.getFullYear()}${p(now.getMonth()+1)}${p(now.getDate())}_${p(now.getHours())}${p(now.getMinutes())}${p(now.getSeconds())}`;
@@ -776,7 +807,7 @@ exports.exportFaultsPdf = async (req, res) => {
             meta: {
                 title:     'Active Faults Report',
                 period:    fromDate && toDate ? `Period: ${fromDate} to ${toDate}` : 'Latest faults',
-                metadata:  `Device: ${deviceId || 'All'}`,
+                metadata:  `Device: ${deviceId ? mapDeviceId(deviceId) : 'All'}`,
                 generated: `Generated: ${p(now.getDate())}/${p(now.getMonth()+1)}/${now.getFullYear()} ${p(now.getHours())}:${p(now.getMinutes())}  |  Total Faults: ${faults.length}`,
                 filename:  `active_faults_${ts}.pdf`,
             },
