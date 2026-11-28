@@ -168,10 +168,10 @@ const odourController = {
                 return res.status(400).json({ success: false, error: 'deviceId, startDate and endDate are required' });
             }
             const bucket = parseInt(bucketMinutes, 10) || 15;
-            const TIMEOUT_MS = 25000;
+            const TIMEOUT_MS = 50000;
             const result = await Promise.race([
                 OdourModel.getAggregatedHistory(deviceId, startDate, endDate, bucket),
-                new Promise((_, reject) => setTimeout(() => reject(new Error('Aggregation timed out after 25s')), TIMEOUT_MS)),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Aggregation timed out after 50s')), TIMEOUT_MS)),
             ]).catch((err) => {
                 console.warn(`[OdourController] getAggregatedHistory timeout/error: ${err.message}`);
                 return { buckets: [], totalRaw: 0 };
@@ -185,23 +185,28 @@ const odourController = {
 
     getAggregatedReportData: async (req, res) => {
         try {
-            if (!rbac.isModuleLocationOwner(req.user, 'odour')) {
+            const isOwner = rbac.isModuleLocationOwner(req.user, 'odour');
+            console.log(`[OdourController] getAggregatedReportData: user=${req.user?.email}, isOwner=${isOwner}, division=${req.user?.division_name}, region=${req.user?.region_name}`);
+            if (!isOwner) {
                 return res.status(200).json({ success: true, devices: [], data: {} });
             }
             const location = rbac.isUnrestrictedUser(req.user) ? (req.query.location || null) : rbac.getUserLocation(req.user);
             const { startDate, endDate, bucketMinutes } = req.query;
+            console.log(`[OdourController] getAggregatedReportData: location=${location}, startDate=${startDate}, endDate=${endDate}, bucket=${bucketMinutes}`);
             if (!startDate || !endDate) {
                 return res.status(400).json({ success: false, error: 'startDate and endDate are required' });
             }
             const bucket = parseInt(bucketMinutes, 10) || 15;
-            const TIMEOUT_MS = 25000;
+            const TIMEOUT_MS = 50000;
+            const t0 = Date.now();
             const result = await Promise.race([
                 OdourModel.getAggregatedReportData(location, startDate, endDate, bucket),
-                new Promise((_, reject) => setTimeout(() => reject(new Error('Report aggregation timed out after 25s')), TIMEOUT_MS)),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Report aggregation timed out after 50s')), TIMEOUT_MS)),
             ]).catch((err) => {
-                console.warn(`[OdourController] getAggregatedReportData timeout/error: ${err.message}`);
+                console.warn(`[OdourController] getAggregatedReportData timeout/error after ${Date.now() - t0}ms: ${err.message}`);
                 return { devices: [], data: {} };
             });
+            console.log(`[OdourController] getAggregatedReportData: ${(result.devices || []).length} devices, completed in ${Date.now() - t0}ms`);
             return res.status(200).json({ success: true, ...result });
         } catch (error) {
             console.error("Odour Aggregated Report Data Error:", error.message);

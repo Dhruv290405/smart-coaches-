@@ -4,7 +4,7 @@ const supabaseAdmin = require('../config/supabaseAdmin');
 const { dualInsert } = require('../config/dualWrite');
 const { saveInAppNotificationForAllUsers, UNREGISTERED_LOCATION } = require('../utils/notificationService');
 const { _notifiedFaults, formatIST } = require('../services/brakeFaultWatcher');
-const { generatePneumaticHistoryPdf, generatePneumaticFaultsPdf } = require('../utils/pneumaticPdfGenerator');
+const { generatePneumaticHistoryPdf, generatePneumaticFaultsPdf, mapDeviceId } = require('../utils/pneumaticPdfGenerator');
 
 // Tracks last CR-overcharge state per device to only notify on a green->red change.
 const _crOverchargeState = {};
@@ -726,9 +726,9 @@ exports.exportHistoryPdf = async (req, res) => {
         generatePneumaticHistoryPdf(res, {
             rows,
             meta: {
-                title:     'Brake Binding History Report',
+                title:     'Brake Binding Monitoring Report',
                 period:    fromDate && toDate ? `Period: ${fmtDate(fromDate)} to ${fmtDate(toDate)}` : `Period: Latest ${rows.length} records`,
-                metadata:  `Train: ${rows[0]?.train_no || rows[0]?.Train_no || 'N/A'}  |  Location: ${rows[0]?.location || rows[0]?.Location || 'N/A'}  |  Device: ${deviceId || 'All Devices'}`,
+                metadata:  `Train: ${rows[0]?.train_no || rows[0]?.Train_no || 'N/A'}  |  Location: ${rows[0]?.location || rows[0]?.Location || 'N/A'}  |  Device: ${deviceId ? mapDeviceId(deviceId) : 'All Devices'}`,
                 generated: `Generated: ${p(now.getDate())}/${p(now.getMonth()+1)}/${now.getFullYear()} ${p(now.getHours())}:${p(now.getMinutes())}  |  Total Records: ${rows.length}`,
                 filename:  `brake_binding_history_${ts}.pdf`,
             },

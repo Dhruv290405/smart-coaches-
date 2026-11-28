@@ -18,6 +18,23 @@
 
 const PDFDocument = require('pdfkit');
 
+const DEVICE_ID_MAP = {
+    'Raspberry4_1': 'SCBB-JP-26-001',
+    'Raspberry4_2': 'SCBB-HWH-26-001',
+    'Raspberry4_3': 'SCBB-HWH-26-002',
+    'Raspberry4_4': 'SCBB-JP-26-002',
+    'Raspberry4_5': 'SCBB-NP-26-001',
+    'Raspberry4_6': 'SCBB-NP-26-002',
+    'Raspberry4_7': 'SCBB-NP-26-003',
+};
+function mapDeviceId(raw) {
+    if (!raw) return 'N/A';
+    if (DEVICE_ID_MAP[raw]) return DEVICE_ID_MAP[raw];
+    const lower = String(raw).toLowerCase();
+    if (lower.includes('raspberry') || lower.includes('rasberry')) return 'Smart Hub';
+    return raw;
+}
+
 // ─── Layout constants (portrait → landscape A4 in pdfkit: swap w/h) ──────────
 const PAGE_W = 841.89; // A4 landscape width  (pts)
 const PAGE_H = 595.28; // A4 landscape height (pts)
@@ -145,6 +162,10 @@ function drawPageTitle(doc, { title, period, metadata, generated }) {
     // pdfkit default is top-left, y increases downward
     let y = MARGIN;
 
+    doc.font('Helvetica-Bold').fontSize(9).fillColor('#475569');
+    doc.text('Indian Railways — Smart Coach Monitoring System', MARGIN, y);
+    y += 13;
+
     doc.font('Helvetica-Bold').fontSize(14).fillColor('#1e3a5f');
     doc.text(title, MARGIN, y);
     y += 18;
@@ -242,7 +263,7 @@ function generatePneumaticHistoryPdf(res, { rows, meta }) {
             const cells = [
                 String(i + 1),
                 formatTimestamp(row.timestamp),
-                safeStr(row.device_id),
+                mapDeviceId(row.device_id),
                 safeStr(row.train_no),
                 safeStr(row.location),
                 safeStr(row.bp),
@@ -382,4 +403,5 @@ function generatePneumaticFaultsPdf(res, { faults, meta }) {
 module.exports = {
     generatePneumaticHistoryPdf,
     generatePneumaticFaultsPdf,
+    mapDeviceId,
 };
