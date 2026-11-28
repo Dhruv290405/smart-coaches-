@@ -168,7 +168,14 @@ const odourController = {
                 return res.status(400).json({ success: false, error: 'deviceId, startDate and endDate are required' });
             }
             const bucket = parseInt(bucketMinutes, 10) || 15;
-            const result = await OdourModel.getAggregatedHistory(deviceId, startDate, endDate, bucket);
+            const TIMEOUT_MS = 25000;
+            const result = await Promise.race([
+                OdourModel.getAggregatedHistory(deviceId, startDate, endDate, bucket),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Aggregation timed out after 25s')), TIMEOUT_MS)),
+            ]).catch((err) => {
+                console.warn(`[OdourController] getAggregatedHistory timeout/error: ${err.message}`);
+                return { buckets: [], totalRaw: 0 };
+            });
             return res.status(200).json({ success: true, ...result });
         } catch (error) {
             console.error("Odour Aggregated History Error:", error.message);
@@ -187,7 +194,14 @@ const odourController = {
                 return res.status(400).json({ success: false, error: 'startDate and endDate are required' });
             }
             const bucket = parseInt(bucketMinutes, 10) || 15;
-            const result = await OdourModel.getAggregatedReportData(location, startDate, endDate, bucket);
+            const TIMEOUT_MS = 25000;
+            const result = await Promise.race([
+                OdourModel.getAggregatedReportData(location, startDate, endDate, bucket),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Report aggregation timed out after 25s')), TIMEOUT_MS)),
+            ]).catch((err) => {
+                console.warn(`[OdourController] getAggregatedReportData timeout/error: ${err.message}`);
+                return { devices: [], data: {} };
+            });
             return res.status(200).json({ success: true, ...result });
         } catch (error) {
             console.error("Odour Aggregated Report Data Error:", error.message);

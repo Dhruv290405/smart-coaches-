@@ -495,6 +495,7 @@ class OdourModel {
             if (!deviceId || !startDate || !endDate) return { buckets: [], totalRaw: 0 };
 
             // Try Supabase RPC first (server-side aggregation in PostgreSQL — scales to any device count)
+            const t0 = Date.now();
             try {
                 const { data: rpcData, error: rpcError } = await acpSupabase.rpc('aggregate_odour_history', {
                     p_device_id: deviceId,
@@ -522,15 +523,18 @@ class OdourModel {
                             hygiene_score: hygieneScore(voc),
                         };
                     });
-                    console.log(`[OdourModel] RPC aggregation: ${buckets.length} buckets, ${totalRaw} raw rows for ${deviceId}`);
+                    console.log(`[OdourModel] RPC aggregation: ${buckets.length} buckets, ${totalRaw} raw rows for ${deviceId} in ${Date.now() - t0}ms`);
                     return { buckets, totalRaw, bucketMinutes };
                 }
+                if (rpcError) console.warn(`[OdourModel] RPC returned error for ${deviceId}: ${rpcError.message}`);
             } catch (rpcErr) {
-                console.log(`[OdourModel] RPC not available, falling back to JS aggregation: ${rpcErr.message}`);
+                console.warn(`[OdourModel] RPC failed for ${deviceId} in ${Date.now() - t0}ms, falling back to JS: ${rpcErr.message}`);
             }
 
             // Fallback: fetch raw data and aggregate in JS
+            const t1 = Date.now();
             const raw = await this._getSection1HistoryDateRange(deviceId, startDate, endDate);
+            console.log(`[OdourModel] JS fallback: fetched ${(raw || []).length} raw rows for ${deviceId} in ${Date.now() - t1}ms`);
             if (!raw || raw.length === 0) return { buckets: [], totalRaw: 0 };
 
             const bucketMs = bucketMinutes * 60 * 1000;
@@ -599,7 +603,7 @@ class OdourModel {
             if (devices.length === 0) return { devices: [], data: {} };
 
             const result = {};
-            for (const coach of devices) {
+            await Promise.all(devices.map(async (coach) => {
                 const { buckets, totalRaw } = await this.getAggregatedHistory(coach.device_ID, startDate, endDate, bucketMinutes);
                 result[coach.device_ID] = {
                     coach_no: coach.Coach_no || coach.coach_number || coach.device_ID,
@@ -609,7 +613,7 @@ class OdourModel {
                     rows: buckets,
                     totalRaw,
                 };
-            }
+            }));
 
             return { devices: devices.map(c => c.device_ID), data: result, bucketMinutes };
         } catch (err) {

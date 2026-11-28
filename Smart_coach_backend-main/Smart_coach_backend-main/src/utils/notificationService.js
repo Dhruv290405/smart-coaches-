@@ -310,7 +310,7 @@ async function broadcastPushNotification(title, body, type, data = {}, scope = {
     const { tokens, userIds } = await resolveRecipients(moduleKey, location);
     console.log(`[push] module=${moduleKey} location=${location} tokens=${tokens.length} users=${userIds.length}`);
 
-    await Promise.allSettled(tokens.map((token) => sendPushNotification(token, title, body, data)));
+    await Promise.allSettled(tokens.map((token) => sendPushNotification(token, title, body, { type, ...data })));
 
     await saveInAppNotifications(title, body, type, userIds);
 
